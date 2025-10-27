@@ -1,6 +1,6 @@
 // frontend/src/components/Toolbar.jsx
-import React from "react"
-import "./../styles/toolbar.css"
+import React from "react";
+import "./../styles/toolbar.css";
 
 export default function Toolbar({ onZoom, onImportSVG, onDelete }) {
   return (
@@ -12,5 +12,5 @@ export default function Toolbar({ onZoom, onImportSVG, onDelete }) {
       <button onClick={() => onZoom("out")}>−</button>
       <button onClick={onDelete}>Delete</button>
     </div>
-  )
+  );
 }
