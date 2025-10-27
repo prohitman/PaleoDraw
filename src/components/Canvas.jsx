@@ -84,9 +84,27 @@ const Canvas = forwardRef(({ zoomSignal }, ref) => {
 
     // --- Pan cursor feedback ---
     const handleMouseDown = (e) => {
-      isPanning.current = true;
-      container.style.cursor = "grabbing";
+    // Block panning if resizing or clicking handle
+        if (
+            selectedRef.current?._isResizing ||
+            e.target.classList.contains('svg_select_handle') ||
+            e.target.classList.contains('svg_select_shape') ||
+            e.target.closest('.svg_select_boundingRect')
+        ) return;
+
+        isPanning.current = true;
+        container.style.cursor = "grabbing";
     };
+
+    const handleMouseMove = (e) => {
+    if (selectedRef.current?._isResizing) return;
+    if (
+        e.target.classList.contains('svg_select_handle') ||
+        e.target.classList.contains('svg_select_shape')
+    ) return;
+    if (!isPanning.current) container.style.cursor = "grab";
+    };
+
     const handleMouseUp = () => {
       isPanning.current = false;
       container.style.cursor = "grab";
@@ -100,7 +118,7 @@ const Canvas = forwardRef(({ zoomSignal }, ref) => {
     container.addEventListener("mousedown", handleMouseDown);
     container.addEventListener("mouseup", handleMouseUp);
     container.addEventListener("mouseleave", handleMouseLeave);
-
+    container.addEventListener("mousemove", handleMouseMove);
     // --- Deselect on empty click ---
     const handleBackgroundClick = (e) => {
       if (e.target === container.querySelector("svg")) {
@@ -119,6 +137,7 @@ const Canvas = forwardRef(({ zoomSignal }, ref) => {
       container.removeEventListener("mousedown", handleMouseDown);
       container.removeEventListener("mouseup", handleMouseUp);
       container.removeEventListener("mouseleave", handleMouseLeave);
+      container.removeEventListener("mousemove", handleMouseMove);
       container.removeEventListener("click", handleBackgroundClick);
       draw.remove();
     };
@@ -258,11 +277,9 @@ const Canvas = forwardRef(({ zoomSignal }, ref) => {
   const handleDeleteSelected = () => {
     if (selectedRef.current) {
       const target = selectedRef.current;
-      try {
-        target.select(false);
-        target.resize(false);
-        target.remove();
-      } catch {}
+      target.select(false);
+      target.resize(false);
+      target.remove();
       selectedRef.current = null;
       console.log("[Delete]", target.id());
     }

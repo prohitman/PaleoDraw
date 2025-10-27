@@ -31,20 +31,44 @@ body, html, #root {
   pointer-events: none;
 }
 
+/* --- Selection outline --- */
 .svg_select_shape {
-  stroke: #00ffcc !important; /* bright outline */
-  stroke-width: 1px !important;
+  stroke: #ffffff !important;      /* bright cyan outline */
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 3 3 !important;
   fill: none !important;
+  pointer-events: none !important;
 }
 
+/* --- Resize handles --- */
 .svg_select_handle {
-  fill: #ffffff !important;   /* white handles */
-  stroke: #00ffcc !important; /* teal border */
-  stroke-width: 1px !important;
-  r: 5px !important;
+  fill: #000000 !important;
+  stroke: #ffffff !important;
+  stroke-width: 1.5px !important;
+  rx: 3px !important;
+  ry: 3px !important;
+  cursor: pointer !important;
 }
 
-.svg_select_handle_rot {
-  fill: #ff8800 !important;   /* orange rotation handle */
+.svg_select_handle:hover {
+  fill: #00e0ff !important;
   stroke: #fff !important;
 }
+
+/* --- Rotation handle --- */
+.svg_select_handle_rot {
+  fill: #000000 !important;
+  stroke: #fff !important;
+  stroke-width: 1px !important;
+  cursor: grab !important;
+}
+
+/* --- Handle cursors for resize directions --- */
+.svg_select_handle_lt { cursor: nw-resize !important; }
+.svg_select_handle_rt { cursor: ne-resize !important; }
+.svg_select_handle_rb { cursor: se-resize !important; }
+.svg_select_handle_lb { cursor: sw-resize !important; }
+.svg_select_handle_t  { cursor: n-resize !important; }
+.svg_select_handle_r  { cursor: e-resize !important; }
+.svg_select_handle_b  { cursor: s-resize !important; }
+.svg_select_handle_l  { cursor: w-resize !important; }
