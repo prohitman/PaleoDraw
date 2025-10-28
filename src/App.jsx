@@ -1,28 +1,27 @@
-import React, { useState, useRef } from "react";
-import Toolbar from "./components/ToolBar";
-import Canvas from "./components/Canvas";
-import "./styles/theme.css";
+import React, { useState, useRef } from "react"
+import Toolbar from "./components/ToolBar"
+import Canvas from "./components/Canvas"
+import "./styles/theme.css"
 
 export default function App() {
-  const canvasRef = useRef();
-  const [zoomSignal, setZoomSignal] = useState(null);
+  const canvasRef = useRef()
+  const [zoomSignal, setZoomSignal] = useState(null)
 
   const handleZoom = (type) => {
-    setZoomSignal({ type, timestamp: Date.now() });
-  };
-  const handleImportSVG = () => canvasRef.current.importSVG();
+    setZoomSignal({ type, timestamp: Date.now() })
+  }
+  const handleImportSVG = () => canvasRef.current.importSVG()
   const handleDelete = () => {
-    canvasRef.current?.deleteSelected();
-  };
+    canvasRef.current?.deleteSelected()
+  }
 
   const applyGridSize = (size) => {
-    canvasRef.current?.setGridSize(size);
-  };
+    canvasRef.current?.setGridSize(size)
+  }
 
   const applyCanvasSize = (w, h) => {
-    canvasRef.current?.resizeCanvas(w, h);
-  };
-
+    canvasRef.current?.resizeCanvas(w, h)
+  }
 
   return (
     <div className="app-container">
@@ -35,5 +34,5 @@ export default function App() {
       />
       <Canvas ref={canvasRef} zoomSignal={zoomSignal} />
     </div>
-  );
+  )
 }

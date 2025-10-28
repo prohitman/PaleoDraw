@@ -1,8 +1,8 @@
-import React from "react";
+import React from "react"
 
 export default function GridOverlay() {
-  const size = 25;
-  const lines = [];
+  const size = 25
+  const lines = []
 
   for (let i = 0; i <= 800; i += size) {
     lines.push(
@@ -15,7 +15,7 @@ export default function GridOverlay() {
         stroke="#333"
         strokeWidth="0.5"
       />
-    );
+    )
     lines.push(
       <line
         key={`h${i}`}
@@ -26,7 +26,7 @@ export default function GridOverlay() {
         stroke="#333"
         strokeWidth="0.5"
       />
-    );
+    )
   }
 
   return (
@@ -43,5 +43,5 @@ export default function GridOverlay() {
     >
       {lines}
     </svg>
-  );
+  )
 }
