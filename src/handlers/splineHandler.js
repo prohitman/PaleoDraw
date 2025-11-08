@@ -42,10 +42,31 @@ export function updateSplineVisualState(spline) {
 }
 
 /** --- CREATION & HANDLING --- **/
+export function handleSplineClick(spline, e, selectedTool, isDraggingPoint, splinesRef, activeSplineRef) {
+  e?.stopPropagation()
+
+  if (selectedTool.current === "curve" && !isDraggingPoint.current) {
+    // Deselect others
+    splinesRef.current.forEach((s) => {
+      if (s !== spline) {
+        s.selected = false
+        updateSplineVisualState(s)
+      }
+    })
+
+    // Toggle this spline
+    spline.selected = !spline.selected
+    activeSplineRef.current = spline.selected ? spline : null
+    updateSplineVisualState(spline)
+  }
+
+  if (selectedTool.current === "delete_spline") {
+    deleteSpline(spline, splinesRef, activeSplineRef)
+  }
+}
 
 export function createSpline(
   draw,
-  handleSplineClick,
   selectedTool,
   drawRef,
   isDraggingRef,
@@ -63,7 +84,7 @@ export function createSpline(
 
   newSpline.path.on("click", (ev) => {
     ev.stopPropagation()
-    if (selectedTool.current === "curve" && newSpline.selected && !ev.altKey) {
+    if (selectedTool?.current === "curve" && newSpline.selected && !ev.altKey) {
       const { x, y } = drawRef.current.point(ev.clientX, ev.clientY)
       addPointToSpline(
         draw,
@@ -75,7 +96,7 @@ export function createSpline(
         activeSplineRef
       )
     }
-    handleSplineClick(newSpline, ev)
+    handleSplineClick(newSpline, ev, selectedTool, isDraggingRef, splinesRef, activeSplineRef)
   })
 
   newSpline.path.on("mouseover", () => {
@@ -210,7 +231,7 @@ export function insertPointByProximity(
     }
   }
 
-  const point = draw.circle(6).fill(POINT_COLOR).center(x, y).show()
+  const point = draw.current.circle(6).fill(POINT_COLOR).center(x, y).show()
   const newPt = { x, y, circle: point }
   spline.points.splice(insertIndex, 0, newPt)
 

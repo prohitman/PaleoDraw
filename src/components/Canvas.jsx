@@ -34,8 +34,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const isShiftPressed = useRef(false)
 
   const initialGridSize = 25
-  const initialCanvasWidth = 0
-  const initialCanvasHeight = 0
+  const initialCanvasWidth = 1200
+  const initialCanvasHeight = 800
 
   // store current grid/canvas sizes
   const gridSizeRef = useRef(initialGridSize)
@@ -81,7 +81,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       .viewbox(0, 0, width, height)
 
     drawRef.current = draw
-    const bg = draw.rect(width, height).fill("#222")
+    const bg = draw.rect(width, height).fill("#222").id("canvas-bg")
     bg.node.style.pointerEvents = "none"
 
     // --- Grid (draw once, stored in gridRef) ---
@@ -119,29 +119,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       }
     })
 
-    const handleSplineClick = (spline, e) => {
-      e?.stopPropagation()
-
-      if (selectedTool.current === "curve" && !isDraggingPoint.current) {
-        // Deselect others
-        splinesRef.current.forEach((s) => {
-          if (s !== spline) {
-            s.selected = false
-            updateSplineVisualState(s)
-          }
-        })
-
-        // Toggle this spline
-        spline.selected = !spline.selected
-        activeSplineRef.current = spline.selected ? spline : null
-        updateSplineVisualState(spline)
-      }
-
-      if (selectedTool.current === "delete_spline") {
-        deleteSpline(spline, splinesRef, activeSplineRef)
-      }
-    }
-
     const handleBSplineClick = (e) => {
       if (selectedTool.current !== "curve" || isDraggingPoint.current) return
 
@@ -173,7 +150,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       if (!activeSplineRef.current) {
         const newSpline = createSpline(
           draw,
-          handleSplineClick,
           selectedTool,
           drawRef,
           isDraggingPoint,
@@ -478,7 +454,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       draw.size(newWidth, newHeight)
       draw.viewbox(0, 0, newWidth, newHeight)
 
-      const bg = draw.findOne("rect")
+      const bg = draw.findOne("canvas-bg")
       if (bg) bg.size(newWidth, newHeight)
       // redraw grid to new extents with current grid size
       if (gridRef.current && gridRef.current._drawGrid)
@@ -489,69 +465,69 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     // Reset canvas (keeps rest of behavior unchanged)
     newProject: () => {
-      if (!drawRef.current) return
       const draw = drawRef.current
+      if (!draw) return
       draw.clear()
 
-      // Recreate background
+      // Background
       const bg = draw
         .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
         .fill("#222")
+        .id("canvas-bg")
       bg.node.style.pointerEvents = "none"
 
-      // Recreate and re-store the grid group
-      const newGrid = draw.group()
-      gridRef.current = newGrid
+      // Grid
+      const grid = draw.group().id("canvas-grid")
+      gridRef.current = grid
       const drawGrid = (gSize = gridSizeRef.current) => {
-        newGrid.clear()
+        grid.clear()
         const { width: w, height: h } = canvasSizeRef.current
         for (let x = 0; x <= w; x += gSize)
-          newGrid
+          grid
             .line(x, 0, x, h)
             .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
         for (let y = 0; y <= h; y += gSize)
-          newGrid
+          grid
             .line(0, y, w, y)
             .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
       }
-      gridRef.current._drawGrid = drawGrid
-      gridRef.current._drawGrid(gridSizeRef.current)
+      grid._drawGrid = drawGrid
+      grid._drawGrid(gridSizeRef.current)
 
+      // Clear all object references
       svgObjects.current = []
+      splinesRef.current = []
+      activeSplineRef.current = null
       selectedRef.current = null
     },
 
     // Return project as JSON string (content holds SVG markup)
     getProjectJSON: () => {
       if (!drawRef.current) return null
-      const draw = drawRef.current
-      const svgMarkup = draw.svg()
       const project = {
-        metadata: { version: "1.0", savedAt: new Date().toISOString() },
-        canvas: { ...canvasSizeRef.current },
+        metadata: { version: "2.0", savedAt: new Date().toISOString() },
+        canvas: canvasSizeRef.current,
         gridSize: gridSizeRef.current,
-        content: svgMarkup,
+        splines: splinesRef.current.map((s) => ({
+          id: s.id || null,
+          color: s.color || "#00ffff",
+          points: s.points.map((p) => ({ x: p.x, y: p.y })),
+          selected: false,
+        })),
+        importedSVGs: svgObjects.current.map((obj) => ({
+          svg: obj.svg(),
+          transform: obj.transform(),
+        })),
       }
+
       return JSON.stringify(project, null, 2)
     },
 
     // Save project to a .json file (downloads)
     saveAsJSON: (filename = "project.json") => {
-      const json = this?.getProjectJSON ? this.getProjectJSON() : null
-      // `this` won't be bound here; call through ref in App instead.
-      // We'll fallback to directly calling drawRef here for safety:
-      let jsonStr = null
-      if (drawRef.current) {
-        const svgMarkup = drawRef.current.svg()
-        const project = {
-          metadata: { version: "1.0", savedAt: new Date().toISOString() },
-          canvas: { ...canvasSizeRef.current },
-          gridSize: gridSizeRef.current,
-          content: svgMarkup,
-        }
-        jsonStr = JSON.stringify(project, null, 2)
-      }
+      const jsonStr = ref.current?.getProjectJSON?.()
       if (!jsonStr) return
+
       const blob = new Blob([jsonStr], { type: "application/json" })
       const a = document.createElement("a")
       a.href = URL.createObjectURL(blob)
@@ -565,7 +541,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       if (!drawRef.current) return
       const input = document.createElement("input")
       input.type = "file"
-      input.accept = ".json,application/json"
+      input.accept = ".json"
       input.onchange = async (e) => {
         const file = e.target.files[0]
         if (!file) return
@@ -581,128 +557,116 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         const draw = drawRef.current
         draw.clear()
 
-        // Restore canvas size
-        if (data.canvas && data.canvas.width && data.canvas.height) {
-          canvasSizeRef.current = {
-            width: data.canvas.width,
-            height: data.canvas.height,
-          }
-          draw.size(canvasSizeRef.current.width, canvasSizeRef.current.height)
-          draw.viewbox(
-            0,
-            0,
-            canvasSizeRef.current.width,
-            canvasSizeRef.current.height
-          )
+        // Restore canvas
+        if (data.canvas) {
+          canvasSizeRef.current = data.canvas
+          draw.size(data.canvas.width, data.canvas.height)
+          draw.viewbox(0, 0, data.canvas.width, data.canvas.height)
         }
 
+        // Background + Grid
         const bg = draw
           .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
           .fill("#222")
+          .id("canvas-bg")
         bg.node.style.pointerEvents = "none"
 
-        // Restore grid
-        gridRef.current = draw.group()
+        const grid = draw.group().id("canvas-grid")
+        gridRef.current = grid
         const drawGrid = (gSize = data.gridSize || gridSizeRef.current) => {
-          gridRef.current.clear()
+          grid.clear()
           const { width: w, height: h } = canvasSizeRef.current
           for (let x = 0; x <= w; x += gSize)
-            gridRef.current
+            grid
               .line(x, 0, x, h)
               .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
           for (let y = 0; y <= h; y += gSize)
-            gridRef.current
+            grid
               .line(0, y, w, y)
               .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
         }
-        gridRef.current._drawGrid = drawGrid
-        gridRef.current._drawGrid(data.gridSize || gridSizeRef.current)
+        grid._drawGrid = drawGrid
+        grid._drawGrid(data.gridSize || gridSizeRef.current)
         gridSizeRef.current = data.gridSize || gridSizeRef.current
 
-        svgObjects.current = []
-        selectedRef.current = null
-
-        // Load SVG content (content is the svg markup)
-        if (data.content) {
-          // Insert SVG markup into a group so we can reattach events
-          const imported = draw.group().svg(data.content)
-          // Reattach behavior to all elements (simple heuristic)
-          draw
-            .find("path, rect, circle, polygon, line, ellipse, g")
-            .forEach((el) => {
-              // skip background rect we created
-              if (el.type === "rect" && el.fill && el.fill() === "#222") return
-              el.draggable && el.draggable()
-              el.on &&
-                el.on("click", (ev) => {
-                  ev.stopPropagation()
-                  if (selectedRef.current && selectedRef.current !== el)
-                    selectedRef.current.select(false)
-                  el.select && el.select(true)
-                  el.resize && el.resize({ rotationPoint: true })
-                  selectedRef.current = el
-                })
-              svgObjects.current.push(el)
+        // Restore splines
+        splinesRef.current = []
+        if (data.splines) {
+          for (const s of data.splines) {
+            const spline = createSpline(
+              draw,
+              selectedTool,
+              drawRef,
+              isDraggingPoint,
+              splinesRef,
+              activeSplineRef
+            )
+            spline.points = s.points.map(({ x, y }) => {
+              const circle = draw.circle(6).fill("#ffcc00").center(x, y)
+              setupPointHandlers(
+                circle,
+                spline,
+                isDraggingPoint,
+                splinesRef,
+                activeSplineRef
+              )
+              return { x, y, circle }
             })
+            spline.color = s.color
+            spline.selected = false
+            drawOrUpdateSpline(spline)
+            splinesRef.current.push(spline)
+            updateSplineVisualState(spline)
+          }
         }
+
+        // Restore imported SVGs
+        svgObjects.current = []
+        if (data.importedSVGs) {
+          data.importedSVGs.forEach((objData) => {
+            const group = draw.group().svg(objData.svg)
+            if (objData.transform) group.transform(objData.transform)
+            group.draggable()
+            svgObjects.current.push(group)
+          })
+        }
+
+        activeSplineRef.current = null
+        selectedRef.current = null
       }
       input.click()
     },
 
-    // Export as PNG (downloads). filename should end with .png
-    exportAsPNG: (filename = "project.png") => {
-      if (!drawRef.current) return
-      const draw = drawRef.current
-
-      // temporarily hide selection visuals
-      const sel = selectedRef.current
-      if (sel) {
-        sel.select(false)
-        sel.resize(false)
-      }
-
-      const svgData = draw.svg()
-      const blob = new Blob([svgData], {
-        type: "image/svg+xml;charset=utf-8",
-      })
-      const url = URL.createObjectURL(blob)
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement("canvas")
-        // enforce canvas size for consistent export
-        canvas.width = canvasSizeRef.current.width || img.width
-        canvas.height = canvasSizeRef.current.height || img.height
-        const ctx = canvas.getContext("2d")
-        ctx.clearRect(0, 0, canvas.width, canvas.height)
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-        canvas.toBlob((blobPng) => {
-          const pngUrl = URL.createObjectURL(blobPng)
-          const a = document.createElement("a")
-          a.href = pngUrl
-          a.download = filename
-          a.click()
-          URL.revokeObjectURL(pngUrl)
-        })
-
-        // restore selection visuals if necessary
-        if (sel) {
-          sel.select(true)
-          sel.resize && sel.resize({ rotationPoint: true })
-        }
-        URL.revokeObjectURL(url)
-      }
-      img.onerror = () => {
-        console.error("Failed to convert SVG to PNG")
-        URL.revokeObjectURL(url)
-      }
-      img.src = url
-    },
-
     // Export as SVG (downloads). filename should end with .svg
     exportAsSVG: (filename = "project.svg") => {
-      if (!drawRef.current) return
-      const svgData = drawRef.current.svg()
-      const blob = new Blob([svgData], {
+      const draw = drawRef.current
+      if (!draw) return
+
+      // Create an OFFSCREEN SVG draw context
+      const temp = SVG()
+        .size(canvasSizeRef.current.width, canvasSizeRef.current.height)
+        .viewbox(
+          0,
+          0,
+          canvasSizeRef.current.width,
+          canvasSizeRef.current.height
+        )
+
+      // Clone splines
+      splinesRef.current.forEach((s) => {
+        if (s.path) temp.add(s.path.clone())
+      })
+
+      // Clone imported SVGs
+      svgObjects.current.forEach((obj) => {
+        temp.add(obj.clone())
+      })
+
+      // Serialize markup
+      const svgContent = temp.svg()
+      temp.remove() // remove temporary SVG from memory
+
+      const blob = new Blob([svgContent], {
         type: "image/svg+xml;charset=utf-8",
       })
       const a = document.createElement("a")

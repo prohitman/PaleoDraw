@@ -27,13 +27,14 @@ export default function App() {
     canvasRef.current?.resizeCanvas(w, h)
   }
 
+  /** Create a new blank project */
   const handleNewProject = () => {
     if (confirm("Start a new project? Unsaved changes will be lost.")) {
-      canvasRef.current?.newProject()
+      canvasRef.current?.newProject?.()
     }
   }
 
-  // Save project to localStorage as JSON
+  /** Save to localStorage (optional quick-save) */
   const handleSaveProject = () => {
     const json = canvasRef.current?.getProjectJSON?.()
     if (!json) return
@@ -41,34 +42,19 @@ export default function App() {
     alert("Project saved locally (JSON)!")
   }
 
-  // Save As -> download .json
+  /** Save as .json file */
   const handleSaveAs = () => {
-    const json = canvasRef.current?.getProjectJSON?.()
-    if (!json) return
-    const filename = "project" // default filename
-    const blob = new Blob([json], { type: "application/json" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = `${filename}.json`
-    a.click()
-    URL.revokeObjectURL(a.href)
+    canvasRef.current?.saveAsJSON?.("project.json")
   }
 
-  // Export (prompt for filename + format)
-  const handleExport = async () => {
-    const filename = "project"
-    const format = "png" // default format
-    if (format === "svg") {
-      canvasRef.current?.exportAsSVG?.(`${filename}.svg`)
-    } else {
-      canvasRef.current?.exportAsPNG?.(`${filename}.png`)
-    }
-  }
-
-  // Open project: read .json and load
+  /** Load a project from .json */
   const handleOpenProject = () => {
-    // Use Canvas.loadFromJSON file picker method
     canvasRef.current?.loadFromJSON?.()
+  }
+
+  /** Export SVG (excluding grid/background) */
+  const handleExport = () => {
+    canvasRef.current?.exportAsSVG?.("drawing.svg")
   }
 
   return (
