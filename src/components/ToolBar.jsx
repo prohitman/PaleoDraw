@@ -2,11 +2,17 @@ import React, { useState } from "react"
 import "./../styles/toolbar.css"
 
 export default function Toolbar({
+  onSelectTool,
   onZoom,
   onImportSVG,
   onDelete,
   onApplyGridSize,
   onApplyCanvasSize,
+  onNewProject,
+  onOpenProject,
+  onSaveProject,
+  onSaveAs,
+  onExport,
 }) {
   const [gridSize, setGridSize] = useState(25)
   const [canvasW, setCanvasW] = useState(1200)
@@ -27,11 +33,11 @@ export default function Toolbar({
         </button>
         {openMenu === "file" && (
           <div className="dropdown">
-            <button>New Project</button>
-            <button>Open Project</button>
-            <button>Save Project</button>
-            <button>Save As...</button>
-            <button>Export</button>
+            <button onClick={onNewProject}>New Project</button>
+            <button onClick={onOpenProject}>Open Project</button>
+            <button onClick={onSaveProject}>Save Project</button>
+            <button onClick={onSaveAs}>Save As...</button>
+            <button onClick={onExport}>Export...</button>
           </div>
         )}
       </div>
@@ -102,8 +108,14 @@ export default function Toolbar({
         </button>
         {openMenu === "tools" && (
           <div className="dropdown">
-            <button>Draw Curve</button>
-            <button>Draw Straight</button>
+            <button onClick={() => onSelectTool("curve")}>Draw Curve</button>
+            <button onClick={() => onSelectTool("straight")}>
+              Draw Straight
+            </button>
+            <button onClick={() => onSelectTool("select")}>Select</button>
+            <button onClick={() => onSelectTool("delete_spline")}>
+              Delete B-Spline
+            </button>
           </div>
         )}
       </div>
