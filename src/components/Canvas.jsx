@@ -337,6 +337,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
             console.error("[canvas] rotation cleanup error:", err)
           }
         }
+
+        // NOTE: We DO NOT clean up resize state here!
+        // The resize finalization happens below in the main pointerup handler,
+        // after the splineHandler resize END event has finished.
       })
 
       if (!isDraggingPoint.current) return
@@ -352,6 +356,16 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         isDraggingPoint.current = false
         return
       }
+
+      // Debug: Log the resize/rotate state flags
+      console.log("[canvas] pointerup - spline transform state:", {
+        splineId: spline.id,
+        hasResizeStartBox: !!spline._resizeStartBox,
+        hasResizeStartPoints: !!spline._resizeStartPoints,
+        resizeIsActive: spline._resizeIsActive,
+        hasRotateStartPoints: !!spline._rotateStartPoints,
+        rotateIsActive: spline._rotateIsActive,
+      })
 
       const resetGroupTransform = (el) => {
         try {
@@ -372,81 +386,78 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         return
       }
 
-      // small epsilon for coordinate comparisons
-      const EPS = 0.0001
-      const pointsAreSame = (aPoints, bPoints) => {
-        if (!aPoints || !bPoints) return false
-        if (aPoints.length !== bPoints.length) return false
-        for (let i = 0; i < aPoints.length; i++) {
-          const a = aPoints[i]
-          const b = bPoints[i]
-          if (Math.abs(a.x - b.x) > EPS || Math.abs(a.y - b.y) > EPS)
-            return false
-        }
-        return true
-      }
+      // CRITICAL: Check if this is a rotation or a resize
+      // Rotations have _rotateStartPoints, resizes don't
+      const wasRotation = !!spline._rotateStartPoints
 
-      // Decide the correct source to bake: prefer _resizeStartPoints if available
-      let srcPoints = null
-      if (
-        spline._resizeStartPoints &&
-        Array.isArray(spline._resizeStartPoints)
-      ) {
-        if (pointsAreSame(spline.points, spline._resizeStartPoints)) {
-          // points are still the original start points -> we must bake the matrix onto those start points
-          srcPoints = spline._resizeStartPoints
-          console.log(
-            "[spline] baking matrix onto _resizeStartPoints (points unchanged during resize)"
-          )
-        } else {
-          // points were already updated during the resize moves -> don't re-bake (would double-apply)
-          console.log(
-            "[spline] points already updated during resize; skipping bake to avoid double-apply"
-          )
-          // still make sure to reset group's transform attribute
-          resetGroupTransform(el)
-          // cleanup resize state
-          delete spline._resizeStartBox
-          delete spline._resizeStartPoints
-          // ensure UI shows baked coords
+      if (wasRotation) {
+        // Rotation: apply full affine matrix to points
+        try {
+          console.log("[canvas] applying rotation matrix to points", {
+            splineId: spline.id,
+            matrix: { a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f },
+            srcPointCount: spline._rotateStartPoints.length,
+          })
+
+          spline._rotateStartPoints.forEach((sp, i) => {
+            const nx = m.a * sp.x + m.c * sp.y + (m.e ?? 0)
+            const ny = m.b * sp.x + m.d * sp.y + (m.f ?? 0)
+            const pt = spline.points[i]
+            if (pt) {
+              pt.x = nx
+              pt.y = ny
+              try {
+                pt.circle?.center(pt.x, pt.y)
+              } catch {}
+            }
+          })
+        } catch (err) {
+          console.error("[canvas] rotation bake error:", err)
+        } finally {
           drawOrUpdateSpline(spline)
+          resetGroupTransform(el)
+          delete spline._rotateStartPoints
+          delete spline._rotateIsActive
           isDraggingPoint.current = false
-          return
         }
-      } else {
-        // no resize start snapshot: fall back to baking current points (safe)
-        srcPoints = spline.points.map((p) => ({ x: p.x, y: p.y }))
-        console.log(
-          "[spline] no _resizeStartPoints found - falling back to current points as source"
-        )
+        return
       }
 
-      // Apply affine matrix to chosen source points: [a c e; b d f] * [x; y; 1]
+      // Non-rotation resize: Points have been scaled during MOVE phase via e.preventDefault()
+      // We just need to clean up the state and redraw the final path
       try {
-        srcPoints.forEach((sp, i) => {
-          const nx = m.a * sp.x + m.c * sp.y + (m.e ?? 0)
-          const ny = m.b * sp.x + m.d * sp.y + (m.f ?? 0)
-          const pt = spline.points[i] || spline.points[i] /* defensive */
-          if (pt) {
-            pt.x = nx
-            pt.y = ny
-            try {
-              pt.circle?.center(pt.x, pt.y)
-            } catch {}
+        console.log(
+          "[canvas] non-rotation resize finalization - cleaning up after manual scaling",
+          {
+            splineId: spline.id,
           }
-        })
-      } catch (err) {
-        console.error("[spline] bake apply error:", err)
-      } finally {
-        // cleanup resize state
-        delete spline._resizeStartBox
-        delete spline._resizeStartPoints
+        )
 
-        // ensure points are centered and path updated
-        spline.points.forEach((pt) => pt.circle?.center(pt.x, pt.y))
+        // Points are already scaled and positioned correctly from MOVE phase
+        // Just ensure path reflects final point positions
         drawOrUpdateSpline(spline)
 
-        // finally clear any transform attribute
+        // Refresh the selection UI by re-selecting the spline
+        // This updates the selection box to reflect the new bounding box after scaling
+        try {
+          el.select(false)
+          setTimeout(() => {
+            el.select(true)
+            el.resize({ rotationPoint: true })
+          }, 0)
+        } catch (err) {
+          console.warn("[canvas] failed to refresh selection UI:", err)
+        }
+      } catch (err) {
+        console.error("[canvas] resize finalization error:", err)
+      } finally {
+        // cleanup all resize/rotate state
+        delete spline._resizeStartBox
+        delete spline._resizeStartPoints
+        delete spline._resizePointsAlreadyUpdated
+        delete spline._resizePointsScaled
+
+        // Clear the group transform (should be identity since we used preventDefault)
         resetGroupTransform(el)
         isDraggingPoint.current = false
       }

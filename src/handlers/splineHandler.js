@@ -359,12 +359,14 @@ export function setupSplineTransformations(
       try {
         updateSplineVisualState(selectedSpline)
       } catch {}
-      // try to disable group transform UI
+      // try to disable group transform UI (but keep resize/drag active for future operations)
       try {
         if (el) {
           el.select(false)
-          el.draggable(false)
-          el.resize(false)
+          // CRITICAL: Don't call el.resize(false) or el.draggable(false)!
+          // This would disable the resize and drag plugins entirely.
+          // We just want to hide the UI handles, not disable the functionality.
+          // The plugins remain active and can be re-enabled when the spline is selected again.
         }
       } catch (err) {
         console.warn("[spline] clearSelection error while toggling group:", err)
@@ -408,68 +410,6 @@ export function setupSplineTransformations(
     el.draggable()
     // remove any previous transform handlers, rebind fresh handlers below
     el.off(".splineTransform")
-
-    // small helpers
-    const resetGroupTransform = () => {
-      try {
-        // remove any transform attribute so the group remains identity
-        if (typeof el.untransform === "function") el.untransform()
-        else if (el.node && el.node.removeAttribute)
-          el.node.removeAttribute("transform")
-      } catch (err) {
-        console.warn("[spline] resetGroupTransform failed:", err)
-      }
-    }
-
-    /**
-     * Bake the group's current transform into the spline's points.
-     * We attempt to use the _rotateStartPoints (or _resizeStartPoints) as the
-     * original source of truth so baking is deterministic. If those are missing
-     * fall back to the current spline.points values.
-     *
-     * This applies the full affine matrix (a,b,c,d,e,f) so it handles rotation,
-     * translation and scaling consistently.
-     */
-    const bakeGroupTransform = () => {
-      try {
-        const m = el.matrixify?.()
-        console.log("[spline] bakeGroupTransform matrix")
-        if (!m) {
-          // nothing to bake
-          resetGroupTransform()
-          console.log("[spline] bakeGroupTransform: no matrix to bake")
-          return
-        }
-
-        // choose a stable source for original coords:
-        const srcPoints =
-          spline._rotateStartPoints ||
-          spline._resizeStartPoints ||
-          spline.points.map((p) => ({ x: p.x, y: p.y }))
-
-        // apply affine matrix to each source point: [a c e; b d f] * [x; y; 1]
-        srcPoints.forEach((sp, i) => {
-          const nx = m.a * sp.x + m.c * sp.y + (m.e ?? 0)
-          const ny = m.b * sp.x + m.d * sp.y + (m.f ?? 0)
-          const pt = spline.points[i] || spline.points[i] /* defensive */
-          if (pt) {
-            pt.x = nx
-            pt.y = ny
-            try {
-              pt.circle?.center(pt.x, pt.y)
-            } catch {}
-          }
-        })
-
-        // ensure path reflects baked coords
-        drawOrUpdateSpline(spline)
-      } catch (err) {
-        console.warn("[spline] bakeGroupTransform failed:", err)
-      } finally {
-        // always remove the group's transform so visual = baked coords
-        resetGroupTransform()
-      }
-    }
 
     // DRAG handlers
     el.on("dragstart.splineTransform", (e) => {
@@ -564,19 +504,22 @@ export function setupSplineTransformations(
     })
 
     // Unified handler for "resize" events coming from the resize plugin
-    // Here we implement continuous baking for rotations: on every rotate-move we apply the delta
-    // rotation directly to point coordinates and immediately clear the group's transform so the
-    // group's transform never accumulates and points remain the single source of truth.
+    // Strategy: Allow the resize plugin to compute and apply the transform normally,
+    // then bake it into points with proper scaling math. Distinguish rotations from
+    // resizes using a high angle threshold.
     el.on("resize.splineTransform", (e) => {
       try {
         const detail = e?.detail || {}
+
         console.log("[spline] raw resize event:", {
           splineId: spline.id,
           eType: e?.type,
-          detail,
+          detailKeys: Object.keys(detail),
+          hasAngle: typeof detail.angle === "number",
+          angleValue: detail.angle,
+          angleType: typeof detail.angle,
+          eventType: detail.eventType,
         })
-
-        console.log("spline angle")
 
         // Normalize/parse handle name (e.g. 'lt.resize' -> 'lt', 'rot.resize' -> 'rot', 'point' -> 'point')
         const rawEventType = (detail.eventType || "").toString()
@@ -584,23 +527,41 @@ export function setupSplineTransformations(
         const userEventType = detail.event?.type || ""
 
         // lifecycle detection
-        // rotation-specific bookkeeping
-        const isRotateOp =
-          handleName === "rot" ||
-          handleName === "rotate" ||
-          typeof detail.angle === "number"
+        // IMPORTANT: Rotation detection with HIGH threshold to avoid confusing corner/edge resizes with rotations
+        // Pure resizes on corners generate small angles (~0.01 rad) due to handle geometry
+        // True rotations generate angles > 0.1 rad (~5.7 degrees)
+        // CRITICAL: We use a much higher threshold (0.1 instead of 0.001) to properly distinguish operations
+        const hasSignificantAngle =
+          typeof detail.angle === "number" && Math.abs(detail.angle) > 0.1
+        const isRotateOp = hasSignificantAngle
 
         const isDone = /up|end|cancel/i.test(userEventType)
-        const isMove = isRotateOp && spline._rotateIsActive
 
-        const isStart = isRotateOp && !spline._rotateIsActive
+        // For rotation: track _rotateIsActive state
+        const isRotateStart = isRotateOp && !spline._rotateIsActive
+        const isRotateMove = isRotateOp && spline._rotateIsActive
+
+        // For non-rotation resize: track _resizeIsActive state
+        const isResizeStart = !isRotateOp && !spline._resizeIsActive && !isDone
+        const isResizeMove = !isRotateOp && spline._resizeIsActive
+
+        const isStart = isRotateStart || isResizeStart
+        const isMove = isRotateMove || isResizeMove
 
         console.log("[spline] resize classification:", {
+          splineId: spline.id,
           handleName,
+          angleValue: detail.angle,
+          hasSignificantAngle,
+          isRotateOp,
           userEventType,
           isStart,
           isMove,
           isDone,
+          isRotateStart,
+          isRotateMove,
+          isResizeStart,
+          isResizeMove,
         })
 
         const box = detail.box || null
@@ -661,6 +622,14 @@ export function setupSplineTransformations(
               _rotateStartAngle: startAngle,
               _rotateLastAngle: startAngle,
             })
+          } else {
+            // Non-rotation resize start
+            spline._resizeIsActive = true
+            spline._resizePointsScaled = false // Track if we've already scaled points
+            console.log("[spline] non-rotation resize start", {
+              splineId: spline.id,
+              handleName,
+            })
           }
 
           // hide selection UI while operation in progress
@@ -673,14 +642,14 @@ export function setupSplineTransformations(
 
         // ----- MOVE -----
         if (isMove) {
-          const isRotateOp =
-            handleName === "rot" ||
-            handleName === "rotate" ||
-            typeof detail.angle === "number" ||
-            spline._rotateIsActive
-
-          if (isRotateOp) {
+          if (isRotateMove) {
             try {
+              console.log(
+                "[spline] rotate move - letting group transform accumulate",
+                {
+                  splineId: spline.id,
+                }
+              )
               // During rotation, just let the group's transform handle the visual rotation.
               // Don't bake to points during the move - that causes flickering.
               // We'll bake everything at the end when the user releases.
@@ -693,52 +662,121 @@ export function setupSplineTransformations(
             }
           }
 
-          // Not a rotation -> handle scaling deformation
-          try {
-            console.log("[spline] resize move", {
-              splineId: spline.id,
-              box,
-              resizeStartBox: spline._resizeStartBox,
-            })
+          if (isResizeMove) {
+            // CRITICAL: Block the resize plugin's default transform behavior
+            // We will manually scale the points instead
+            try {
+              e.preventDefault()
+              console.log(
+                "[spline] resize move - preventing default, manually scaling points",
+                {
+                  splineId: spline.id,
+                  handleName,
+                  detailBox: detail.box,
+                }
+              )
 
-            const sbox = spline._resizeStartBox
-            if (!box || !sbox || !spline._resizeStartPoints) {
-              console.warn("[spline] resize move missing state; ignoring", {
-                splineId: spline.id,
+              // Get current box and start box for scale calculation
+              const curBox = detail.box
+              const startBox = spline._resizeStartBox
+
+              if (!curBox || !startBox) {
+                isDraggingRef.current = true
+                return
+              }
+
+              // Calculate scale factors
+              const scaleX = curBox.w / startBox.w
+              const scaleY = curBox.h / startBox.h
+
+              // Determine the anchor point (opposite corner) based on which handle is being dragged
+              // Handle names: 'lt'=left-top, 'rt'=right-top, 'lb'=left-bottom, 'rb'=right-bottom,
+              // 'l'=left, 'r'=right, 't'=top, 'b'=bottom
+              let anchorX = startBox.x // default: left
+              let anchorY = startBox.y // default: top
+
+              // If dragging from right side, anchor is on the left
+              if (handleName.includes("l")) {
+                anchorX = startBox.x + startBox.w // right side
+              }
+              // If dragging from left side, anchor is on the right
+              if (handleName.includes("r")) {
+                anchorX = startBox.x // left side
+              }
+
+              // If dragging from bottom, anchor is on top
+              if (handleName.includes("b")) {
+                anchorY = startBox.y // top
+              }
+              // If dragging from top, anchor is on bottom
+              if (handleName.includes("t")) {
+                anchorY = startBox.y + startBox.h // bottom
+              }
+
+              console.log("[spline] resize scaling anchored at:", {
+                handleName,
+                anchorX,
+                anchorY,
+                scaleX,
+                scaleY,
               })
+
+              // Scale each point relative to the anchor (opposite corner)
+              spline.points.forEach((pt, i) => {
+                const startPt = spline._resizeStartPoints[i]
+                if (!startPt) return
+
+                // Translate to anchor, scale, translate back
+                const relX = startPt.x - anchorX
+                const relY = startPt.y - anchorY
+                const scaledX = relX * scaleX
+                const scaledY = relY * scaleY
+                pt.x = anchorX + scaledX
+                pt.y = anchorY + scaledY
+
+                // Update circle position
+                try {
+                  pt.circle?.center(pt.x, pt.y)
+                } catch {}
+              })
+
+              // Redraw spline with scaled points
+              drawOrUpdateSpline(spline)
+              isDraggingRef.current = true
               return
+            } catch (err) {
+              console.error("[spline] resize move error:", err)
             }
-
-            const startW = sbox.w || sbox.width || 1
-            const startH = sbox.h || sbox.height || 1
-            const scaleX = (box.width || box.w) / startW
-            const scaleY = (box.height || box.h) / startH
-            const pivotX = sbox.cx
-            const pivotY = sbox.cy
-
-            spline._resizeStartPoints.forEach((sp, i) => {
-              const nx = pivotX + (sp.x - pivotX) * scaleX
-              const ny = pivotY + (sp.y - pivotY) * scaleY
-              const pt = spline.points[i]
-              pt.x = nx
-              pt.y = ny
-              try {
-                pt.circle?.center(pt.x, pt.y)
-              } catch {}
-            })
-
-            // also reset any group transform so visual = data
-            resetGroupTransform()
-
-            drawOrUpdateSpline(spline)
-            isDraggingRef.current = true
-            return
-          } catch (err) {
-            console.error("[spline] resize move error:", err)
           }
         }
 
-        bakeGroupTransform()
+        // ----- END -----
+        // NOTE: The svg.resize.js plugin does NOT send an END event through this handler.
+        // END is detected in Canvas.jsx's global pointerup handler instead.
+        // So we don't need to handle isDone here - just let MOVE phase run and
+        // pointerup will finalize the transform baking.
+        if (isDone) {
+          // Mark resize as inactive so Canvas.jsx knows it's done
+          if (spline._resizeIsActive) {
+            console.log(
+              "[spline] marking resize inactive (detected via isDone)",
+              {
+                splineId: spline.id,
+              }
+            )
+            spline._resizeIsActive = false
+          }
+          if (spline._rotateIsActive) {
+            console.log(
+              "[spline] marking rotate inactive (detected via isDone)",
+              {
+                splineId: spline.id,
+              }
+            )
+            spline._rotateIsActive = false
+          }
+          return
+        }
       } catch (err) {
         console.error("[spline] resize handler error:", err)
       }
@@ -796,9 +834,13 @@ export function setupSplineTransformations(
         try {
           delete s._resizeStartBox
           delete s._resizeStartPoints
+          delete s._resizeIsActive
+          delete s._resizePointsAlreadyUpdated
           delete s._rotatePivot
           delete s._rotateStartPoints
+          delete s._rotateIsActive
           delete s._rotateStartAngle
+          delete s._rotateLastAngle
           delete s._startBox
           delete s._startPoints
           delete s._startMatrix
