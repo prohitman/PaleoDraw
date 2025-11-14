@@ -6,6 +6,7 @@ body, html, #root {
   background-color: #1a1a1a;
   color: white;
   font-family: "Inter", sans-serif;
+  overflow: hidden;
 }
 
 .app-container {
@@ -15,14 +16,29 @@ body, html, #root {
   overflow: hidden;
 }
 
+#canvas-bg {
+  shape-rendering: crispEdges;
+}
+
 .canvas-container {
+  position: relative;
+  width: 100vw;
+  height: calc(100vh - 50px); /* adjust 50px to match toolbar height */
+  background-color: #111;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+} 
+
+/* .canvas-container {
   position: relative;
   width: 100%;
   height: 100%;
   background-color: #111;
   overflow: hidden;
   cursor: grab;
-}
+} */
 
 .grid-overlay {
   position: absolute;

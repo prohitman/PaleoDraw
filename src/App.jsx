@@ -17,6 +17,8 @@ export default function App() {
   }
   const selectTool = (tool) => {
     selectedTool.current = tool
+    canvasRef.current?.updateCanvasOnToolChange()
+    console.log("Selected tool:", tool)
   }
 
   const applyGridSize = (size) => {

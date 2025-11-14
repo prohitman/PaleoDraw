@@ -24,6 +24,11 @@ export default function Toolbar({
     setOpenMenu(openMenu === menu ? null : menu)
   }
 
+  const handleClick = (callback) => {
+    callback?.()
+    setOpenMenu(null)
+  }
+
   return (
     <div className="toolbar">
       {/* FILE MENU */}
@@ -33,11 +38,17 @@ export default function Toolbar({
         </button>
         {openMenu === "file" && (
           <div className="dropdown">
-            <button onClick={onNewProject}>New Project</button>
-            <button onClick={onOpenProject}>Open Project</button>
-            <button onClick={onSaveProject}>Save Project</button>
-            <button onClick={onSaveAs}>Save As...</button>
-            <button onClick={onExport}>Export...</button>
+            <button onClick={() => handleClick(onNewProject)}>
+              New Project
+            </button>
+            <button onClick={() => handleClick(onOpenProject)}>
+              Open Project
+            </button>
+            <button onClick={() => handleClick(onSaveProject)}>
+              Save Project
+            </button>
+            <button onClick={() => handleClick(onSaveAs)}>Save As...</button>
+            <button onClick={() => handleClick(onExport)}>Export...</button>
           </div>
         )}
       </div>
@@ -49,8 +60,12 @@ export default function Toolbar({
         </button>
         {openMenu === "view" && (
           <div className="dropdown wide">
-            <button onClick={() => onZoom("in")}>Zoom In</button>
-            <button onClick={() => onZoom("out")}>Zoom Out</button>
+            <button onClick={() => handleClick(() => onZoom("in"))}>
+              Zoom In
+            </button>
+            <button onClick={() => handleClick(() => onZoom("out"))}>
+              Zoom Out
+            </button>
             <div className="divider" />
             <div className="dropdown-section">
               <label>
@@ -63,7 +78,11 @@ export default function Toolbar({
                   onChange={(e) => setGridSize(Number(e.target.value))}
                 />
               </label>
-              <button onClick={() => onApplyGridSize(gridSize)}>Apply</button>
+              <button
+                onClick={() => handleClick(() => onApplyGridSize(gridSize))}
+              >
+                Apply
+              </button>
             </div>
             <div className="dropdown-section">
               <label>
@@ -80,7 +99,11 @@ export default function Toolbar({
                   onChange={(e) => setCanvasH(Number(e.target.value))}
                 />
               </label>
-              <button onClick={() => onApplyCanvasSize(canvasW, canvasH)}>
+              <button
+                onClick={() =>
+                  handleClick(() => onApplyCanvasSize(canvasW, canvasH))
+                }
+              >
                 Apply
               </button>
             </div>
@@ -95,8 +118,10 @@ export default function Toolbar({
         </button>
         {openMenu === "object" && (
           <div className="dropdown">
-            <button onClick={onImportSVG}>Import SVG</button>
-            <button onClick={onDelete}>Delete Selected</button>
+            <button onClick={() => handleClick(onImportSVG)}>Import SVG</button>
+            <button onClick={() => handleClick(onDelete)}>
+              Delete Selected
+            </button>
           </div>
         )}
       </div>
@@ -108,12 +133,18 @@ export default function Toolbar({
         </button>
         {openMenu === "tools" && (
           <div className="dropdown">
-            <button onClick={() => onSelectTool("curve")}>Draw Curve</button>
-            <button onClick={() => onSelectTool("straight")}>
+            <button onClick={() => handleClick(() => onSelectTool("curve"))}>
+              Draw Curve
+            </button>
+            <button onClick={() => handleClick(() => onSelectTool("straight"))}>
               Draw Straight
             </button>
-            <button onClick={() => onSelectTool("select")}>Select</button>
-            <button onClick={() => onSelectTool("delete_spline")}>
+            <button onClick={() => handleClick(() => onSelectTool("select"))}>
+              Select
+            </button>
+            <button
+              onClick={() => handleClick(() => onSelectTool("delete_spline"))}
+            >
               Delete B-Spline
             </button>
           </div>
