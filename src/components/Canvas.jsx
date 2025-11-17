@@ -17,6 +17,20 @@ import {
   setupSplineTransformations,
   updateSplinesOnToolChange,
 } from "../handlers/splineHandler"
+import {
+  createNewProject,
+  getProjectJSON,
+  saveAsJSON,
+  loadFromJSON,
+  exportAsSVG,
+} from "../handlers/projectHandler"
+import {
+  drawGrid,
+  updateGridLineThickness,
+  resetGroupTransform,
+  fitToCanvas as fitToCanvasHelper,
+} from "../utils/svgHelpers"
+import { applyMatrixToPoints } from "../utils/transform"
 import "@svgdotjs/svg.panzoom.js"
 import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
@@ -82,21 +96,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // grid
     const grid = draw.group().id("canvas-grid")
     gridRef.current = grid
-    const drawGrid = (gSize = gridSizeRef.current) => {
-      grid.clear()
-      const { width: w, height: h } = canvasSizeRef.current
-      for (let x = 0; x <= w; x += gSize) {
-        grid
-          .line(x, 0, x, h)
-          .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-      }
-      for (let y = 0; y <= h; y += gSize) {
-        grid
-          .line(0, y, w, y)
-          .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-      }
-    }
-    grid._drawGrid = drawGrid
+
+    grid._drawGrid = (gSize = gridSizeRef.current) =>
+      drawGrid(grid, canvasSizeRef.current, gSize)
     grid._drawGrid(gridSizeRef.current)
 
     // pan/zoom
@@ -282,16 +284,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
             const el = spline.group
             if (!el) return
 
-            const resetGroupTransform = (el) => {
-              try {
-                if (typeof el.untransform === "function") el.untransform()
-                else if (el.node && el.node.removeAttribute)
-                  el.node.removeAttribute("transform")
-              } catch (err) {
-                console.warn("[spline] resetGroupTransform failed:", err)
-              }
-            }
-
             // Now bake the group's transform into the points
             // The group has accumulated the rotation visually, now apply it to coordinates
             const m = el.matrixify?.()
@@ -301,20 +293,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
                 startPointCount: spline._rotateStartPoints.length,
               })
               // Apply the full matrix to the original start points
-              spline._rotateStartPoints.forEach((sp, i) => {
-                const nx = m.a * sp.x + m.c * sp.y + (m.e ?? 0)
-                const ny = m.b * sp.x + m.d * sp.y + (m.f ?? 0)
-                const pt = spline.points[i]
-                if (pt) {
-                  pt.x = nx
-                  pt.y = ny
-                  if (pt.circle) {
-                    try {
-                      pt.circle.center(pt.x, pt.y)
-                    } catch {}
-                  }
-                }
-              })
+              applyMatrixToPoints(m, spline._rotateStartPoints, spline.points)
               drawOrUpdateSpline(spline)
             } else {
               console.warn("[canvas] missing matrix or _rotateStartPoints", {
@@ -367,16 +346,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         rotateIsActive: spline._rotateIsActive,
       })
 
-      const resetGroupTransform = (el) => {
-        try {
-          if (typeof el.untransform === "function") el.untransform()
-          else if (el.node && el.node.removeAttribute)
-            el.node.removeAttribute("transform")
-        } catch (err) {
-          console.warn("[spline] resetGroupTransform failed:", err)
-        }
-      }
-
       const m = el.matrixify?.()
       if (!m) {
         // nothing to bake; ensure no transform attribute leftover
@@ -399,18 +368,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
             srcPointCount: spline._rotateStartPoints.length,
           })
 
-          spline._rotateStartPoints.forEach((sp, i) => {
-            const nx = m.a * sp.x + m.c * sp.y + (m.e ?? 0)
-            const ny = m.b * sp.x + m.d * sp.y + (m.f ?? 0)
-            const pt = spline.points[i]
-            if (pt) {
-              pt.x = nx
-              pt.y = ny
-              try {
-                pt.circle?.center(pt.x, pt.y)
-              } catch {}
-            }
-          })
+          applyMatrixToPoints(m, spline._rotateStartPoints, spline.points)
         } catch (err) {
           console.error("[canvas] rotation bake error:", err)
         } finally {
@@ -542,13 +500,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   }, [])
 
   // grid thickness helper
-  const updateGridThickness = (zoom) => {
-    if (!gridRef.current) return
-    const newThickness = GRID_BASE_THICKNESS / zoom
-    gridRef.current.each((i, children) =>
-      children.stroke({ width: newThickness })
-    )
-  }
+  const updateGridThickness = (zoom) =>
+    updateGridLineThickness(gridRef.current, zoom)
 
   // Shift key behavior: freeform unless Shift is held -> lock preserveAspectRatio when Shift
   useEffect(() => {
@@ -693,38 +646,21 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
   // fit-to-canvas helper
   const fitToCanvas = () => {
-    const draw = drawRef.current
-    const container = canvasRef.current
-    if (!draw || !container) return
-
-    const { width, height } = canvasSizeRef.current
-    draw.viewbox(0, 0, width, height)
-
-    const containerRect = container.getBoundingClientRect()
-    const scaleX = containerRect.width / width
-    const scaleY = containerRect.height / height
-    const scale = Math.min(
-      scaleX,
-      scaleY,
-      panZoomOptionsRef.current.zoomMax || 5
+    fitToCanvasHelper(
+      drawRef,
+      canvasSizeRef,
+      canvasRef.current,
+      panZoomRef,
+      panZoomOptionsRef,
+      updateGridThickness
     )
-
-    const screenCenterX = containerRect.width / 2
-    const screenCenterY = containerRect.height / 2
-    const centerPoint = draw.point(screenCenterX, screenCenterY)
-
-    const panZoom = panZoomRef.current
-    if (panZoom && typeof panZoom.zoom === "function")
-      panZoom.zoom(scale, centerPoint)
-    else draw.zoom(scale)
-
-    updateGridThickness(scale)
   }
 
   // -- Expose methods via ref --
   useImperativeHandle(ref, () => ({
     importSVG: handleImportSVG,
     deleteSelected: handleDeleteSelected,
+
     updateCanvasOnToolChange: () => {
       updateSplinesOnToolChange(splinesRef, activeSplineRef, selectedTool)
       splineTransformRef.current?.notifyToolChange?.()
@@ -747,244 +683,63 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
       if (gridRef.current) {
         const grid = gridRef.current
-        grid.clear()
-        const gridSize = gridSizeRef.current
-        for (let x = 0; x <= newWidth; x += gridSize)
-          grid
-            .line(x, 0, x, newHeight)
-            .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-        for (let y = 0; y <= newHeight; y += gridSize)
-          grid
-            .line(0, y, newWidth, y)
-            .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
+        drawGrid(grid, canvasSizeRef.current, gridSizeRef.current)
       }
       fitToCanvas()
     },
 
-    newProject: () => {
-      const draw = drawRef.current
-      if (!draw) return
-      draw.clear()
-      const bg = draw
-        .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-        .fill("#222")
-        .id("canvas-bg")
-      bg.node.style.pointerEvents = "none"
-
-      const grid = draw.group().id("canvas-grid")
-      gridRef.current = grid
-      const drawGrid = (gSize = gridSizeRef.current) => {
-        grid.clear()
-        const { width: w, height: h } = canvasSizeRef.current
-        for (let x = 0; x <= w; x += gSize)
-          grid
-            .line(x, 0, x, h)
-            .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-        for (let y = 0; y <= h; y += gSize)
-          grid
-            .line(0, y, w, y)
-            .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-      }
-      grid._drawGrid = drawGrid
-      grid._drawGrid(gridSizeRef.current)
-      fitToCanvas()
-
-      svgObjects.current = []
-      splinesRef.current = []
-      activeSplineRef.current = null
-      selectedRef.current = null
-
-      // rebind transforms so API remains valid
-      splineTransformRef.current = setupSplineTransformations(
-        drawRef.current,
+    // --- Project operations delegated to projecthandler ---
+    newProject: () =>
+      createNewProject(
+        drawRef,
+        canvasSizeRef,
+        gridSizeRef,
+        gridRef,
+        fitToCanvas,
+        svgObjects,
         splinesRef,
+        activeSplineRef,
+        selectedRef,
+        splineTransformRef,
         selectedTool,
-        isDraggingPoint
-      )
-    },
+        isDraggingPoint,
+        setupSplineTransformations
+      ),
 
-    getProjectJSON: () => {
-      if (!drawRef.current) return null
-      const project = {
-        metadata: { version: "2.0", savedAt: new Date().toISOString() },
-        canvas: canvasSizeRef.current,
-        gridSize: gridSizeRef.current,
-        splines: splinesRef.current.map((s) => ({
-          id: s.id || null,
-          color: s.color || "#00ffff",
-          points: s.points.map((p) => ({ x: p.x, y: p.y })),
-          selected: false,
-        })),
-        importedSVGs: svgObjects.current.map((obj) => ({
-          svg: obj.svg(),
-          transform: obj.transform ? obj.transform() : null,
-        })),
-      }
-      return JSON.stringify(project, null, 2)
-    },
+    getProjectJSON: () =>
+      getProjectJSON(
+        drawRef,
+        canvasSizeRef,
+        gridSizeRef,
+        svgObjects,
+        splinesRef
+      ),
 
-    saveAsJSON: (filename = "project.json") => {
-      const jsonStr = ref.current?.getProjectJSON?.()
-      if (!jsonStr) return
-      const blob = new Blob([jsonStr], { type: "application/json" })
-      const a = document.createElement("a")
-      a.href = URL.createObjectURL(blob)
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(a.href)
-    },
+    saveAsJSON: (filename = "project.json") => saveAsJSON(filename, ref),
 
-    loadFromJSON: async () => {
-      if (!drawRef.current) return
-      const input = document.createElement("input")
-      input.type = "file"
-      input.accept = ".json"
-      input.onchange = async (e) => {
-        const file = e.target.files[0]
-        if (!file) return
-        const text = await file.text()
-        let data
-        try {
-          data = JSON.parse(text)
-        } catch (err) {
-          console.error("Invalid JSON project file", err)
-          return
-        }
+    loadFromJSON: () =>
+      loadFromJSON(
+        drawRef,
+        canvasSizeRef,
+        gridSizeRef,
+        gridRef,
+        fitToCanvas,
+        svgObjects,
+        splinesRef,
+        activeSplineRef,
+        splineTransformRef,
+        selectedRef,
+        selectedTool,
+        isDraggingPoint,
+        createSpline,
+        setupPointHandlers,
+        drawOrUpdateSpline,
+        updateSplineVisualState,
+        setupSplineTransformations
+      ),
 
-        const draw = drawRef.current
-        draw.clear()
-
-        // Restore canvas size if present
-        if (data.canvas) {
-          canvasSizeRef.current = data.canvas
-          draw.size(data.canvas.width, data.canvas.height)
-          draw.viewbox(0, 0, data.canvas.width, data.canvas.height)
-        }
-
-        // Background + grid
-        const bg = draw
-          .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-          .fill("#222")
-          .id("canvas-bg")
-        bg.node.style.pointerEvents = "none"
-        const grid = draw.group().id("canvas-grid")
-        gridRef.current = grid
-        const drawGrid = (gSize = data.gridSize || gridSizeRef.current) => {
-          grid.clear()
-          const { width: w, height: h } = canvasSizeRef.current
-          for (let x = 0; x <= w; x += gSize)
-            grid
-              .line(x, 0, x, h)
-              .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-          for (let y = 0; y <= h; y += gSize)
-            grid
-              .line(0, y, w, y)
-              .stroke({ color: "#333", width: GRID_BASE_THICKNESS })
-        }
-        grid._drawGrid = drawGrid
-        grid._drawGrid(data.gridSize || gridSizeRef.current)
-        gridSizeRef.current = data.gridSize || gridSizeRef.current
-        fitToCanvas()
-
-        // Restore splines
-        splinesRef.current = []
-        if (data.splines) {
-          for (const s of data.splines) {
-            // create spline which constructs a group and path
-            const spline = createSpline(
-              draw,
-              selectedTool,
-              drawRef,
-              isDraggingPoint,
-              splinesRef,
-              activeSplineRef
-            )
-
-            // create points inside spline.group so they transform with group
-            spline.points = s.points.map(({ x, y }) => {
-              const circle = spline.group
-                .circle(6)
-                .fill("#ffcc00")
-                .center(x, y)
-                .show()
-              setupPointHandlers(
-                circle,
-                spline,
-                isDraggingPoint,
-                splinesRef,
-                activeSplineRef
-              )
-              return { x, y, circle }
-            })
-
-            spline.color = s.color
-            spline.selected = false
-            drawOrUpdateSpline(spline)
-            splinesRef.current.push(spline)
-            updateSplineVisualState(spline)
-          }
-        }
-
-        // Restore imported SVGs (these were separate, keep behavior identical)
-        svgObjects.current = []
-        if (data.importedSVGs) {
-          data.importedSVGs.forEach((objData) => {
-            const group = draw.group().svg(objData.svg)
-            if (objData.transform) group.transform(objData.transform)
-            group.draggable()
-            svgObjects.current.push(group)
-          })
-        }
-
-        // Attach transform handlers to the newly restored splines (important)
-        splineTransformRef.current = setupSplineTransformations(
-          drawRef.current,
-          splinesRef,
-          selectedTool,
-          isDraggingPoint
-        )
-        splineTransformRef.current?.attachToAll?.()
-
-        activeSplineRef.current = null
-        selectedRef.current = null
-      }
-      input.click()
-    },
-
-    exportAsSVG: (filename = "project.svg") => {
-      const draw = drawRef.current
-      if (!draw) return
-      // create offscreen temp document
-      const temp = SVG()
-        .size(canvasSizeRef.current.width, canvasSizeRef.current.height)
-        .viewbox(
-          0,
-          0,
-          canvasSizeRef.current.width,
-          canvasSizeRef.current.height
-        )
-
-      // clone entire spline groups (so points & path & transforms come through)
-      splinesRef.current.forEach((s) => {
-        if (s.group) temp.add(s.group.clone())
-        else if (s.path) temp.add(s.path.clone())
-      })
-
-      // clone imported SVGs
-      svgObjects.current.forEach((obj) => temp.add(obj.clone()))
-
-      const svgContent = temp.svg()
-      temp.remove()
-
-      const blob = new Blob([svgContent], {
-        type: "image/svg+xml;charset=utf-8",
-      })
-      const a = document.createElement("a")
-      a.href = URL.createObjectURL(blob)
-      a.download = filename
-      a.click()
-      URL.revokeObjectURL(a.href)
-    },
+    exportAsSVG: (filename = "project.svg") =>
+      exportAsSVG(filename, drawRef, canvasSizeRef, svgObjects, splinesRef),
   }))
 
   return (
