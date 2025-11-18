@@ -31,6 +31,9 @@ export function setupPointHandlers(
 
   // Handle point dragging
   circle.on("dragstart.curveTool", () => {
+    console.log("[pointHandlers] dragstart fired", {
+      selectedTool: selectedTool?.current,
+    })
     if (selectedTool?.current !== "curve") return
     isDraggingRef.current = true
   })
@@ -50,11 +53,16 @@ export function setupPointHandlers(
   })
 
   circle.on("dragend.curveTool", () => {
+    console.log("[pointHandlers] dragend fired", {
+      selectedTool: selectedTool?.current,
+      hasHistoryManager: !!historyManager,
+      isCurveTool: selectedTool?.current === "curve",
+    })
     isDraggingRef.current = false
     // Batch: Save history only at drag end
-    if (selectedTool?.current === "curve" && historyManager?.current) {
+    if (selectedTool?.current === "curve" && historyManager) {
       const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
-      historyManager.current.pushState(splineData, [])
+      historyManager.pushState(splineData, [])
       console.log("[pointHandlers] Dragged point saved to history")
     }
   })

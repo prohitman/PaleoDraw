@@ -280,6 +280,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       selectionManager,
       historyManager,
       selectedToolRef: selectedToolRef,
+      isDraggingRef: isDraggingPoint,
       onToolChange: (tool) => {
         selectedToolRef.current = tool
       },

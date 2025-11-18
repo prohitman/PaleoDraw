@@ -56,6 +56,15 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "ctrl+z",
     "global",
     () => {
+      console.log("[canvasHotkeys] Undo triggered, context:", {
+        hasSplineManager: !!context.splineManager?.current,
+        hasSvgObjectManager: !!context.svgObjectManager?.current,
+        hasIsDraggingRef: !!context.isDraggingRef,
+        isDraggingRefValue: context.isDraggingRef?.current,
+        hasSelectedToolRef: !!context.selectedToolRef,
+        selectedToolRefValue: context.selectedToolRef?.current,
+      })
+
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
 
