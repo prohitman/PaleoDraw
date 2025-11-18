@@ -12,16 +12,13 @@ export function createNewProject(
   gridRef,
   fitToCanvas,
   svgObjects,
-  splinesRef,
-  activeSplineRef,
-  selectedRef,
-  splineTransformRef,
-  selectedTool,
-  isDraggingPoint,
-  setupSplineTransformations
+  splineManager,
+  svgObjectManager,
+  selectedRef
 ) {
   const draw = drawRef.current
   if (!draw) return
+
   draw.clear()
   const bg = draw
     .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
@@ -37,18 +34,26 @@ export function createNewProject(
   grid._drawGrid(gridSizeRef.current)
   fitToCanvas()
 
-  svgObjects.current = []
-  splinesRef.current = []
-  activeSplineRef.current = null
-  selectedRef.current = null
+  // Clear splines
+  splineManager.clearSelection()
+  splineManager.splines.forEach((s) => s.remove())
+  splineManager.splines.clear()
 
-  // rebind transforms so API remains valid
-  splineTransformRef.current = setupSplineTransformations(
-    drawRef.current,
-    splinesRef,
-    selectedTool,
-    isDraggingPoint
-  )
+  // Clear imported SVGs
+  svgObjects.current = []
+  svgObjectManager?.clearSelection?.()
+  svgObjectManager?.getAllObjects?.().forEach((obj) => {
+    try {
+      obj.select?.(false)
+      obj.resize?.(false)
+      obj.remove?.()
+    } catch {
+      // ignore
+    }
+  })
+  svgObjectManager?.clear?.()
+
+  selectedRef.current = null
 }
 
 /**
@@ -61,7 +66,8 @@ export function getProjectJSON(
   canvasSizeRef,
   gridSizeRef,
   svgObjects,
-  splinesRef
+  splineManager,
+  svgObjectManager
 ) {
   if (!drawRef.current) return null
   const project = {
@@ -69,17 +75,14 @@ export function getProjectJSON(
     canvas: canvasSizeRef.current,
     gridSize: gridSizeRef.current,
     // Save only raw points and minimal meta for splines (no transforms)
-    splines: (splinesRef.current || []).map((s) => ({
-      id: s.id || null,
-      color: s.color || "#00ffff",
-      points: (s.points || []).map((p) => ({ x: p.x, y: p.y })),
-      selected: false,
-    })),
+    splines: splineManager.getState(),
     // Keep imported SVGs as full SVG markup + transform (imported assets should keep transforms)
-    importedSVGs: (svgObjects.current || []).map((obj) => ({
-      svg: obj.svg(),
-      transform: obj.transform ? obj.transform() : null,
-    })),
+    importedSVGs:
+      svgObjectManager?.getState?.() ||
+      (svgObjects.current || []).map((obj) => ({
+        svg: obj.svg(),
+        transform: obj.transform ? obj.transform() : null,
+      })),
   }
   return JSON.stringify(project, null, 2)
 }
@@ -97,9 +100,7 @@ export function saveAsJSON(filename, ref) {
 
 /**
  * Load a project JSON file and reconstruct the canvas.
- * Important: We reconstruct splines by calling the supplied createSpline and
- * setupPointHandlers. We explicitly clear any transform attributes on groups so
- * splines are treated as fresh objects.
+ * Uses SplineManager to handle spline reconstruction with proper handlers attached.
  */
 export async function loadFromJSON(
   drawRef,
@@ -108,31 +109,26 @@ export async function loadFromJSON(
   gridRef,
   fitToCanvas,
   svgObjects,
-  splinesRef,
-  activeSplineRef,
-  splineTransformRef,
-  selectedRef,
-  selectedTool,
-  isDraggingPoint,
-  createSpline,
-  setupPointHandlers,
-  drawOrUpdateSpline,
-  updateSplineVisualState,
-  setupSplineTransformations
+  splineManager,
+  svgObjectManager,
+  selectedRef
 ) {
   if (!drawRef.current) return
+
   const input = document.createElement("input")
   input.type = "file"
   input.accept = ".json"
   input.onchange = async (e) => {
     const file = e.target.files[0]
     if (!file) return
+
     const text = await file.text()
     let data
+
     try {
       data = JSON.parse(text)
-    } catch (err) {
-      console.error("Invalid JSON project file", err)
+    } catch {
+      console.error("Invalid JSON project file")
       return
     }
 
@@ -152,6 +148,7 @@ export async function loadFromJSON(
       .fill("#222")
       .id("canvas-bg")
     bg.node.style.pointerEvents = "none"
+
     const grid = draw.group().id("canvas-grid")
     gridRef.current = grid
     grid._drawGrid = (gSize = data.gridSize || gridSizeRef.current) =>
@@ -160,97 +157,44 @@ export async function loadFromJSON(
     gridSizeRef.current = data.gridSize || gridSizeRef.current
     fitToCanvas()
 
-    // Restore splines
-    splinesRef.current = []
+    // Restore splines using SplineManager
     if (Array.isArray(data.splines)) {
-      for (const s of data.splines) {
-        // create spline (this sets up group + path)
-        const spline = createSpline(
-          draw,
-          selectedTool,
-          drawRef,
-          isDraggingPoint,
-          splinesRef,
-          activeSplineRef
-        )
+      splineManager.loadState(data.splines)
+    }
 
-        // ensure no leftover transform on group
-        try {
-          if (spline.group && spline.group.node) {
-            // remove any transform attribute so the group is identity
-            spline.group.node.removeAttribute("transform")
+    // Restore imported SVGs using SVGObjectManager
+    svgObjects.current = []
+    if (Array.isArray(data.importedSVGs)) {
+      if (svgObjectManager?.loadState) {
+        svgObjectManager.loadState(data.importedSVGs, draw)
+        // Also maintain legacy svgObjects array
+        svgObjectManager
+          .getAllObjects()
+          .forEach((obj) => svgObjects.current.push(obj))
+      } else {
+        // Fallback: load directly if manager not available
+        data.importedSVGs.forEach((objData) => {
+          try {
+            const group = draw.group().svg(objData.svg)
+            if (objData.transform) {
+              try {
+                group.transform(objData.transform)
+              } catch {
+                // ignore transform errors
+              }
+            }
+            group.draggable()
+            svgObjects.current.push(group)
+          } catch {
+            // ignore SVG load errors
           }
-        } catch (err) {
-          // ignore
-        }
-
-        // create points inside spline.group using raw coordinates
-        spline.points = (s.points || []).map(({ x, y }) => {
-          const circle = spline.group
-            .circle(6)
-            .fill("#ffcc00")
-            .center(x, y)
-            .show()
-          // Hook up handlers so the loaded points behave like fresh points
-          setupPointHandlers(
-            circle,
-            spline,
-            isDraggingPoint,
-            splinesRef,
-            activeSplineRef,
-            selectedTool
-          )
-          return { x, y, circle }
         })
-
-        spline.color = s.color || spline.color
-        spline.selected = false
-
-        // Ensure path reflects points
-        drawOrUpdateSpline(spline)
-
-        // Add to array
-        splinesRef.current.push(spline)
-
-        // Keep visual state consistent
-        updateSplineVisualState(spline)
       }
     }
 
-    // Restore imported SVGs (preserve their transform and draggable behavior)
-    svgObjects.current = []
-    if (Array.isArray(data.importedSVGs)) {
-      data.importedSVGs.forEach((objData) => {
-        try {
-          const group = draw.group().svg(objData.svg)
-          if (objData.transform) {
-            try {
-              group.transform(objData.transform)
-            } catch (err) {
-              // if transform parsing fails, ignore
-              console.warn("Failed to apply transform to imported SVG", err)
-            }
-          }
-          group.draggable()
-          svgObjects.current.push(group)
-        } catch (err) {
-          console.warn("Failed to restore imported SVG", err)
-        }
-      })
-    }
-
-    // Attach transform handlers to the newly restored splines (important)
-    splineTransformRef.current = setupSplineTransformations(
-      drawRef.current,
-      splinesRef,
-      selectedTool,
-      isDraggingPoint
-    )
-    splineTransformRef.current?.attachToAll?.()
-
-    activeSplineRef.current = null
     selectedRef.current = null
   }
+
   input.click()
 }
 
@@ -266,7 +210,7 @@ export async function loadFromJSON(
  * @param {object} drawRef
  * @param {object} canvasSizeRef
  * @param {object} svgObjects
- * @param {object} splinesRef
+ * @param {SplineManager} splineManager
  * @param {boolean} includePoints - optional; default false. If true, include point circles.
  */
 export function exportAsSVG(
@@ -274,7 +218,8 @@ export function exportAsSVG(
   drawRef,
   canvasSizeRef,
   svgObjects,
-  splinesRef,
+  splineManager,
+  svgObjectManager,
   includePoints = false
 ) {
   const draw = drawRef.current
@@ -289,9 +234,9 @@ export function exportAsSVG(
   const DEFAULT_UNSELECTED_STROKE = "#16689f"
 
   // For each spline: create a new group + path using the raw points
-  ;(splinesRef.current || []).forEach((s) => {
+  splineManager.getAllSplines().forEach((spline) => {
     try {
-      const pts = s.points || []
+      const pts = spline.points || []
       if (!pts || pts.length === 0) return
 
       const group = temp.group()
@@ -299,12 +244,6 @@ export function exportAsSVG(
       // draw the path using points (this ensures no transform attributes are copied)
       if (pts.length >= 2) {
         const pathData = generateBSplinePath(pts)
-        /*         // If the spline was selected in the UI, override color to unselected color
-        const strokeColor =
-          s.selected === true
-            ? DEFAULT_UNSELECTED_STROKE
-            : s.color || DEFAULT_UNSELECTED_STROKE */
-
         group
           .path(pathData)
           .stroke({ color: DEFAULT_UNSELECTED_STROKE, width: 2 })
@@ -320,20 +259,24 @@ export function exportAsSVG(
               .center(p.x ?? 0, p.y ?? 0)
               .fill("#ffcc00")
               .stroke({ width: 0 })
-          } catch {}
+          } catch {
+            // ignore
+          }
         })
       }
     } catch (err) {
-      console.warn("Failed to export spline", s?.id, err)
+      console.warn("Failed to export spline", spline?.id, err)
     }
   })
 
   // clone imported SVGs (these are external assets, keep their transforms)
-  ;(svgObjects.current || []).forEach((obj) => {
+  const objectsToExport =
+    svgObjectManager?.getAllObjects?.() || svgObjects.current || []
+  objectsToExport.forEach((obj) => {
     try {
       temp.add(obj.clone())
-    } catch (err) {
-      console.warn("Failed to clone imported SVG for export", err)
+    } catch {
+      // ignore clone errors
     }
   })
 

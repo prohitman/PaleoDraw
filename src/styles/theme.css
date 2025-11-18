@@ -9,6 +9,11 @@ body, html, #root {
   overflow: hidden;
 }
 
+/* Ensure spline SVG elements are always interactive */
+[data-spline-id], [data-spline-id] path, [data-spline-id] circle {
+  pointer-events: all !important;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;

@@ -6,17 +6,28 @@ import React, {
   forwardRef,
 } from "react"
 import { SVG } from "@svgdotjs/svg.js"
+import SplineManager from "../managers/SplineManager"
+import SVGObjectManager from "../managers/SVGObjectManager"
+import SelectionManager from "../managers/SelectionManager"
+import { PointSelectionManager } from "../managers/PointSelectionManager"
+import HistoryManager from "../managers/HistoryManager"
+import { setupHotkeys } from "../input/setupHotkeys"
+import { setupPointHandlers } from "../handlers/pointHandlers"
 import {
-  createSpline,
-  addPointToSpline,
-  drawOrUpdateSpline,
-  setupPointHandlers,
-  insertPointByProximity,
-  updateSplineVisualState,
-  finishActiveSpline,
-  setupSplineTransformations,
-  updateSplinesOnToolChange,
-} from "../handlers/splineHandler"
+  setupDragSelectionHandlers,
+  setupMultiSelectionHotkeys,
+} from "../handlers/selectionHandlers"
+import {
+  setupToolHandlers,
+  createCanvasClickHandler,
+  activateToolInRegistry,
+} from "../handlers/setupToolHandlers"
+import {
+  setupCanvasInteractions,
+  setupPanBehavior,
+  setupGlobalPointerUp,
+  setupBackgroundClickBehavior,
+} from "../handlers/setupCanvasInteractions"
 import {
   createNewProject,
   getProjectJSON,
@@ -27,10 +38,8 @@ import {
 import {
   drawGrid,
   updateGridLineThickness,
-  resetGroupTransform,
   fitToCanvas as fitToCanvasHelper,
 } from "../utils/svgHelpers"
-import { applyMatrixToPoints } from "../utils/transform"
 import "@svgdotjs/svg.panzoom.js"
 import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
@@ -40,13 +49,19 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const canvasRef = useRef(null)
   const drawRef = useRef(null)
   const gridRef = useRef(null)
-  const svgObjects = useRef([]) // imported arbitrary SVG groups
+  const selectedToolRef = useRef(selectedTool || "select")
+  const svgObjects = useRef([]) // imported arbitrary SVG groups - DEPRECATED, use svgObjectManager instead
+  const svgObjectManager = useRef(null) // SVGObjectManager instance for imported SVG operations
   const selectedRef = useRef(null) // currently selected imported SVG (not splines)
-  const splinesRef = useRef([]) // array of spline objects (with group, path, points)
-  const activeSplineRef = useRef(null)
+  const splineManager = useRef(null) // SplineManager instance for all spline operations
+  const selectionManager = useRef(null) // SelectionManager for multi-selection
+  const pointSelectionManager = useRef(null) // PointSelectionManager for multi-point selection
+  // HistoryManager instance for undo/redo (persistent)
+  const historyManager = useRef(null)
+  const hotkeysManagerRef = useRef(null) // HotkeysManager instance for scope activation
+  const toolRegistryRef = useRef(null) // ToolRegistry instance for tool handler delegation
   const isDraggingPoint = useRef(false)
   const panZoomRef = useRef(null)
-  const splineTransformRef = useRef(null) // store api returned by setupSplineTransformations
 
   const isPanning = useRef(false)
   const isShiftPressed = useRef(false)
@@ -104,322 +119,106 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // pan/zoom
     panZoomRef.current = draw.panZoom(panZoomOptionsRef.current)
     draw.on("panning", (e) => {
-      if (selectedTool && selectedTool.current !== "select") {
+      if (selectedToolRef.current !== "select") {
         e.preventDefault()
       }
     })
 
-    // initialize spline transformation API (it attaches background deselect, and attachToAll will be called when splines exist)
-    splineTransformRef.current = setupSplineTransformations(
+    // Initialize HistoryManager for undo/redo (only once) - MUST be before SplineManager
+    if (!historyManager.current) {
+      historyManager.current = new HistoryManager()
+    }
+
+    // Initialize SplineManager for all spline operations
+    splineManager.current = new SplineManager({
       draw,
-      splinesRef,
-      selectedTool,
-      isDraggingPoint
+      selectedToolRef: selectedToolRef,
+      isDraggingRef: isDraggingPoint,
+      historyManager: historyManager.current, // Pass the instance, not the ref
+    })
+
+    // Initialize SVGObjectManager for imported SVG objects
+    svgObjectManager.current = new SVGObjectManager({
+      selectedToolRef: selectedToolRef,
+    })
+
+    // Initialize SelectionManager for multi-selection
+    selectionManager.current = new SelectionManager({
+      splineManager: splineManager.current,
+      svgObjectManager: svgObjectManager.current,
+    })
+
+    // Initialize PointSelectionManager for multi-point selection
+    pointSelectionManager.current = new PointSelectionManager()
+    pointSelectionManager.current.initialize(splineManager.current)
+    console.log("[Canvas] PointSelectionManager initialized")
+
+    // Set HistoryManager for SVGObjectManager
+    svgObjectManager.current.historyManager = historyManager.current
+
+    // Do NOT capture initial empty state - it prevents undo from working
+    // Users expect undo to work AFTER the first change, not before
+    // historyManager will have currentIndex at -1 initially, and first pushState() sets it to 0
+
+    // Set up spline transformations (drag/resize/rotate) and get transform API
+    const transformAPI = splineManager.current.setupSplineTransformations(
+      selectedToolRef,
+      isDraggingPoint,
+      historyManager.current
     )
 
-    // --- handle adding spline points by clicking the canvas ---
-    const handleBSplineClick = (e) => {
-      if (!selectedTool?.current) return
-      if (selectedTool.current !== "curve" || isDraggingPoint.current) return
+    // --- Initialize tool registry and handlers BEFORE click handler ---
+    toolRegistryRef.current = setupToolHandlers({
+      manager: splineManager.current,
+      svgObjectManager: svgObjectManager.current,
+      drawRef,
+      selectedToolRef: selectedToolRef,
+      isDraggingPoint,
+      historyManager,
+      selectedRef,
+    })
 
-      const draw = drawRef.current
-      const { x, y } = draw.point(e.clientX, e.clientY)
+    // Activate initial tool
+    activateToolInRegistry(toolRegistryRef.current, selectedTool || "select")
 
-      if (
-        e.altKey &&
-        activeSplineRef.current &&
-        activeSplineRef.current.selected
-      ) {
-        insertPointByProximity(
-          drawRef,
-          activeSplineRef.current,
-          x,
-          y,
-          isDraggingPoint,
-          splinesRef,
-          activeSplineRef,
-          selectedTool
-        )
-        // ensure newly inserted spline point has handlers, and transform bindings exist
-        splineTransformRef.current?.attachToAll?.()
-        return
-      }
+    // Now create and attach the click handler
+    const unifiedCanvasClickHandler = createCanvasClickHandler(
+      toolRegistryRef.current,
+      drawRef,
+      splineManager.current,
+      svgObjectManager.current,
+      selectionManager.current,
+      selectedToolRef,
+      isDraggingPoint,
+      historyManager.current,
+      selectedRef
+    )
 
-      if (e.target.tagName === "path" || e.target.tagName === "circle") return
-
-      // Start new spline if none active
-      if (!activeSplineRef.current) {
-        const newSpline = createSpline(
-          draw,
-          selectedTool,
-          drawRef,
-          isDraggingPoint,
-          splinesRef,
-          activeSplineRef
-        )
-
-        splinesRef.current.push(newSpline)
-        activeSplineRef.current = newSpline
-
-        // Attach transform handlers to the new spline group
-        // setupSplineTransformations attaches click/select handlers via attachToAll
-        splineTransformRef.current?.attachToAll?.()
-      }
-
-      const spline = activeSplineRef.current
-      if (!spline || spline.selected === false) return
-
-      // Use addPointToSpline so circle created inside the spline.group
-      try {
-        // addPointToSpline is imported from handler and sets up handlers/updates path
-        addPointToSpline(
-          drawRef.current,
-          spline,
-          x,
-          y,
-          isDraggingPoint,
-          splinesRef,
-          activeSplineRef,
-          selectedTool
-        )
-      } catch (err) {
-        // fallback: create circle inside group and set handlers
-        const circle = spline.group.circle(6).fill("#ffcc00").center(x, y)
-        spline.points.push({ x, y, circle })
-        setupPointHandlers(
-          circle,
-          spline,
-          isDraggingPoint,
-          splinesRef,
-          activeSplineRef,
-          selectedTool
-        )
-        drawOrUpdateSpline(spline)
-        updateSplineVisualState(spline)
-      }
-
-      // ensure transforms attached
-      splineTransformRef.current?.attachToAll?.()
-    }
-
-    container.addEventListener("click", handleBSplineClick)
+    container.addEventListener("click", unifiedCanvasClickHandler)
     container.addEventListener("contextmenu", (e) => e.preventDefault())
 
-    // wheel zoom
-    const handleWheel = (e) => {
-      e.preventDefault()
-      const direction = e.deltaY < 0 ? "in" : "out"
-      const zoomStep =
-        direction === "in" ? 1 + ZOOM_SMOOTHNESS : 1 - ZOOM_SMOOTHNESS
-      const newZoom = Math.min(Math.max(draw.zoom() * zoomStep, 0.2), 5)
-      const point = draw.point(e.offsetX, e.offsetY)
-      const panZoom = panZoomRef.current
-      if (panZoom && typeof panZoom.zoom === "function") {
-        panZoom.zoom(newZoom, point)
-      } else {
-        draw.zoom(newZoom)
-      }
-      updateGridThickness(newZoom)
-    }
-    container.addEventListener("wheel", handleWheel)
+    // Setup canvas interactions (zoom, pan)
+    const { handleWheel } = setupCanvasInteractions(
+      container,
+      drawRef,
+      panZoomRef,
+      updateGridThickness,
+      selectedToolRef
+    )
 
     // pan cursor behavior
-    const handleMouseDown = (e) => {
-      if (
-        selectedRef.current?._isResizing ||
-        (e.target &&
-          e.target.classList &&
-          (e.target.classList.contains("svg_select_handle") ||
-            e.target.classList.contains("svg_select_shape"))) ||
-        (e.target &&
-          e.target.closest &&
-          e.target.closest(".svg_select_boundingRect"))
-      )
-        return
-      if (selectedTool && selectedTool.current !== "select") {
-        return
-      }
+    const {
+      handleMouseDown,
+      handleMouseUp,
+      handleMouseLeave,
+      handleMouseMove,
+    } = setupPanBehavior(container, selectedToolRef, selectedRef, isPanning)
 
-      isPanning.current = true
-      container.style.cursor = "grabbing"
-    }
-    const handleMouseMove = (e) => {
-      if (selectedRef.current?._isResizing) return
-      if (
-        e.target &&
-        e.target.classList &&
-        (e.target.classList.contains("svg_select_handle") ||
-          e.target.classList.contains("svg_select_shape"))
-      )
-        return
-      if (!isPanning.current && selectedTool.current === "select")
-        container.style.cursor = "grab"
-      if (selectedTool && selectedTool.current !== "select")
-        container.style.cursor = "crosshair"
-    }
-    const handleMouseUp = () => {
-      isPanning.current = false
-      if (selectedTool && selectedTool.current === "select")
-        container.style.cursor = "grab"
-      else if (selectedTool && selectedTool.current !== "select")
-        container.style.cursor = "crosshair"
-    }
-    const handleMouseLeave = () => {
-      if (isPanning.current) {
-        isPanning.current = false
-        container.style.cursor = "grab"
-      }
-    }
-
-    // Clear dragging flag if pointer is released anywhere
-    const handleGlobalPointerUp = () => {
-      // Process all splines, not just selected one, to handle rotation cleanup
-      ;(splinesRef.current || []).forEach((spline) => {
-        if (spline._rotateIsActive) {
-          try {
-            console.log(
-              "[canvas] global pointerup -> finalizing rotation for",
-              spline.id
-            )
-            const el = spline.group
-            if (!el) return
-
-            // Now bake the group's transform into the points
-            // The group has accumulated the rotation visually, now apply it to coordinates
-            const m = el.matrixify?.()
-            if (m && spline._rotateStartPoints) {
-              console.log("[canvas] baking rotation matrix into points", {
-                matrix: m,
-                startPointCount: spline._rotateStartPoints.length,
-              })
-              // Apply the full matrix to the original start points
-              applyMatrixToPoints(m, spline._rotateStartPoints, spline.points)
-              drawOrUpdateSpline(spline)
-            } else {
-              console.warn("[canvas] missing matrix or _rotateStartPoints", {
-                hasMatrix: !!m,
-                hasStartPoints: !!spline._rotateStartPoints,
-              })
-            }
-
-            // Reset the group transform so visual matches baked coords
-            resetGroupTransform(el)
-
-            // Clear rotate state
-            delete spline._rotateIsActive
-            delete spline._rotateStartPoints
-            delete spline._rotatePivot
-            delete spline._rotateStartAngle
-            delete spline._rotateLastAngle
-            console.log("[canvas] rotation finalized for", spline.id)
-          } catch (err) {
-            console.error("[canvas] rotation cleanup error:", err)
-          }
-        }
-
-        // NOTE: We DO NOT clean up resize state here!
-        // The resize finalization happens below in the main pointerup handler,
-        // after the splineHandler resize END event has finished.
-      })
-
-      if (!isDraggingPoint.current) return
-
-      console.log("[canvas] global pointerup -> clearing isDraggingPoint")
-      const spline = splineTransformRef.current?.getSelected?.()
-      if (!spline) {
-        isDraggingPoint.current = false
-        return
-      }
-      const el = spline.group
-      if (!el) {
-        isDraggingPoint.current = false
-        return
-      }
-
-      // Debug: Log the resize/rotate state flags
-      console.log("[canvas] pointerup - spline transform state:", {
-        splineId: spline.id,
-        hasResizeStartBox: !!spline._resizeStartBox,
-        hasResizeStartPoints: !!spline._resizeStartPoints,
-        resizeIsActive: spline._resizeIsActive,
-        hasRotateStartPoints: !!spline._rotateStartPoints,
-        rotateIsActive: spline._rotateIsActive,
-      })
-
-      const m = el.matrixify?.()
-      if (!m) {
-        // nothing to bake; ensure no transform attribute leftover
-        resetGroupTransform(el)
-        console.log("[spline] bakeGroupTransform: no matrix to bake")
-        isDraggingPoint.current = false
-        return
-      }
-
-      // CRITICAL: Check if this is a rotation or a resize
-      // Rotations have _rotateStartPoints, resizes don't
-      const wasRotation = !!spline._rotateStartPoints
-
-      if (wasRotation) {
-        // Rotation: apply full affine matrix to points
-        try {
-          console.log("[canvas] applying rotation matrix to points", {
-            splineId: spline.id,
-            matrix: { a: m.a, b: m.b, c: m.c, d: m.d, e: m.e, f: m.f },
-            srcPointCount: spline._rotateStartPoints.length,
-          })
-
-          applyMatrixToPoints(m, spline._rotateStartPoints, spline.points)
-        } catch (err) {
-          console.error("[canvas] rotation bake error:", err)
-        } finally {
-          drawOrUpdateSpline(spline)
-          resetGroupTransform(el)
-          delete spline._rotateStartPoints
-          delete spline._rotateIsActive
-          isDraggingPoint.current = false
-        }
-        return
-      }
-
-      // Non-rotation resize: Points have been scaled during MOVE phase via e.preventDefault()
-      // We just need to clean up the state and redraw the final path
-      try {
-        console.log(
-          "[canvas] non-rotation resize finalization - cleaning up after manual scaling",
-          {
-            splineId: spline.id,
-          }
-        )
-
-        // Points are already scaled and positioned correctly from MOVE phase
-        // Just ensure path reflects final point positions
-        drawOrUpdateSpline(spline)
-
-        // Refresh the selection UI by re-selecting the spline
-        // This updates the selection box to reflect the new bounding box after scaling
-        try {
-          el.select(false)
-          setTimeout(() => {
-            el.select(true)
-            el.resize({ rotationPoint: true })
-          }, 0)
-        } catch (err) {
-          console.warn("[canvas] failed to refresh selection UI:", err)
-        }
-      } catch (err) {
-        console.error("[canvas] resize finalization error:", err)
-      } finally {
-        // cleanup all resize/rotate state
-        delete spline._resizeStartBox
-        delete spline._resizeStartPoints
-        delete spline._resizePointsAlreadyUpdated
-        delete spline._resizePointsScaled
-
-        // Clear the group transform (should be identity since we used preventDefault)
-        resetGroupTransform(el)
-        isDraggingPoint.current = false
-      }
-    }
+    // Setup global pointer up (transform finalization)
+    const { handleGlobalPointerUp } = setupGlobalPointerUp(
+      splineManager,
+      isDraggingPoint
+    )
     window.addEventListener("pointerup", handleGlobalPointerUp)
 
     container.addEventListener("mousedown", handleMouseDown)
@@ -427,24 +226,115 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     container.addEventListener("mouseleave", handleMouseLeave)
     container.addEventListener("mousemove", handleMouseMove)
 
-    // Deselect on empty click -> also ensure splineTransform API clears selection
-    const handleBackgroundClick = (e) => {
-      if (
-        e.target === container.querySelector("svg") &&
-        e.target != selectedRef.current
-      ) {
-        if (selectedRef.current) {
-          selectedRef.current.select(false)
-          selectedRef.current.resize(false)
-          selectedRef.current = null
+    // Setup background click behavior (deselect on empty click)
+    const { handleBackgroundClick } = setupBackgroundClickBehavior(
+      container,
+      splineManager,
+      selectionManager,
+      selectedRef,
+      selectedToolRef
+    )
+
+    // Helper function to convert screen coordinates to viewport coordinates
+    const getViewportCoords = (e) => {
+      const rect = container.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+
+      // Get the current viewbox for pan/zoom transformation
+      try {
+        const viewBox = draw.viewbox()
+        // viewBox contains x, y, width, height
+        // Calculate the scale from container size to viewbox size
+        const scaleX = viewBox.width / rect.width
+        const scaleY = viewBox.height / rect.height
+
+        return {
+          x: viewBox.x + x * scaleX,
+          y: viewBox.y + y * scaleY,
         }
-        // also clear selected spline if any (API from setupSplineTransformations)
-        splineTransformRef.current?.clearSelection?.()
+      } catch (err) {
+        console.warn("[Canvas] Error getting viewport coords:", err)
+        return { x, y }
       }
     }
-    container.addEventListener("click", handleBackgroundClick)
+
+    // Setup drag selection handlers (right-click drag box selection)
+    setupDragSelectionHandlers(
+      draw,
+      selectionManager.current,
+      selectedToolRef,
+      getViewportCoords
+    )
+
+    // Setup multi-selection keyboard shortcuts
+    setupMultiSelectionHotkeys(selectionManager.current)
 
     fitToCanvas()
+
+    // Initialize hotkey system
+    const hotkeySetup = setupHotkeys({
+      canvasRef: ref,
+      splineManager,
+      svgObjectManager,
+      selectionManager,
+      historyManager,
+      selectedToolRef: selectedToolRef,
+      onToolChange: (tool) => {
+        selectedToolRef.current = tool
+      },
+      onImportSVG: () => {
+        ref.current?.importSVG?.()
+      },
+    })
+
+    // Store hotkeys manager for scope activation
+    hotkeysManagerRef.current = hotkeySetup.manager
+
+    // ...existing code...
+
+    // Activate initial tool
+    activateToolInRegistry(
+      toolRegistryRef.current,
+      selectedToolRef.current || "select"
+    )
+
+    // Set up listeners for selection scope activation/deactivation
+    const handleSplineSelect = (spline) => {
+      if (spline) {
+        hotkeysManagerRef.current?.activateScope("selection")
+      } else {
+        hotkeysManagerRef.current?.deactivateScope("selection")
+      }
+    }
+
+    const handleSVGSelect = (objectOrId) => {
+      // objectOrId could be SVG element or null
+      if (objectOrId) {
+        hotkeysManagerRef.current?.activateScope("selection")
+      } else {
+        hotkeysManagerRef.current?.deactivateScope("selection")
+      }
+    }
+
+    // Handle multi-selection scope activation
+    const handleSelectionChanged = (event) => {
+      if (event.hasSelection) {
+        hotkeysManagerRef.current?.activateScope("selection")
+      } else {
+        hotkeysManagerRef.current?.deactivateScope("selection")
+      }
+    }
+
+    // When a new spline is created (including during paste), attach transformation handlers
+    const handleSplineCreated = () => {
+      transformAPI?.attachToAll?.()
+    }
+
+    splineManager.current?.on("select", handleSplineSelect)
+    splineManager.current?.on("created", handleSplineCreated)
+    svgObjectManager.current?.on("select", handleSVGSelect)
+    selectionManager.current?.on("selectionChanged", handleSelectionChanged)
 
     // cleanup
     return () => {
@@ -454,50 +344,59 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       container.removeEventListener("mouseleave", handleMouseLeave)
       container.removeEventListener("mousemove", handleMouseMove)
       container.removeEventListener("click", handleBackgroundClick)
-      container.removeEventListener("click", handleBSplineClick)
+      container.removeEventListener("click", unifiedCanvasClickHandler)
       window.removeEventListener("pointerup", handleGlobalPointerUp)
+      splineManager.current?.off("select", handleSplineSelect)
+      splineManager.current?.off("created", handleSplineCreated)
+      svgObjectManager.current?.off("select", handleSVGSelect)
+      hotkeySetup.cleanup()
       draw.remove()
     }
-  }, []) // run once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // run once on mount only
 
   // Remove the separate effect that tried to re-run setupSplineTransformations based on ref length.
   // Instead we'll call splineTransformRef.current.attachToAll() explicitly when splines are created / loaded.
 
   // When tool switches away from curve, hide all spline points
   useEffect(() => {
-    if (!splinesRef.current?.length) return
-    if (selectedTool.current !== "curve") {
-      splinesRef.current.forEach((spline) => {
-        spline.selected = false
-        updateSplineVisualState(spline)
+    const manager = splineManager.current
+    if (!manager) return
+
+    const allSplines = manager.getAllSplines()
+    if (allSplines.length === 0) return
+
+    if (selectedToolRef.current !== "curve") {
+      allSplines.forEach((spline) => {
+        spline.setSelected(false)
       })
     }
   }, [selectedTool])
 
-  // dblclick / escape: finish current spline
+  // Update tool registry when tool changes (fix: always activate correct tool)
+  useEffect(() => {
+    if (!toolRegistryRef.current) return
+    selectedToolRef.current = selectedTool
+    console.log("[Canvas] useEffect tool change, activating:", selectedTool)
+    activateToolInRegistry(toolRegistryRef.current, selectedTool || "select")
+    console.log("[Canvas] Tool changed to:", selectedTool)
+  }, [selectedTool])
+
+  // dblclick: finish current spline (escape is handled by hotkeys)
   useEffect(() => {
     const handleDblClick = () => {
-      if (selectedTool.current === "curve") {
-        finishActiveSpline(activeSplineRef)
+      if (selectedToolRef.current === "curve") {
+        splineManager.current?.finishActiveSpline()
         // ensure transform selection cleared too
-        splineTransformRef.current?.clearSelection?.()
-      }
-    }
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") {
-        finishActiveSpline(activeSplineRef)
-        // ensure transform selection cleared too
-        splineTransformRef.current?.clearSelection?.()
+        splineManager.current?.clearSelection?.()
       }
     }
 
     window.addEventListener("dblclick", handleDblClick)
-    window.addEventListener("keydown", handleKeyDown)
     return () => {
       window.removeEventListener("dblclick", handleDblClick)
-      window.removeEventListener("keydown", handleKeyDown)
     }
-  }, [])
+  }, [selectedTool])
 
   // grid thickness helper
   const updateGridThickness = (zoom) =>
@@ -512,14 +411,18 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (selectedRef.current) {
           try {
             selectedRef.current.resize({ preserveAspectRatio: true }, true)
-          } catch {}
+          } catch {
+            // ignore resize errors
+          }
         }
         // spline selection
-        const s = splineTransformRef.current?.getSelected?.()
+        const s = splineManager.current?.getSelected()
         if (s && s.group) {
           try {
             s.group.resize({ preserveAspectRatio: true })
-          } catch {}
+          } catch {
+            // ignore resize errors
+          }
         }
       }
     }
@@ -529,13 +432,17 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (selectedRef.current) {
           try {
             selectedRef.current.resize({ preserveAspectRatio: false }, false)
-          } catch {}
+          } catch {
+            // ignore resize errors
+          }
         }
-        const s = splineTransformRef.current?.getSelected?.()
+        const s = splineManager.current?.getSelected()
         if (s && s.group) {
           try {
             s.group.resize({ preserveAspectRatio: false })
-          } catch {}
+          } catch {
+            // ignore resize errors
+          }
         }
       }
     }
@@ -582,8 +489,42 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       })
       imported.on("dragend", () => {
         if (selectedRef.current === imported) {
-          imported.select(true)
-          selectedRef.current = imported
+          try {
+            imported.select(false)
+            imported.resize(false)
+            setTimeout(() => {
+              imported.select(true)
+              imported.resize({ rotationPoint: true })
+              selectedRef.current = imported
+            }, 0)
+          } catch (err) {
+            console.warn("[Canvas] SVG dragend reselection error:", err)
+          }
+        }
+        // Save to history after drag end
+        const splineData =
+          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+        const svgData = svgObjectManager.current?.getState?.() || []
+        if (historyManager?.current) {
+          if (
+            historyManager.current.currentIndex <
+            historyManager.current.history.length - 1
+          ) {
+            historyManager.current.history =
+              historyManager.current.history.slice(
+                0,
+                historyManager.current.currentIndex + 1
+              )
+            console.log(
+              "[Canvas] History truncated at currentIndex (SVG drag)",
+              {
+                currentIndex: historyManager.current.currentIndex,
+                newHistoryLength: historyManager.current.history.length,
+              }
+            )
+          }
+          historyManager.current.pushState(splineData, svgData)
+          console.log("[Canvas] SVG drag end saved to history")
         }
       })
 
@@ -593,6 +534,32 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         clearTimeout(imported._resizeTimeout)
         imported._resizeTimeout = setTimeout(() => {
           imported._resizingActive = false
+          // Save to history after resize end
+          const splineData =
+            splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) ||
+            []
+          const svgData = svgObjectManager.current?.getState?.() || []
+          if (historyManager?.current) {
+            if (
+              historyManager.current.currentIndex <
+              historyManager.current.history.length - 1
+            ) {
+              historyManager.current.history =
+                historyManager.current.history.slice(
+                  0,
+                  historyManager.current.currentIndex + 1
+                )
+              console.log(
+                "[Canvas] History truncated at currentIndex (SVG resize)",
+                {
+                  currentIndex: historyManager.current.currentIndex,
+                  newHistoryLength: historyManager.current.history.length,
+                }
+              )
+            }
+            historyManager.current.pushState(splineData, svgData)
+            console.log("[Canvas] SVG resize end saved to history")
+          }
         }, 150)
 
         clearTimeout(imported._refreshTimeout)
@@ -609,38 +576,79 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       // click selection for imported SVG
       imported.on("click", (ev) => {
         ev.stopPropagation()
-        if (selectedRef.current && selectedRef.current !== imported) {
-          selectedRef.current.select(false)
+        // Use SVGObjectManager to select
+        const svgMgr = svgObjectManager.current
+        if (svgMgr) {
+          svgMgr.selectObject(imported._objectId)
+          selectedRef.current = svgMgr.getSelected()
+        } else {
+          // Fallback if manager not available
+          if (selectedRef.current && selectedRef.current !== imported) {
+            selectedRef.current.select(false)
+          }
+          imported.select(true)
+          imported.resize({ rotationPoint: true })
+          selectedRef.current = imported
         }
-        imported.select(true)
-        imported.resize({ rotationPoint: true })
-        selectedRef.current = imported
       })
 
+      // Add to SVGObjectManager
+      svgObjectManager.current?.addObject(imported)
       svgObjects.current.push(imported)
     }
     input.click()
   }
 
   const handleDeleteSelected = () => {
-    // This deletes imported SVG selection only.
+    // Try to delete selected SVG object first
+    const svgMgr = svgObjectManager.current
+    const selectedSvgId = svgMgr?.getSelectedId?.()
+
+    if (selectedSvgId) {
+      svgMgr.deleteObject(selectedSvgId)
+      selectedRef.current = null
+      // Save to history after SVG delete
+      const splineData =
+        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+      const svgData = svgObjectManager.current?.getState?.() || []
+      if (historyManager?.current) {
+        if (
+          historyManager.current.currentIndex <
+          historyManager.current.history.length - 1
+        ) {
+          historyManager.current.history = historyManager.current.history.slice(
+            0,
+            historyManager.current.currentIndex + 1
+          )
+          console.log(
+            "[Canvas] History truncated at currentIndex (SVG delete)",
+            {
+              currentIndex: historyManager.current.currentIndex,
+              newHistoryLength: historyManager.current.history.length,
+            }
+          )
+        }
+        historyManager.current.pushState(splineData, svgData)
+        console.log("[Canvas] SVG delete saved to history")
+      }
+      return
+    }
+
+    // Otherwise try deleting selected spline
+    const selectedSpline = splineManager.current?.getSelected()
+    if (selectedSpline) {
+      splineManager.current?.deleteSpline(selectedSpline.id)
+      selectedRef.current = null
+      return
+    }
+
+    // Fallback: delete by selectedRef (legacy)
     if (selectedRef.current) {
       const target = selectedRef.current
       target.select(false)
       target.resize(false)
       target.remove()
       selectedRef.current = null
-    } else {
-      // also try deleting selected spline if any
-      const selectedSpline = splineTransformRef.current?.getSelected?.()
-      if (selectedSpline) {
-        // use handler deleteSpline indirectly: remove group and array entry
-        if (selectedSpline.group) selectedSpline.group.remove()
-        splinesRef.current = splinesRef.current.filter(
-          (s) => s !== selectedSpline
-        )
-        splineTransformRef.current?.clearSelection?.()
-      }
     }
   }
 
@@ -661,9 +669,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     importSVG: handleImportSVG,
     deleteSelected: handleDeleteSelected,
 
-    updateCanvasOnToolChange: () => {
-      updateSplinesOnToolChange(splinesRef, activeSplineRef, selectedTool)
-      splineTransformRef.current?.notifyToolChange?.()
+    updateCanvasOnToolChange: (tool) => {
+      splineManager.current?.updateOnToolChange(tool)
+      svgObjectManager.current?.updateOnToolChange(tool)
+      splineManager.current?.clearSelection()
+      svgObjectManager.current?.clearSelection()
+      selectedRef.current = null
     },
 
     setGridSize: (newSize) => {
@@ -697,13 +708,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         gridRef,
         fitToCanvas,
         svgObjects,
-        splinesRef,
-        activeSplineRef,
-        selectedRef,
-        splineTransformRef,
-        selectedTool,
-        isDraggingPoint,
-        setupSplineTransformations
+        splineManager.current,
+        svgObjectManager.current,
+        selectedRef
       ),
 
     getProjectJSON: () =>
@@ -712,7 +719,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         canvasSizeRef,
         gridSizeRef,
         svgObjects,
-        splinesRef
+        splineManager.current,
+        svgObjectManager.current
       ),
 
     saveAsJSON: (filename = "project.json") => saveAsJSON(filename, ref),
@@ -725,22 +733,189 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         gridRef,
         fitToCanvas,
         svgObjects,
-        splinesRef,
-        activeSplineRef,
-        splineTransformRef,
-        selectedRef,
-        selectedTool,
-        isDraggingPoint,
-        createSpline,
-        setupPointHandlers,
-        drawOrUpdateSpline,
-        updateSplineVisualState,
-        setupSplineTransformations
+        splineManager.current,
+        svgObjectManager.current,
+        selectedRef
       ),
 
     exportAsSVG: (filename = "project.svg") =>
-      exportAsSVG(filename, drawRef, canvasSizeRef, svgObjects, splinesRef),
+      exportAsSVG(
+        filename,
+        drawRef,
+        canvasSizeRef,
+        svgObjects,
+        splineManager.current,
+        svgObjectManager.current
+      ),
+
+    // Expose history manager for hotkeys (private API)
+    _historyManager: historyManager.current,
+    _restoreState: (state) => {
+      if (
+        !state ||
+        !drawRef.current ||
+        !splineManager.current ||
+        !svgObjectManager.current
+      ) {
+        console.warn("[Canvas] Cannot restore state, missing dependencies")
+        return
+      }
+
+      // FULLY DELETE all current splines (remove SVG group and clear from collection)
+      splineManager.current.getAllSplines().forEach((spline) => {
+        try {
+          // Deselect before removing to clear selection box and highlights
+          if (spline.setSelected) spline.setSelected(false)
+          if (spline.group) spline.group.remove()
+        } catch (err) {
+          console.warn("[Canvas] Error removing spline group:", err)
+        }
+      })
+      // Clear SplineManager's internal collection
+      splineManager.current.splines.clear()
+      svgObjectManager.current.clear()
+
+      // Restore splines with original IDs, skip splines with <2 points
+      if (state.splines && Array.isArray(state.splines)) {
+        const restoredSplines = []
+        state.splines.forEach((splineData) => {
+          if (!splineData.points || splineData.points.length < 2) return
+          try {
+            // Remove any existing spline with same ID to prevent duplicates
+            if (splineManager.current.splines.has(splineData.id)) {
+              const existing = splineManager.current.splines.get(splineData.id)
+              if (existing && existing.setSelected) existing.setSelected(false)
+              if (existing && existing.group) existing.group.remove()
+              splineManager.current.splines.delete(splineData.id)
+            }
+            // Use silent mode to avoid duplicate events/collection
+            const spline = splineManager.current.createSpline(false)
+            spline.id = splineData.id // Set original ID
+            spline.loadFromJSON(splineData)
+
+            // Re-setup point handlers after loading from JSON
+            if (spline.points && spline.points.length > 0) {
+              spline.points.forEach((point) => {
+                if (point.circle) {
+                  setupPointHandlers(
+                    point.circle,
+                    spline,
+                    isDraggingPoint,
+                    splineManager.current,
+                    selectedTool,
+                    historyManager // Pass historyManager for drag/delete batching
+                  )
+                }
+              })
+            }
+            splineManager.current.splines.set(spline.id, spline)
+            restoredSplines.push(spline)
+          } catch (err) {
+            console.error("[Canvas] Error restoring spline:", err)
+          }
+        })
+        // Always deselect all splines and remove selection boxes after restore
+        restoredSplines.forEach((spline) => {
+          if (spline.setSelected) spline.setSelected(false)
+          if (spline.group && typeof spline.group.select === "function") {
+            spline.group.select(false)
+            // Also remove any lingering selection box elements if present
+            const selBox = spline.group.node.querySelector(".svg-select-box")
+            if (selBox) selBox.remove()
+          }
+        })
+      }
+
+      // Restore SVG objects
+      const drawRef_current = drawRef.current
+      if (state.svgs && Array.isArray(state.svgs)) {
+        state.svgs.forEach((svgData) => {
+          try {
+            const imported = drawRef_current.group().svg(svgData.svg)
+            if (svgData.transform) {
+              imported.transform(svgData.transform)
+            }
+            svgObjectManager.current.addObject(imported)
+          } catch (err) {
+            console.error("[Canvas] Error restoring SVG object:", err)
+          }
+        })
+      }
+
+      console.log("[Canvas] State restored")
+    },
   }))
+
+  // Attach history manager to ref for hotkeys access (temporary - will be replaced with proper API)
+  if (ref?.current) {
+    ref.current._historyManager = historyManager.current
+    ref.current._restoreState = (state) => {
+      // This will be called by hotkeys
+      if (!state) return
+
+      // FULLY DELETE all current splines (remove SVG group and clear from collection)
+      splineManager.current.getAllSplines().forEach((spline) => {
+        try {
+          if (spline.group) spline.group.remove()
+        } catch (err) {
+          console.warn("[Canvas] Error removing spline group:", err)
+        }
+        splineManager.current.splines.delete(spline.id)
+      })
+
+      // Restore splines
+      if (state.splines && Array.isArray(state.splines)) {
+        const restoredSplines = []
+        state.splines.forEach((splineData) => {
+          try {
+            const spline = splineManager.current.createSpline()
+            spline.loadFromJSON(splineData)
+
+            // Re-setup point handlers after loading from JSON
+            if (spline.points && spline.points.length > 0) {
+              spline.points.forEach((point) => {
+                if (point.circle) {
+                  setupPointHandlers(
+                    point.circle,
+                    spline,
+                    isDraggingPoint,
+                    splineManager.current,
+                    selectedTool
+                  )
+                }
+              })
+            }
+            restoredSplines.push(spline)
+          } catch (err) {
+            console.error("[Canvas] Error restoring spline:", err)
+          }
+        })
+        // If curve tool is active and there are splines, select the last one
+        if (selectedTool?.current === "curve" && restoredSplines.length > 0) {
+          const lastSpline = restoredSplines[restoredSplines.length - 1]
+          splineManager.current.selectSpline(lastSpline.id)
+        }
+      }
+
+      // Restore SVG objects
+      svgObjectManager.current.clear()
+      if (state.svgs && Array.isArray(state.svgs)) {
+        state.svgs.forEach((svgData) => {
+          try {
+            const imported = drawRef.current.group().svg(svgData.svg)
+            if (svgData.transform) {
+              imported.transform(svgData.transform)
+            }
+            svgObjectManager.current.addObject(imported)
+          } catch (err) {
+            console.error("[Canvas] Error restoring SVG object:", err)
+          }
+        })
+      }
+
+      console.log("[Canvas] State restored from history")
+    }
+  }
 
   return (
     <div

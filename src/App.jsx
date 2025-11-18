@@ -2,11 +2,12 @@ import React, { useState, useRef } from "react"
 import Toolbar from "./components/ToolBar"
 import Canvas from "./components/Canvas"
 import "./styles/theme.css"
+import { HotkeysProvider } from "./hooks/HotkeysProvider"
 
 export default function App() {
   const canvasRef = useRef()
   const [zoomSignal, setZoomSignal] = useState(null)
-  const selectedTool = useRef("select")
+  const [selectedTool, setSelectedTool] = useState("select")
 
   const handleZoom = (type) => {
     setZoomSignal({ type, timestamp: Date.now() })
@@ -16,8 +17,12 @@ export default function App() {
     canvasRef.current?.deleteSelected()
   }
   const selectTool = (tool) => {
-    selectedTool.current = tool
-    canvasRef.current?.updateCanvasOnToolChange()
+    console.log("[App] selectTool called with:", tool)
+    setSelectedTool(tool)
+    setTimeout(() => {
+      console.log("[App] selectedTool state after set:", tool)
+      canvasRef.current?.updateCanvasOnToolChange(tool)
+    }, 0)
     console.log("Selected tool:", tool)
   }
 
@@ -74,11 +79,13 @@ export default function App() {
         onSaveAs={handleSaveAs}
         onExport={handleExport}
       />
-      <Canvas
-        ref={canvasRef}
-        zoomSignal={zoomSignal}
-        selectedTool={selectedTool}
-      />
+      <HotkeysProvider>
+        <Canvas
+          ref={canvasRef}
+          zoomSignal={zoomSignal}
+          selectedTool={selectedTool}
+        />
+      </HotkeysProvider>
     </div>
   )
 }
