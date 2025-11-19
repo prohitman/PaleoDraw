@@ -62,6 +62,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const toolRegistryRef = useRef(null) // ToolRegistry instance for tool handler delegation
   const isDraggingPoint = useRef(false)
   const panZoomRef = useRef(null)
+  const groupOverlayRef = useRef(null) // Overlay rect for multi-selection
+  const overlayDragStateRef = useRef({ dragging: false, lastX: 0, lastY: 0 })
 
   const isPanning = useRef(false)
   const isShiftPressed = useRef(false)
@@ -89,6 +91,126 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
   const ZOOM_SMOOTHNESS = 0.05
   const GRID_BASE_THICKNESS = 0.5
+
+  // Convert screen event to viewport coords using current viewBox
+  const getViewportCoordsFromEvent = (e) => {
+    const container = canvasRef.current
+    const draw = drawRef.current
+    if (!container || !draw) return { x: e.clientX, y: e.clientY }
+    const rect = container.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    try {
+      const viewBox = draw.viewbox()
+      const scaleX = viewBox.width / rect.width
+      const scaleY = viewBox.height / rect.height
+      return { x: viewBox.x + x * scaleX, y: viewBox.y + y * scaleY }
+    } catch {
+      return { x, y }
+    }
+  }
+
+  // Handle overlay drag movement
+  const handleOverlayDragMove = (e) => {
+    const state = overlayDragStateRef.current
+    if (!state.dragging) return
+    const selMgr = selectionManager.current
+    const draw = drawRef.current
+    if (!selMgr || !draw) return
+
+    const { x, y } = getViewportCoordsFromEvent(e)
+    const dx = x - state.lastX
+    const dy = y - state.lastY
+    if (dx === 0 && dy === 0) return
+
+    state.lastX = x
+    state.lastY = y
+
+    selMgr.moveSelected(dx, dy)
+
+    const overlay = groupOverlayRef.current
+    if (overlay) {
+      try {
+        overlay.move(overlay.x() + dx, overlay.y() + dy)
+        overlay.front()
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  // Finalize overlay drag, push history, and cleanup listeners
+  const handleOverlayDragUp = () => {
+    overlayDragStateRef.current.dragging = false
+    window.removeEventListener("pointermove", handleOverlayDragMove)
+
+    const manager = splineManager.current
+    const svgMgr = svgObjectManager.current
+    const hist = historyManager.current
+    if (manager && hist) {
+      const splineData = manager.getAllSplines().map((s) => s.toJSON())
+      const svgData = svgMgr?.getState?.() || []
+      hist.pushState(splineData, svgData)
+    }
+  }
+
+  // Create or update the multi-selection overlay rectangle
+  const updateGroupOverlay = () => {
+    const draw = drawRef.current
+    const selMgr = selectionManager.current
+    if (!draw || !selMgr) return
+
+    const count = selMgr.getSelectionCount?.() || 0
+    const inSelectTool = selectedToolRef.current === "select"
+    const bounds = selMgr.getSelectionBounds?.()
+
+    const shouldShow = inSelectTool && bounds && count >= 2
+
+    if (!shouldShow) {
+      if (groupOverlayRef.current) {
+        try {
+          groupOverlayRef.current.remove()
+        } catch {}
+        groupOverlayRef.current = null
+      }
+      return
+    }
+
+    const { x, y, width, height } = bounds
+
+    if (!groupOverlayRef.current) {
+      const overlay = draw
+        .rect(width, height)
+        .move(x, y)
+        .fill("none")
+        .stroke({ color: "#00bfff", width: 1.5, dasharray: "6,4" })
+        .id("group-selection-overlay")
+
+      overlay.on("pointerdown", (e) => {
+        if (selectedToolRef.current !== "select" || e.button !== 0) return
+        e.stopPropagation()
+        e.preventDefault()
+        const coords = getViewportCoordsFromEvent(e)
+        overlayDragStateRef.current = {
+          dragging: true,
+          lastX: coords.x,
+          lastY: coords.y,
+        }
+        window.addEventListener("pointermove", handleOverlayDragMove)
+        window.addEventListener("pointerup", handleOverlayDragUp, {
+          once: true,
+        })
+      })
+
+      groupOverlayRef.current = overlay
+    } else {
+      groupOverlayRef.current.size(width, height).move(x, y)
+    }
+
+    try {
+      groupOverlayRef.current.front()
+    } catch {}
+  }
 
   // ---------- Initialize SVG draw, grid, pan/zoom, and main handlers ----------
   useEffect(() => {
@@ -325,6 +447,22 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       } else {
         hotkeysManagerRef.current?.deactivateScope("selection")
       }
+      // Update overlay visibility/position when selection changes
+      updateGroupOverlay()
+    }
+
+    const handleSelectionMoved = ({ dx, dy }) => {
+      const overlay = groupOverlayRef.current
+      if (overlay) {
+        try {
+          const currentX = overlay.x() || 0
+          const currentY = overlay.y() || 0
+          overlay.move(currentX + dx, currentY + dy)
+          overlay.front()
+        } catch {
+          updateGroupOverlay()
+        }
+      }
     }
 
     // When a new spline is created (including during paste), attach transformation handlers
@@ -336,6 +474,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     splineManager.current?.on("created", handleSplineCreated)
     svgObjectManager.current?.on("select", handleSVGSelect)
     selectionManager.current?.on("selectionChanged", handleSelectionChanged)
+    selectionManager.current?.on("selectionMoved", handleSelectionMoved)
 
     // cleanup
     return () => {
@@ -350,6 +489,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       splineManager.current?.off("select", handleSplineSelect)
       splineManager.current?.off("created", handleSplineCreated)
       svgObjectManager.current?.off("select", handleSVGSelect)
+      selectionManager.current?.off("selectionChanged", handleSelectionChanged)
+      selectionManager.current?.off("selectionMoved", handleSelectionMoved)
       hotkeySetup.cleanup()
       draw.remove()
     }
