@@ -51,8 +51,10 @@ export const curveToolHandlers = {
       hasSplineHover: e.target.classList?.contains("spline-hover"),
     })
 
-    // Only respond to path/circle clicks, use closest('g'), select by data-spline-id
-    // Accept path/circle or .spline-hover class
+    // Selection vs addition logic on path/circle clicks.
+    // Previous behavior: always stop adding when clicking any part of an existing spline.
+    // Fix: If clicking the path of the CURRENT selected spline while in curve mode, treat it as an add-point click.
+    // Still: clicking a different spline's path selects it; clicking a circle does NOT add a new point.
     if (
       e.target.tagName === "path" ||
       e.target.tagName === "circle" ||
@@ -63,11 +65,22 @@ export const curveToolHandlers = {
         const splineId = splineGroup.getAttribute("data-spline-id")
         const targetSpline = manager.getSpline(splineId)
         const selectedSpline = manager.getSelected()
+        // Clicking a different spline's path: select it and exit
         if (targetSpline && targetSpline !== selectedSpline) {
           manager.selectSpline(splineId)
           e.stopPropagation()
           return
         }
+        // Clicking a circle of the current spline: do not add a point (likely drag/select intent)
+        if (e.target.tagName === "circle") {
+          e.stopPropagation()
+          return
+        }
+        // Clicking the path of the currently selected spline: allow point addition (do NOT return here)
+      } else {
+        // Path/circle without spline id – ignore adding
+        e.stopPropagation()
+        return
       }
     }
 
