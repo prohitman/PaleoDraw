@@ -14,6 +14,7 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     splineManager,
     svgObjectManager,
     selectionManager,
+    pointSelectionManager,
     selectedToolRef,
     historyManager,
   } = context
@@ -23,6 +24,19 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "delete",
     "selection",
     () => {
+      // Point multi-selection (curve tool) takes priority
+      if (
+        selectedToolRef?.current === "curve" &&
+        pointSelectionManager?.current?.hasSelection?.()
+      ) {
+        pointSelectionManager.current.deleteSelectedPoints()
+        // Save history
+        const splineData =
+          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+        const svgData = svgObjectManager.current?.getState?.() || []
+        historyManager?.current?.pushState(splineData, svgData)
+        return
+      }
       // Check if SelectionManager has multiple items selected
       if (selectionManager?.current?.hasSelection?.()) {
         selectionManager.current.deleteSelected()
@@ -43,6 +57,17 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "backspace",
     "selection",
     () => {
+      if (
+        selectedToolRef?.current === "curve" &&
+        pointSelectionManager?.current?.hasSelection?.()
+      ) {
+        pointSelectionManager.current.deleteSelectedPoints()
+        const splineData =
+          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+        const svgData = svgObjectManager.current?.getState?.() || []
+        historyManager?.current?.pushState(splineData, svgData)
+        return
+      }
       // Check if SelectionManager has multiple items selected
       if (selectionManager?.current?.hasSelection?.()) {
         selectionManager.current.deleteSelected()
@@ -221,6 +246,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         0,
         -10
@@ -237,6 +264,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         0,
         10
@@ -253,6 +282,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         -10,
         0
@@ -269,6 +300,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         10,
         0
@@ -286,6 +319,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         0,
         -1
@@ -302,6 +337,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         0,
         1
@@ -318,6 +355,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         -1,
         0
@@ -334,6 +373,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         splineManager,
         svgObjectManager,
         selectionManager,
+        selectedToolRef,
+        pointSelectionManager,
         historyManager,
         1,
         0
@@ -357,6 +398,8 @@ function nudgeSelected(
   splineManagerRef,
   svgObjectManagerRef,
   selectionManagerRef,
+  selectedToolRefRef,
+  pointSelectionManagerRef,
   historyManagerRef,
   dx,
   dy
@@ -364,7 +407,23 @@ function nudgeSelected(
   const splineManager = splineManagerRef?.current
   const svgObjectManager = svgObjectManagerRef?.current
   const selectionManager = selectionManagerRef?.current
+  const pointSelectionManager = pointSelectionManagerRef?.current
   const historyManager = historyManagerRef?.current
+
+  // Point multi-selection first (curve tool)
+  if (
+    selectedToolRefRef?.current === "curve" &&
+    pointSelectionManager?.hasSelection?.()
+  ) {
+    pointSelectionManager.moveSelectedPoints(dx, dy)
+    if (historyManager) {
+      const splineData =
+        splineManager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+      const svgData = svgObjectManager?.getState?.() || []
+      historyManager.pushState(splineData, svgData)
+    }
+    return
+  }
 
   // Check for multi-selection first
   if (selectionManager?.hasSelection?.()) {

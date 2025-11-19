@@ -10,6 +10,7 @@ export function setupPointHandlers(
   isDraggingRef,
   splineManager,
   selectedTool,
+  pointSelectionManager,
   historyManager
 ) {
   if (!circle) return
@@ -36,6 +37,23 @@ export function setupPointHandlers(
     })
     if (selectedTool?.current !== "curve") return
     isDraggingRef.current = true
+
+    // If multi-point selection active and this point is selected, snapshot all selected points
+    if (pointSelectionManager?.hasSelection?.()) {
+      const pointIndex = spline.points.findIndex((p) => p.circle === circle)
+      const key = `${spline.id}_${pointIndex}`
+      if (pointSelectionManager.selectedPoints.has(key)) {
+        pointSelectionManager._dragStartPoints = {}
+        pointSelectionManager
+          .getSelectedPointsData()
+          .forEach(({ splineId, pointIndex: idx, point }) => {
+            pointSelectionManager._dragStartPoints[`${splineId}_${idx}`] = {
+              x: point.x,
+              y: point.y,
+            }
+          })
+      }
+    }
   })
 
   circle.on("dragmove.curveTool", () => {
@@ -48,6 +66,37 @@ export function setupPointHandlers(
     if (point) {
       point.x = cx
       point.y = cy
+      // If multi-selection drag, move all other selected points by same delta
+      if (pointSelectionManager?._dragStartPoints) {
+        const pointIndex = spline.points.findIndex((p) => p.circle === circle)
+        const key = `${spline.id}_${pointIndex}`
+        const start = pointSelectionManager._dragStartPoints[key]
+        if (start) {
+          const dx = point.x - start.x
+          const dy = point.y - start.y
+          const affectedSplines = new Set()
+          Object.entries(pointSelectionManager._dragStartPoints).forEach(
+            ([k, pos]) => {
+              if (k === key) return // already updated
+              const [spId, idx] = k.split("_")
+              const sp = splineManager.getSpline(spId)
+              const pt = sp?.points?.[parseInt(idx)]
+              if (!sp || !pt) return
+              pt.x = pos.x + dx
+              pt.y = pos.y + dy
+              pt.circle?.center(pt.x, pt.y)
+              affectedSplines.add(spId)
+            }
+          )
+          // Replot affected splines including current
+          affectedSplines.add(spline.id)
+          affectedSplines.forEach((sid) => {
+            const sp = splineManager.getSpline(sid)
+            sp?.plot?.()
+          })
+          return
+        }
+      }
       spline.plot()
     }
   })
@@ -65,6 +114,7 @@ export function setupPointHandlers(
       historyManager.pushState(splineData, [])
       console.log("[pointHandlers] Dragged point saved to history")
     }
+    delete pointSelectionManager?._dragStartPoints
   })
 
   // Handle point deletion via right-click
@@ -92,5 +142,37 @@ export function setupPointHandlers(
 
   circle.on("mouseout.pointHover", () => {
     circle.fill(originalFill)
+  })
+
+  // Shift-click (or plain click) point selection logic for multi-point selection
+  // Use pointerdown to ensure selection occurs even when user drags immediately.
+  circle.on("pointerdown.pointSelect", (e) => {
+    if (selectedTool?.current !== "curve") return
+    const additive = e.shiftKey
+    const pointIndex = spline.points.findIndex((p) => p.circle === circle)
+    if (pointIndex === -1) return
+    if (pointSelectionManager) {
+      console.log("[pointHandlers] pointerdown pointSelect", {
+        splineId: spline.id,
+        pointIndex,
+        additive,
+      })
+      pointSelectionManager.selectPoint(spline.id, pointIndex, additive)
+    }
+  })
+
+  // Keep click as fallback (no shift) if user just clicks.
+  circle.on("click.pointSelect", (e) => {
+    if (selectedTool?.current !== "curve") return
+    if (e.shiftKey) return // already handled by pointerdown
+    const pointIndex = spline.points.findIndex((p) => p.circle === circle)
+    if (pointIndex === -1) return
+    if (pointSelectionManager) {
+      console.log("[pointHandlers] click pointSelect (fallback)", {
+        splineId: spline.id,
+        pointIndex,
+      })
+      pointSelectionManager.selectPoint(spline.id, pointIndex, false)
+    }
   })
 }

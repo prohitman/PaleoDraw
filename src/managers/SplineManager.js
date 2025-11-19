@@ -24,7 +24,10 @@ export default class SplineManager extends EventEmitter {
     this.isDraggingRef = isDraggingRef
     this.historyManager = historyManager // HistoryManager instance for undo/redo
 
-    // Transform API (set up by setupTransformations)
+    // Optional external reference set by Canvas for point multi-selection
+    this.pointSelectionManager = null
+
+    // Transform API (set up by setupSplineTransformations)
     this._transformAPI = null
   }
 
@@ -183,6 +186,7 @@ export default class SplineManager extends EventEmitter {
         this.isDraggingRef,
         this,
         this.selectedToolRef,
+        this.pointSelectionManager,
         this.historyManager
       )
     }
@@ -250,7 +254,9 @@ export default class SplineManager extends EventEmitter {
         spline,
         this.isDraggingRef,
         this,
-        this.selectedToolRef
+        this.selectedToolRef,
+        this.pointSelectionManager,
+        this.historyManager
       )
     }
 
@@ -453,7 +459,9 @@ export default class SplineManager extends EventEmitter {
             spline,
             this.isDraggingRef,
             this,
-            this.selectedToolRef
+            this.selectedToolRef,
+            this.pointSelectionManager,
+            this.historyManager
           )
         }
       })
@@ -542,6 +550,7 @@ export default class SplineManager extends EventEmitter {
                   context.isDraggingRef,
                   this,
                   context.selectedToolRef,
+                  this.pointSelectionManager,
                   this.historyManager
                 )
               } else {
@@ -703,6 +712,7 @@ export default class SplineManager extends EventEmitter {
                   context.isDraggingRef,
                   this,
                   context.selectedToolRef,
+                  this.pointSelectionManager,
                   this.historyManager
                 )
               } else {

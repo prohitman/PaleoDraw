@@ -83,7 +83,7 @@ export default class SelectionManager extends EventEmitter {
   getSelectedSvgObjects() {
     const objects = []
     this.selectedSvgObjects.forEach((id) => {
-      const obj = this.svgObjectManager?.getObjectById?.(id)
+      const obj = this.svgObjectManager?.getObject?.(id)
       if (obj) objects.push(obj)
     })
     return objects
@@ -527,7 +527,7 @@ export default class SelectionManager extends EventEmitter {
 
     // Move selected SVG objects
     this.selectedSvgObjects.forEach((objId) => {
-      const obj = this.svgObjectManager?.getObjectById?.(objId)
+      const obj = this.svgObjectManager?.getObject?.(objId)
       if (obj?.element) {
         const currentX = obj.element.x() || 0
         const currentY = obj.element.y() || 0

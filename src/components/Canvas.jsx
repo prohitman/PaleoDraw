@@ -17,6 +17,7 @@ import {
   setupDragSelectionHandlers,
   setupMultiSelectionHotkeys,
 } from "../handlers/selectionHandlers"
+import { setupPointDragSelectionHandlers } from "../handlers/pointSelectionBoxHandlers"
 import {
   setupToolHandlers,
   createCanvasClickHandler,
@@ -64,6 +65,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const panZoomRef = useRef(null)
   const groupOverlayRef = useRef(null) // Overlay rect for multi-selection
   const overlayDragStateRef = useRef({ dragging: false, lastX: 0, lastY: 0 })
+  const pointGroupOverlayRef = useRef(null) // Overlay for multi-point selection (curve tool)
+  const pointOverlayDragStateRef = useRef({
+    dragging: false,
+    lastX: 0,
+    lastY: 0,
+  })
 
   const isPanning = useRef(false)
   const isShiftPressed = useRef(false)
@@ -117,8 +124,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     const selMgr = selectionManager.current
     const draw = drawRef.current
     if (!selMgr || !draw) return
-
     const { x, y } = getViewportCoordsFromEvent(e)
+
     const dx = x - state.lastX
     const dy = y - state.lastY
     if (dx === 0 && dy === 0) return
@@ -136,6 +143,35 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     overlayDragStateRef.current.dragging = false
     window.removeEventListener("pointermove", handleOverlayDragMove)
 
+    const manager = splineManager.current
+    const svgMgr = svgObjectManager.current
+    const hist = historyManager.current
+    if (manager && hist) {
+      const splineData = manager.getAllSplines().map((s) => s.toJSON())
+      const svgData = svgMgr?.getState?.() || []
+      hist.pushState(splineData, svgData)
+    }
+  }
+
+  // ----- Point selection overlay drag handlers -----
+  const handlePointOverlayDragMove = (e) => {
+    const state = pointOverlayDragStateRef.current
+    if (!state.dragging) return
+    const mgr = pointSelectionManager.current
+    if (!mgr) return
+    const { x, y } = getViewportCoordsFromEvent(e)
+    const dx = x - state.lastX
+    const dy = y - state.lastY
+    if (dx === 0 && dy === 0) return
+    state.lastX = x
+    state.lastY = y
+    mgr.moveSelectedPoints(dx, dy)
+    updatePointGroupOverlay()
+  }
+
+  const handlePointOverlayDragUp = () => {
+    pointOverlayDragStateRef.current.dragging = false
+    window.removeEventListener("pointermove", handlePointOverlayDragMove)
     const manager = splineManager.current
     const svgMgr = svgObjectManager.current
     const hist = historyManager.current
@@ -208,6 +244,88 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     }
   }
 
+  // Create or update multi-point selection overlay (curve tool)
+  const updatePointGroupOverlay = () => {
+    const draw = drawRef.current
+    const ptMgr = pointSelectionManager.current
+    if (!draw || !ptMgr) return
+
+    const count = ptMgr.getSelectionCount?.() || 0
+    const inCurveTool = selectedToolRef.current === "curve"
+    const bounds = ptMgr.getSelectionBounds?.()
+    const shouldShow = inCurveTool && bounds && count >= 2
+
+    console.log("[Canvas.updatePointGroupOverlay]", {
+      count,
+      inCurveTool,
+      hasBounds: !!bounds,
+      shouldShow,
+      bounds,
+    })
+
+    if (!shouldShow) {
+      if (pointGroupOverlayRef.current) {
+        try {
+          pointGroupOverlayRef.current.remove()
+        } catch {
+          /* ignore removal errors */
+        }
+        pointGroupOverlayRef.current = null
+        console.log("[Canvas.updatePointGroupOverlay] removed overlay")
+      }
+      return
+    }
+
+    const { x, y, width, height } = bounds
+
+    if (!pointGroupOverlayRef.current) {
+      const overlay = draw
+        .rect(width, height)
+        .move(x, y)
+        .fill("rgba(0,0,0,0)")
+        .stroke({ color: "#ff00ff", width: 1.5, dasharray: "5,3" })
+        .id("point-group-selection-overlay")
+      console.log("[Canvas.updatePointGroupOverlay] created overlay", {
+        width,
+        height,
+        x,
+        y,
+      })
+
+      overlay.on("pointerdown", (e) => {
+        if (selectedToolRef.current !== "curve" || e.button !== 0) return
+        e.stopPropagation()
+        e.preventDefault()
+        const coords = getViewportCoordsFromEvent(e)
+        pointOverlayDragStateRef.current = {
+          dragging: true,
+          lastX: coords.x,
+          lastY: coords.y,
+        }
+        window.addEventListener("pointermove", handlePointOverlayDragMove)
+        window.addEventListener("pointerup", handlePointOverlayDragUp, {
+          once: true,
+        })
+      })
+
+      pointGroupOverlayRef.current = overlay
+    } else {
+      pointGroupOverlayRef.current.size(width, height).move(x, y)
+      console.log("[Canvas.updatePointGroupOverlay] updated overlay", {
+        width,
+        height,
+        x,
+        y,
+      })
+    }
+
+    try {
+      pointGroupOverlayRef.current.front()
+    } catch {
+      /* ignore front errors */
+    }
+  }
+
   // ---------- Initialize SVG draw, grid, pan/zoom, and main handlers ----------
   useEffect(() => {
     const container = canvasRef.current
@@ -270,6 +388,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     pointSelectionManager.current = new PointSelectionManager()
     pointSelectionManager.current.initialize(splineManager.current)
     console.log("[Canvas] PointSelectionManager initialized")
+    // Attach to spline manager for handler access
+    splineManager.current.pointSelectionManager = pointSelectionManager.current
 
     // Set HistoryManager for SVGObjectManager
     svgObjectManager.current.historyManager = historyManager.current
@@ -385,6 +505,14 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       getViewportCoords
     )
 
+    // Point drag-box selection (curve tool)
+    setupPointDragSelectionHandlers(
+      draw,
+      pointSelectionManager.current,
+      selectedToolRef,
+      getViewportCoords
+    )
+
     // Setup multi-selection keyboard shortcuts
     setupMultiSelectionHotkeys(selectionManager.current)
 
@@ -397,6 +525,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager,
       selectionManager,
       historyManager,
+      pointSelectionManager,
       selectedToolRef: selectedToolRef,
       isDraggingRef: isDraggingPoint,
       onToolChange: (tool) => {
@@ -452,6 +581,17 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       updateGroupOverlay()
     }
 
+    // Point selection events
+    const handlePointSelectionChanged = () => {
+      updatePointGroupOverlay()
+    }
+    const handlePointsMoved = () => {
+      updatePointGroupOverlay()
+    }
+    const handlePointsDeleted = () => {
+      updatePointGroupOverlay()
+    }
+
     // When a new spline is created (including during paste), attach transformation handlers
     const handleSplineCreated = () => {
       transformAPI?.attachToAll?.()
@@ -462,6 +602,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     svgObjectManager.current?.on("select", handleSVGSelect)
     selectionManager.current?.on("selectionChanged", handleSelectionChanged)
     selectionManager.current?.on("selectionMoved", handleSelectionMoved)
+    pointSelectionManager.current?.on(
+      "selectionChanged",
+      handlePointSelectionChanged
+    )
+    pointSelectionManager.current?.on("pointsMoved", handlePointsMoved)
+    pointSelectionManager.current?.on("pointsDeleted", handlePointsDeleted)
 
     // cleanup
     return () => {
@@ -478,6 +624,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager.current?.off("select", handleSVGSelect)
       selectionManager.current?.off("selectionChanged", handleSelectionChanged)
       selectionManager.current?.off("selectionMoved", handleSelectionMoved)
+      pointSelectionManager.current?.off(
+        "selectionChanged",
+        handlePointSelectionChanged
+      )
+      pointSelectionManager.current?.off("pointsMoved", handlePointsMoved)
+      pointSelectionManager.current?.off("pointsDeleted", handlePointsDeleted)
       hotkeySetup.cleanup()
       draw.remove()
     }
@@ -518,6 +670,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // Also remove any lingering drag selection rectangle if tool switched
     selectionManager.current?.clearSelection?.()
     updateGroupOverlay()
+    updatePointGroupOverlay()
     // Intentionally exclude updateGroupOverlay from deps to avoid recreating on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTool])

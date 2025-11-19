@@ -20,6 +20,9 @@ export class PointSelectionManager extends EventEmitter {
     // Visual highlight color for selected points
     this.selectedColor = "#ff00ff" // Magenta for point selection
     this.normalColor = "#ffffff" // White for normal points
+
+    // Cached bounds of current selection (compute lazily)
+    this._cachedBounds = null
   }
 
   /**
@@ -55,15 +58,22 @@ export class PointSelectionManager extends EventEmitter {
    */
   selectPoint(splineId, pointIndex, additive = false) {
     const pointKey = `${splineId}_${pointIndex}`
+    console.log("[PointSelectionManager.selectPoint] invoked", {
+      splineId,
+      pointIndex,
+      additive,
+      alreadySelected: this.selectedPoints.has(pointKey),
+      currentCount: this.selectedPoints.size,
+    })
 
     if (!additive) {
       this.clearSelection()
     }
 
     if (this.selectedPoints.has(pointKey)) {
-      // Toggle off if already selected and additive
+      // Previously: toggle off on additive shift-click.
+      // New behavior: ignore duplicate additive selection to keep point selected.
       if (additive) {
-        this.deselectPoint(splineId, pointIndex)
         return
       }
     } else {
@@ -71,15 +81,72 @@ export class PointSelectionManager extends EventEmitter {
       this.highlightPoint(splineId, pointIndex, true)
     }
 
+    // Invalidate bounds if growing selection
+    if (this.selectedPoints.size >= 2) {
+      this._cachedBounds = null
+    }
+    const bounds =
+      this.selectedPoints.size >= 2 ? this.getSelectionBounds() : null
+
     this.emit("selectionChanged", {
       selectedPoints: Array.from(this.selectedPoints),
       count: this.selectedPoints.size,
       hasSelection: this.hasSelection(),
+      type: "single",
+      bounds,
     })
 
     console.log(
       `[PointSelectionManager] Selected point ${pointIndex} in spline ${splineId}, total: ${this.selectedPoints.size}`
     )
+  }
+
+  /**
+   * Select all points within rectangular bounds
+   * @param {number} x1 - start x
+   * @param {number} y1 - start y
+   * @param {number} x2 - end x
+   * @param {number} y2 - end y
+   * @param {boolean} additive - additive selection flag
+   */
+  selectPointsInRect(x1, y1, x2, y2, additive = false) {
+    if (!this.splineManager) return
+    const minX = Math.min(x1, x2)
+    const minY = Math.min(y1, y2)
+    const maxX = Math.max(x1, x2)
+    const maxY = Math.max(y1, y2)
+
+    if (!additive) {
+      this.clearSelection()
+    }
+
+    const newlySelected = []
+
+    this.splineManager.getAllSplines().forEach((spline) => {
+      spline.points.forEach((pt, idx) => {
+        if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
+          const key = `${spline.id}_${idx}`
+          if (!this.selectedPoints.has(key)) {
+            this.selectedPoints.add(key)
+            this.highlightPoint(spline.id, idx, true)
+            newlySelected.push(key)
+          }
+        }
+      })
+    })
+
+    // Precompute bounds immediately for rectangle selection visibility
+    this._cachedBounds = null
+    const bounds = this.getSelectionBounds()
+    this.emit("selectionChanged", {
+      selectedPoints: Array.from(this.selectedPoints),
+      count: this.selectedPoints.size,
+      hasSelection: this.hasSelection(),
+      added: newlySelected,
+      rect: { x1, y1, x2, y2 },
+      type: "rect",
+      bounds,
+    })
   }
 
   /**
@@ -114,11 +181,14 @@ export class PointSelectionManager extends EventEmitter {
 
     // Remove highlights from all selected points
     this.selectedPoints.forEach((pointKey) => {
-      const [splineId, pointIndex] = pointKey.split("_")
-      this.highlightPoint(splineId, parseInt(pointIndex), false)
+      const parts = pointKey.split("_")
+      const idx = parseInt(parts.pop())
+      const splineIdRecovered = parts.join("_")
+      this.highlightPoint(splineIdRecovered, idx, false)
     })
 
     this.selectedPoints.clear()
+    this._cachedBounds = null
 
     this.emit("selectionChanged", {
       selectedPoints: [],
@@ -170,11 +240,13 @@ export class PointSelectionManager extends EventEmitter {
     const affectedSplines = new Set()
 
     this.selectedPoints.forEach((pointKey) => {
-      const [splineId, pointIndex] = pointKey.split("_")
-      const spline = this.splineManager.getSpline(splineId)
+      const parts = pointKey.split("_")
+      const idx = parseInt(parts.pop())
+      const splineIdRecovered = parts.join("_")
+      const spline = this.splineManager.getSpline(splineIdRecovered)
 
-      if (spline && spline.points[parseInt(pointIndex)]) {
-        const point = spline.points[parseInt(pointIndex)]
+      if (spline && spline.points[idx]) {
+        const point = spline.points[idx]
         point.x += dx
         point.y += dy
 
@@ -182,7 +254,7 @@ export class PointSelectionManager extends EventEmitter {
           point.circle.center(point.x, point.y)
         }
 
-        affectedSplines.add(splineId)
+        affectedSplines.add(splineIdRecovered)
       }
     })
 
@@ -196,6 +268,9 @@ export class PointSelectionManager extends EventEmitter {
     console.log(
       `[PointSelectionManager] Moved ${this.selectedPoints.size} points across ${affectedSplines.size} splines`
     )
+
+    // Invalidate cached bounds after move
+    this._cachedBounds = null
   }
 
   /**
@@ -209,20 +284,24 @@ export class PointSelectionManager extends EventEmitter {
       `[PointSelectionManager] Deleting ${this.selectedPoints.size} points`
     )
 
+    const deleteCount = this.selectedPoints.size
+
     // Group points by spline for efficient deletion
     const pointsBySpline = new Map()
 
     this.selectedPoints.forEach((pointKey) => {
-      const [splineId, pointIndex] = pointKey.split("_")
-      if (!pointsBySpline.has(splineId)) {
-        pointsBySpline.set(splineId, [])
+      const parts = pointKey.split("_")
+      const idx = parseInt(parts.pop())
+      const splineIdRecovered = parts.join("_")
+      if (!pointsBySpline.has(splineIdRecovered)) {
+        pointsBySpline.set(splineIdRecovered, [])
       }
-      pointsBySpline.get(splineId).push(parseInt(pointIndex))
+      pointsBySpline.get(splineIdRecovered).push(idx)
     })
 
     // Delete points from each spline (in reverse order to maintain indices)
-    pointsBySpline.forEach((indices, splineId) => {
-      const spline = this.splineManager.getSpline(splineId)
+    pointsBySpline.forEach((indices, splineIdRecovered) => {
+      const spline = this.splineManager.getSpline(splineIdRecovered)
       if (!spline) return
 
       // Sort indices in descending order to delete from end to start
@@ -231,13 +310,13 @@ export class PointSelectionManager extends EventEmitter {
       indices.forEach((pointIndex) => {
         const point = spline.points[pointIndex]
         if (point) {
-          this.splineManager.deletePointFromSpline(splineId, point)
+          this.splineManager.deletePointFromSpline(splineIdRecovered, point)
         }
       })
     })
 
     this.clearSelection()
-    this.emit("pointsDeleted", { count: this.selectedPoints.size })
+    this.emit("pointsDeleted", { count: deleteCount })
     console.log("[PointSelectionManager] Deleted selected points")
   }
 
@@ -251,18 +330,90 @@ export class PointSelectionManager extends EventEmitter {
     const pointsData = []
 
     this.selectedPoints.forEach((pointKey) => {
-      const [splineId, pointIndex] = pointKey.split("_")
-      const spline = this.splineManager.getSpline(splineId)
+      const parts = pointKey.split("_")
+      const idx = parseInt(parts.pop())
+      const splineIdRecovered = parts.join("_")
+      const spline = this.splineManager.getSpline(splineIdRecovered)
 
-      if (spline && spline.points[parseInt(pointIndex)]) {
+      if (spline && spline.points[idx]) {
         pointsData.push({
-          splineId,
-          pointIndex: parseInt(pointIndex),
-          point: spline.points[parseInt(pointIndex)],
+          splineId: splineIdRecovered,
+          pointIndex: idx,
+          point: spline.points[idx],
         })
       }
     })
 
     return pointsData
+  }
+
+  /**
+   * Compute bounding box of all selected points
+   * @returns {{x:number,y:number,width:number,height:number}|null}
+   */
+  getSelectionBounds() {
+    if (!this.hasSelection() || !this.splineManager) {
+      console.log(
+        "[PointSelectionManager.getSelectionBounds] No selection or manager"
+      )
+      return null
+    }
+
+    if (this._cachedBounds) {
+      console.log(
+        "[PointSelectionManager.getSelectionBounds] Using cached",
+        this._cachedBounds
+      )
+      return this._cachedBounds
+    }
+
+    let minX = Infinity
+    let minY = Infinity
+    let maxX = -Infinity
+    let maxY = -Infinity
+
+    this.selectedPoints.forEach((pointKey) => {
+      const parts = pointKey.split("_")
+      const idx = parseInt(parts.pop())
+      const splineIdRecovered = parts.join("_")
+      const spline = this.splineManager.getSpline(splineIdRecovered)
+      const point = spline?.points?.[idx]
+      if (!point) {
+        console.log(
+          "[PointSelectionManager.getSelectionBounds] Missing point",
+          { splineId: splineIdRecovered, idx }
+        )
+        return
+      }
+      if (typeof point.x !== "number" || typeof point.y !== "number") {
+        console.log(
+          "[PointSelectionManager.getSelectionBounds] Invalid point coords",
+          { splineId: splineIdRecovered, idx, x: point.x, y: point.y }
+        )
+        return
+      }
+      if (point.x < minX) minX = point.x
+      if (point.y < minY) minY = point.y
+      if (point.x > maxX) maxX = point.x
+      if (point.y > maxY) maxY = point.y
+    })
+
+    if (minX === Infinity) {
+      console.log(
+        "[PointSelectionManager.getSelectionBounds] Computation failed (minX Infinity)"
+      )
+      return null
+    }
+
+    const padding = 4
+    const bounds = {
+      x: minX - padding,
+      y: minY - padding,
+      width: maxX - minX + padding * 2,
+      height: maxY - minY + padding * 2,
+    }
+    this._cachedBounds = bounds
+    console.log("[PointSelectionManager.getSelectionBounds] Computed", bounds)
+    return bounds
   }
 }
