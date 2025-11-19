@@ -18,6 +18,8 @@ export function setupDragSelectionHandlers(
 ) {
   let isDraggingSelection = false
   let dragButton = null
+  let windowPointerMoveBound = null
+  let windowPointerUpBound = null
 
   // Right-click drag for box selection
   draw.node.addEventListener("pointerdown", (e) => {
@@ -41,40 +43,68 @@ export function setupDragSelectionHandlers(
     }
   })
 
-  draw.node.addEventListener("pointermove", (e) => {
+  const handleMove = (e) => {
     if (!isDraggingSelection || dragButton !== 2) return
-
-    e.preventDefault()
-    e.stopPropagation()
-
     const coords = getViewportCoords
       ? getViewportCoords(e)
       : { x: e.offsetX, y: e.offsetY }
-
     selectionManager.updateDragSelection(coords.x, coords.y)
+  }
+  draw.node.addEventListener("pointermove", (e) => {
+    if (!isDraggingSelection) return
+    e.preventDefault()
+    e.stopPropagation()
+    handleMove(e)
   })
 
-  draw.node.addEventListener("pointerup", (e) => {
+  const finalizeDrag = (e, cancelled = false) => {
     if (!isDraggingSelection || dragButton !== 2) return
-    if (e.button !== 2) return
-
-    e.preventDefault()
-    e.stopPropagation()
-
     const coords = getViewportCoords
       ? getViewportCoords(e)
       : { x: e.offsetX, y: e.offsetY }
-
-    // Check if shift is held for additive selection
-    const additive = e.shiftKey
-
-    selectionManager.endDragSelection(coords.x, coords.y, additive)
-
+    if (!cancelled) {
+      const additive = e.shiftKey
+      selectionManager.endDragSelection(coords.x, coords.y, additive)
+      console.log("[selectionHandlers] Ended drag selection")
+    } else {
+      selectionManager.cancelDragSelection()
+      console.log("[selectionHandlers] Cancelled drag selection")
+    }
     isDraggingSelection = false
     dragButton = null
-
-    console.log("[selectionHandlers] Ended drag selection")
+    if (windowPointerMoveBound) {
+      window.removeEventListener("pointermove", windowPointerMoveBound)
+      windowPointerMoveBound = null
+    }
+    if (windowPointerUpBound) {
+      window.removeEventListener("pointerup", windowPointerUpBound)
+      windowPointerUpBound = null
+    }
+  }
+  draw.node.addEventListener("pointerup", (e) => {
+    if (e.button === 2) {
+      e.preventDefault()
+      e.stopPropagation()
+      finalizeDrag(e, false)
+    }
   })
+
+  // Window-level listeners to catch pointer leaving canvas
+  windowPointerMoveBound = (e) => {
+    if (!isDraggingSelection) return
+    handleMove(e)
+  }
+  windowPointerUpBound = (e) => {
+    if (!isDraggingSelection) return
+    if (e.button === 2) {
+      finalizeDrag(e, false)
+    } else if (e.button === 0) {
+      // Left button release while right-drag active -> cancel
+      finalizeDrag(e, true)
+    }
+  }
+  window.addEventListener("pointermove", windowPointerMoveBound)
+  window.addEventListener("pointerup", windowPointerUpBound)
 
   // Prevent context menu on right-click
   draw.node.addEventListener("contextmenu", (e) => {
@@ -86,9 +116,7 @@ export function setupDragSelectionHandlers(
   // Cancel selection on escape
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && isDraggingSelection) {
-      selectionManager.cancelDragSelection()
-      isDraggingSelection = false
-      dragButton = null
+      finalizeDrag(e, true)
     }
   })
 }

@@ -127,16 +127,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     state.lastY = y
 
     selMgr.moveSelected(dx, dy)
-
-    const overlay = groupOverlayRef.current
-    if (overlay) {
-      try {
-        overlay.move(overlay.x() + dx, overlay.y() + dy)
-        overlay.front()
-      } catch {
-        // ignore
-      }
-    }
+    // Recompute overlay from fresh bounds for accurate tracking
+    updateGroupOverlay()
   }
 
   // Finalize overlay drag, push history, and cleanup listeners
@@ -170,7 +162,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       if (groupOverlayRef.current) {
         try {
           groupOverlayRef.current.remove()
-        } catch {}
+        } catch {
+          // ignore front errors
+        }
         groupOverlayRef.current = null
       }
       return
@@ -182,7 +176,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       const overlay = draw
         .rect(width, height)
         .move(x, y)
-        .fill("none")
+        .fill("rgba(0,0,0,0)") // transparent but clickable
         .stroke({ color: "#00bfff", width: 1.5, dasharray: "6,4" })
         .id("group-selection-overlay")
 
@@ -209,7 +203,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     try {
       groupOverlayRef.current.front()
-    } catch {}
+    } catch {
+      // ignore front errors
+    }
   }
 
   // ---------- Initialize SVG draw, grid, pan/zoom, and main handlers ----------
@@ -451,18 +447,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       updateGroupOverlay()
     }
 
-    const handleSelectionMoved = ({ dx, dy }) => {
-      const overlay = groupOverlayRef.current
-      if (overlay) {
-        try {
-          const currentX = overlay.x() || 0
-          const currentY = overlay.y() || 0
-          overlay.move(currentX + dx, currentY + dy)
-          overlay.front()
-        } catch {
-          updateGroupOverlay()
-        }
-      }
+    const handleSelectionMoved = () => {
+      // Always recompute overlay bounds; spline path changes can shift bbox
+      updateGroupOverlay()
     }
 
     // When a new spline is created (including during paste), attach transformation handlers
@@ -522,6 +509,17 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     console.log("[Canvas] useEffect tool change, activating:", selectedTool)
     activateToolInRegistry(toolRegistryRef.current, selectedTool || "select")
     console.log("[Canvas] Tool changed to:", selectedTool)
+
+    // Cancel any active drag selection if leaving select tool
+    if (selectedToolRef.current !== "select") {
+      selectionManager.current?.cancelDragSelection?.()
+    }
+
+    // Also remove any lingering drag selection rectangle if tool switched
+    selectionManager.current?.clearSelection?.()
+    updateGroupOverlay()
+    // Intentionally exclude updateGroupOverlay from deps to avoid recreating on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTool])
 
   // dblclick: finish current spline (escape is handled by hotkeys)

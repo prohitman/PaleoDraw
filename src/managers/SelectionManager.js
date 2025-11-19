@@ -132,14 +132,31 @@ export default class SelectionManager extends EventEmitter {
     }
 
     if (this.selectedSvgObjects.has(svgObjectId)) {
-      // Already selected, deselect if additive (toggle behavior)
       if (additive) {
         this.selectedSvgObjects.delete(svgObjectId)
-        // TODO: Call svgObjectManager to deselect visual state
+        // Deselect visual state
+        const obj = this.svgObjectManager?.getObject?.(svgObjectId)
+        if (obj) {
+          try {
+            obj.select?.(false)
+            obj.resize?.(false)
+          } catch {
+            // ignore
+          }
+        }
       }
     } else {
       this.selectedSvgObjects.add(svgObjectId)
-      // TODO: Call svgObjectManager to select visual state
+      // Select visual state
+      const obj = this.svgObjectManager?.getObject?.(svgObjectId)
+      if (obj) {
+        try {
+          obj.select?.({ rotationPoint: true })
+          obj.resize?.({ rotationPoint: true })
+        } catch {
+          // ignore
+        }
+      }
     }
 
     this.emit("selectionChanged", {
@@ -192,7 +209,15 @@ export default class SelectionManager extends EventEmitter {
 
     svgObjectIds.forEach((id) => {
       this.selectedSvgObjects.add(id)
-      // TODO: Call svgObjectManager to select visual state
+      const obj = this.svgObjectManager?.getObject?.(id)
+      if (obj) {
+        try {
+          obj.select?.({ rotationPoint: true })
+          obj.resize?.({ rotationPoint: true })
+        } catch {
+          // ignore
+        }
+      }
     })
 
     this.emit("selectionChanged", {
@@ -223,11 +248,29 @@ export default class SelectionManager extends EventEmitter {
 
     // Deselect all SVG objects
     this.selectedSvgObjects.forEach((id) => {
-      // TODO: Call svgObjectManager to deselect visual state
+      const obj = this.svgObjectManager?.getObject?.(id)
+      if (obj) {
+        try {
+          obj.select?.(false)
+          obj.resize?.(false)
+        } catch {
+          // ignore
+        }
+      }
     })
 
     this.selectedSplines.clear()
     this.selectedSvgObjects.clear()
+
+    // If a drag selection box is still lingering (edge case), remove it
+    if (this.selectionBox && !this.isDragging) {
+      try {
+        this.selectionBox.remove()
+      } catch {
+        // ignore removal errors
+      }
+      this.selectionBox = null
+    }
 
     this.emit("selectionChanged", {
       splines: [],
@@ -284,6 +327,11 @@ export default class SelectionManager extends EventEmitter {
       const height = Math.abs(y - this.dragStart.y)
 
       this.selectionBox.move(minX, minY).size(width, height)
+      try {
+        this.selectionBox.front()
+      } catch {
+        // ignore
+      }
     }
 
     this.emit("dragSelectionMove", { x, y })
@@ -412,8 +460,25 @@ export default class SelectionManager extends EventEmitter {
    * @returns {string[]} - Array of SVG object IDs
    */
   findSvgObjectsInBounds(bounds) {
+    if (!this.svgObjectManager) return []
     const objectsInBounds = []
-    // TODO: Implement when SVGObjectManager has proper object tracking
+    const allObjects = this.svgObjectManager.getAllObjects?.() || []
+    allObjects.forEach((obj) => {
+      try {
+        const bbox = obj.bbox?.()
+        if (!bbox) return
+        const intersects =
+          bbox.x < bounds.maxX &&
+          bbox.x + bbox.width > bounds.minX &&
+          bbox.y < bounds.maxY &&
+          bbox.y + bbox.height > bounds.minY
+        if (intersects) {
+          objectsInBounds.push(obj._objectId)
+        }
+      } catch {
+        // ignore
+      }
+    })
     return objectsInBounds
   }
 
@@ -430,7 +495,8 @@ export default class SelectionManager extends EventEmitter {
 
     // Delete selected SVG objects
     this.selectedSvgObjects.forEach((id) => {
-      // TODO: Call svgObjectManager to delete
+      // Delete svg objects via manager
+      this.svgObjectManager?.deleteObject?.(id)
     })
 
     this.clearSelection()
@@ -460,8 +526,8 @@ export default class SelectionManager extends EventEmitter {
     })
 
     // Move selected SVG objects
-    this.selectedSvgObjects.forEach((id) => {
-      const obj = this.svgObjectManager?.getObjectById?.(id)
+    this.selectedSvgObjects.forEach((objId) => {
+      const obj = this.svgObjectManager?.getObjectById?.(objId)
       if (obj?.element) {
         const currentX = obj.element.x() || 0
         const currentY = obj.element.y() || 0
@@ -499,7 +565,20 @@ export default class SelectionManager extends EventEmitter {
 
     // Include selected SVG objects
     this.selectedSvgObjects.forEach((id) => {
-      // TODO: Include SVG object bounds
+      const obj = this.svgObjectManager?.getObject?.(id)
+      if (obj) {
+        try {
+          const bbox = obj.bbox?.()
+          if (bbox) {
+            minX = Math.min(minX, bbox.x)
+            minY = Math.min(minY, bbox.y)
+            maxX = Math.max(maxX, bbox.x + bbox.width)
+            maxY = Math.max(maxY, bbox.y + bbox.height)
+          }
+        } catch {
+          // ignore
+        }
+      }
     })
 
     if (minX === Infinity) return null
