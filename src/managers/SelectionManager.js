@@ -209,7 +209,11 @@ export default class SelectionManager extends EventEmitter {
 
     svgObjectIds.forEach((id) => {
       this.selectedSvgObjects.add(id)
-      const obj = this.svgObjectManager?.getObject?.(id)
+    })
+
+    // Only show selection box if single object is selected
+    if (svgObjectIds.length === 1) {
+      const obj = this.svgObjectManager?.getObject?.(svgObjectIds[0])
       if (obj) {
         try {
           obj.select?.({ rotationPoint: true })
@@ -218,7 +222,20 @@ export default class SelectionManager extends EventEmitter {
           // ignore
         }
       }
-    })
+    } else {
+      // Remove lingering selection boxes from all selected objects
+      svgObjectIds.forEach((id) => {
+        const obj = this.svgObjectManager?.getObject?.(id)
+        if (obj && obj.node) {
+          const selBox = obj.node.querySelector(".svg-select-box")
+          if (selBox) selBox.remove()
+        }
+        try {
+          obj?.resize?.(false)
+          obj?.select?.(false)
+        } catch {}
+      })
+    }
 
     this.emit("selectionChanged", {
       splines: Array.from(this.selectedSplines),
@@ -246,16 +263,19 @@ export default class SelectionManager extends EventEmitter {
       if (spline) spline.setSelected(false)
     })
 
-    // Deselect all SVG objects
+    // Deselect all SVG objects and remove overlays
     this.selectedSvgObjects.forEach((id) => {
       const obj = this.svgObjectManager?.getObject?.(id)
       if (obj) {
+        // Remove lingering selection box overlays
+        if (obj.node) {
+          const selBox = obj.node.querySelector(".svg-select-box")
+          if (selBox) selBox.remove()
+        }
         try {
           obj.select?.(false)
           obj.resize?.(false)
-        } catch {
-          // ignore
-        }
+        } catch {}
       }
     })
 
@@ -525,15 +545,33 @@ export default class SelectionManager extends EventEmitter {
       }
     })
 
+    // Remove lingering selection boxes before move
+    this.selectedSvgObjects.forEach((objId) => {
+      const obj = this.svgObjectManager?.getObject?.(objId)
+      if (obj && obj.node) {
+        const selBox = obj.node.querySelector(".svg-select-box")
+        if (selBox) selBox.remove()
+      }
+    })
+
     // Move selected SVG objects
     this.selectedSvgObjects.forEach((objId) => {
       const obj = this.svgObjectManager?.getObject?.(objId)
-      if (obj?.element) {
-        const currentX = obj.element.x() || 0
-        const currentY = obj.element.y() || 0
-        obj.element.move(currentX + dx, currentY + dy)
+      if (
+        obj &&
+        typeof obj.x === "function" &&
+        typeof obj.y === "function" &&
+        typeof obj.move === "function"
+      ) {
+        const currentX = obj.x() || 0
+        const currentY = obj.y() || 0
+        obj.move(currentX + dx, currentY + dy)
       }
     })
+
+    // Do NOT reapply selection overlays after every move step.
+    // Overlays should only be re-applied after drag ends (in mouseup/dragend handler).
+    // This prevents overlay artifacts during group drag.
 
     this.emit("selectionMoved", { dx, dy })
     console.log("[SelectionManager.moveSelected] Move complete")

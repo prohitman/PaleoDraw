@@ -253,7 +253,8 @@ export function setupBackgroundClickBehavior(
   splineManager,
   selectionManager,
   selectedRef,
-  selectedTool
+  selectedTool,
+  svgObjectManager
 ) {
   const handleBackgroundClick = (e) => {
     console.log("[Canvas.handleBackgroundClick] Click on container", {
@@ -283,10 +284,10 @@ export function setupBackgroundClickBehavior(
       }
       return
     }
-    if (
-      e.target === container.querySelector("svg") &&
-      e.target != selectedRef.current
-    ) {
+    const rootSvg = container.querySelector("svg")
+    const clickedCanvasBg = e.target?.id === "canvas-bg"
+    const isRootSvg = e.target === rootSvg
+    if ((isRootSvg || clickedCanvasBg) && e.target != selectedRef.current) {
       console.log("[Canvas.handleBackgroundClick] Clearing selections")
       if (manager) manager._justCreatedSplineId = null
       if (selectedRef.current) {
@@ -298,6 +299,8 @@ export function setupBackgroundClickBehavior(
       splineManager.current?.clearSelection?.()
       // Clear SelectionManager multi-selection
       selectionManager.current?.clearSelection?.()
+      // Clear imported SVG selection via manager API
+      svgObjectManager?.current?.clearSelection?.()
     }
   }
 

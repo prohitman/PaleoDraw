@@ -133,15 +133,25 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     state.lastX = x
     state.lastY = y
 
+    // Hide overlay during drag
+    if (groupOverlayRef.current) {
+      try {
+        groupOverlayRef.current.remove()
+      } catch {}
+      groupOverlayRef.current = null
+    }
+
     selMgr.moveSelected(dx, dy)
-    // Recompute overlay from fresh bounds for accurate tracking
-    updateGroupOverlay()
+    // Do NOT updateGroupOverlay during drag
   }
 
   // Finalize overlay drag, push history, and cleanup listeners
   const handleOverlayDragUp = () => {
     overlayDragStateRef.current.dragging = false
     window.removeEventListener("pointermove", handleOverlayDragMove)
+
+    // Restore overlay after drag ends
+    updateGroupOverlay()
 
     const manager = splineManager.current
     const svgMgr = svgObjectManager.current
@@ -479,7 +489,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       splineManager,
       selectionManager,
       selectedRef,
-      selectedToolRef
+      selectedToolRef,
+      svgObjectManager
     )
 
     // Helper function to convert screen coordinates to viewport coordinates
@@ -537,6 +548,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       pointSelectionManager,
       selectedToolRef: selectedToolRef,
       isDraggingRef: isDraggingPoint,
+      drawRef,
       onToolChange: (tool) => {
         selectedToolRef.current = tool
       },

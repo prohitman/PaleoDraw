@@ -383,7 +383,13 @@ export default class SplineManager extends EventEmitter {
    */
   updateOnToolChange(tool) {
     if (tool !== "curve" && tool !== "line" && tool !== "straight") {
-      // Hide points when not in curve tool
+      // Leaving point-edit tools: clear any multi-point selection state/colors
+      try {
+        this.pointSelectionManager?.clearSelection?.()
+      } catch {
+        // ignore point selection clearing errors
+      }
+      // Hide points when not in an editing tool
       this.splines.forEach((spline) => {
         if (spline.selected) {
           spline.setSelected(false)

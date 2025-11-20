@@ -17,74 +17,63 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     pointSelectionManager,
     selectedToolRef,
     historyManager,
+    drawRef,
   } = context
 
-  // Delete selected spline(s) - supports both single and multi-selection
+  // Delete selected spline(s) or SVG object(s)
+  function deleteSelectedHandler() {
+    // Point multi-selection (curve tool) takes priority
+    if (
+      (selectedToolRef?.current === "curve" ||
+        selectedToolRef?.current === "line" ||
+        selectedToolRef?.current === "straight") &&
+      pointSelectionManager?.current?.hasSelection?.()
+    ) {
+      pointSelectionManager.current.deleteSelectedPoints()
+      // Save history
+      const splineData =
+        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+      const svgData = svgObjectManager.current?.getState?.() || []
+      historyManager?.current?.pushState(splineData, svgData)
+      return
+    }
+    // Check if SelectionManager has multiple items selected
+    if (selectionManager?.current?.hasSelection?.()) {
+      selectionManager.current.deleteSelected()
+      return
+    }
+
+    // Delete selected SVG object if present
+    const selectedSvgId = svgObjectManager?.current?.getSelectedId?.()
+    if (selectedSvgId) {
+      svgObjectManager.current.deleteObject(selectedSvgId)
+      // Save history
+      const splineData =
+        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+      const svgData = svgObjectManager.current?.getState?.() || []
+      historyManager?.current?.pushState(splineData, svgData)
+      return
+    }
+
+    // Otherwise, delete single selected spline
+    const selected = splineManager?.current?.getSelected?.()
+    if (selected) {
+      splineManager.current.deleteSpline(selected.id)
+    }
+  }
+
   hotkeysManager.register(
     "delete",
     "selection",
-    () => {
-      // Point multi-selection (curve tool) takes priority
-      if (
-        (selectedToolRef?.current === "curve" ||
-          selectedToolRef?.current === "line" ||
-          selectedToolRef?.current === "straight") &&
-        pointSelectionManager?.current?.hasSelection?.()
-      ) {
-        pointSelectionManager.current.deleteSelectedPoints()
-        // Save history
-        const splineData =
-          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.current?.getState?.() || []
-        historyManager?.current?.pushState(splineData, svgData)
-        return
-      }
-      // Check if SelectionManager has multiple items selected
-      if (selectionManager?.current?.hasSelection?.()) {
-        selectionManager.current.deleteSelected()
-        return
-      }
-
-      // Otherwise, delete single selected spline
-      const selected = splineManager?.current?.getSelected?.()
-      if (selected) {
-        splineManager.current.deleteSpline(selected.id)
-      }
-    },
-    "Delete selected spline"
+    deleteSelectedHandler,
+    "Delete selected spline or SVG object"
   )
 
-  // Backspace as alternative to Delete
   hotkeysManager.register(
     "backspace",
     "selection",
-    () => {
-      if (
-        (selectedToolRef?.current === "curve" ||
-          selectedToolRef?.current === "line" ||
-          selectedToolRef?.current === "straight") &&
-        pointSelectionManager?.current?.hasSelection?.()
-      ) {
-        pointSelectionManager.current.deleteSelectedPoints()
-        const splineData =
-          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.current?.getState?.() || []
-        historyManager?.current?.pushState(splineData, svgData)
-        return
-      }
-      // Check if SelectionManager has multiple items selected
-      if (selectionManager?.current?.hasSelection?.()) {
-        selectionManager.current.deleteSelected()
-        return
-      }
-
-      // Otherwise, delete single selected spline
-      const selected = splineManager?.current?.getSelected?.()
-      if (selected) {
-        splineManager.current.deleteSpline(selected.id)
-      }
-    },
-    "Delete selected spline (alternate)"
+    deleteSelectedHandler,
+    "Delete selected spline or SVG object (alternate)"
   )
 
   // Copy selected spline or SVG object (select tool OR an active editing tool with a selected spline)
@@ -243,10 +232,98 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         console.log("[Hotkeys] Pasted spline:", newSpline.id)
         manager.emit("change")
       } else if (clipboardType === "svg" && svgObjectManager?.current) {
-        // SVG paste - the Canvas component should handle this with drawRef
-        // For now, log that we have SVG data and need Canvas integration
-        console.log("[Hotkeys] SVG paste copied, ready to paste")
-        console.log("[Hotkeys] SVG clipboard data available:", !!clipboard?.svg)
+        try {
+          const draw = drawRef?.current
+          if (!draw) {
+            console.warn("[Hotkeys] Cannot paste SVG: drawRef missing")
+            return
+          }
+          const group = draw.group().svg(clipboard.svg)
+          if (clipboard.transform) {
+            try {
+              group.transform(clipboard.transform)
+            } catch {
+              // ignore transform errors
+            }
+          }
+          // Offset pasted SVG slightly
+          const bbox = group.bbox?.()
+          if (bbox) {
+            group.move(bbox.x + 20, bbox.y + 20)
+          }
+
+          // Attach selection, resize, and click handlers (same as import logic)
+          group.draggable()
+          group.on("dragstart", () => {
+            if (svgObjectManager.current.getSelected() === group) {
+              group.select(false)
+              group.resize(false)
+              svgObjectManager.current.clearSelection()
+            }
+          })
+          group.on("dragend", () => {
+            if (svgObjectManager.current.getSelected() === group) {
+              try {
+                group.select(false)
+                group.resize(false)
+                setTimeout(() => {
+                  group.select(true)
+                  group.resize({ rotationPoint: true })
+                  svgObjectManager.current.selectObject(group._objectId)
+                }, 0)
+              } catch (err) {
+                console.warn("[Hotkeys] SVG dragend reselection error:", err)
+              }
+            }
+            // Save to history after drag end
+            const splineData =
+              splineManager.current
+                ?.getAllSplines?.()
+                ?.map((s) => s.toJSON()) || []
+            const svgData = svgObjectManager.current?.getState?.() || []
+            historyManager?.current?.pushState(splineData, svgData)
+          })
+          group.on("resize", () => {
+            if (!group._resizingActive) group._resizingActive = true
+            clearTimeout(group._resizeTimeout)
+            group._resizeTimeout = setTimeout(() => {
+              group._resizingActive = false
+              // Save to history after resize end
+              const splineData =
+                splineManager.current
+                  ?.getAllSplines?.()
+                  ?.map((s) => s.toJSON()) || []
+              const svgData = svgObjectManager.current?.getState?.() || []
+              historyManager?.current?.pushState(splineData, svgData)
+            }, 150)
+
+            clearTimeout(group._refreshTimeout)
+            group._refreshTimeout = setTimeout(() => {
+              if (svgObjectManager.current.getSelected() === group) {
+                group.select(false)
+                group.resize(false)
+                group.select(true)
+                group.resize({ rotationPoint: true })
+              }
+            }, 1)
+          })
+          group.on("click", (ev) => {
+            ev.stopPropagation()
+            svgObjectManager.current.selectObject(group._objectId)
+          })
+
+          svgObjectManager.current.addObject(group)
+
+          // Save history after paste
+          const splineData =
+            splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) ||
+            []
+          const svgData = svgObjectManager.current?.getState?.() || []
+          historyManager?.current?.pushState(splineData, svgData)
+          console.log("[Hotkeys] Pasted SVG object with handlers attached")
+        } catch (err) {
+          console.error("[Hotkeys] Error pasting SVG object", err)
+        }
       } else {
         console.log(
           "[Hotkeys] Clipboard type mismatch or manager not available"
@@ -493,10 +570,25 @@ function nudgeSelected(
   const selectedSvgId = svgObjectManager?.getSelectedId?.()
   if (selectedSvgId) {
     const obj = svgObjectManager.getObject(selectedSvgId)
-    if (obj?.element) {
-      const currentX = obj.element.x() || 0
-      const currentY = obj.element.y() || 0
-      obj.element.move(currentX + dx, currentY + dy)
+    if (obj) {
+      try {
+        const currentX = obj.x?.() || obj.bbox?.().x || 0
+        const currentY = obj.y?.() || obj.bbox?.().y || 0
+        obj.move(currentX + dx, currentY + dy)
+        // Remove lingering selection box after nudge
+        if (obj.node) {
+          const selBox = obj.node.querySelector(".svg-select-box")
+          if (selBox) selBox.remove()
+        }
+        obj.select?.(false)
+        obj.resize?.(false)
+        setTimeout(() => {
+          obj.select?.({ rotationPoint: true })
+          obj.resize?.({ rotationPoint: true })
+        }, 0)
+      } catch (moveErr) {
+        console.warn("[Hotkeys] Failed to move SVG object", moveErr)
+      }
 
       // Save to history
       if (historyManager) {

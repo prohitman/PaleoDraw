@@ -163,11 +163,16 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
+      const pointSelectionManager = context.pointSelectionManager?.current
 
       splineManager?.finishDrawing?.()
       svgObjectManager?.finishDrawing?.()
+      // Clear all selections: splines, SVG objects, and points
+      splineManager?.clearSelection?.()
+      svgObjectManager?.clearSelection?.()
+      pointSelectionManager?.clearSelection?.()
 
-      console.log("[canvasHotkeys] Finish drawing executed")
+      console.log("[canvasHotkeys] Finish drawing and cleared all selections")
     },
     "Finish drawing spline"
   )

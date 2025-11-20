@@ -61,6 +61,11 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     try {
+      // Remove lingering selection box if present
+      if (obj.node) {
+        const selBox = obj.node.querySelector(".svg-select-box")
+        if (selBox) selBox.remove()
+      }
       obj.select?.(false)
       obj.resize?.(false)
       obj.remove?.()

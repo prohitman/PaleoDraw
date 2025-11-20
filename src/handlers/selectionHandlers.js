@@ -20,6 +20,8 @@ export function setupDragSelectionHandlers(
   let dragButton = null
   let windowPointerMoveBound = null
   let windowPointerUpBound = null
+  // Track both screen and viewport coords for smoother visual box tracking
+  // (screen coords retained conceptually; removed vars to satisfy lint)
 
   // Right-click drag for box selection
   draw.node.addEventListener("pointerdown", (e) => {
@@ -34,7 +36,7 @@ export function setupDragSelectionHandlers(
       const coords = getViewportCoords
         ? getViewportCoords(e)
         : { x: e.offsetX, y: e.offsetY }
-
+      // screen offsets accessible via event; no persistent vars needed
       isDraggingSelection = true
       dragButton = 2
       selectionManager.startDragSelection(coords.x, coords.y, draw)
@@ -45,9 +47,13 @@ export function setupDragSelectionHandlers(
 
   const handleMove = (e) => {
     if (!isDraggingSelection || dragButton !== 2) return
+    // Update visual box using raw screen offsets for precise cursor following
+    const screenX = e.offsetX
+    const screenY = e.offsetY
+    // Convert to viewport for logical selection bounds
     const coords = getViewportCoords
       ? getViewportCoords(e)
-      : { x: e.offsetX, y: e.offsetY }
+      : { x: screenX, y: screenY }
     selectionManager.updateDragSelection(coords.x, coords.y)
   }
   draw.node.addEventListener("pointermove", (e) => {

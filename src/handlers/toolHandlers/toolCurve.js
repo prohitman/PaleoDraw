@@ -19,6 +19,7 @@ export const curveToolHandlers = {
       historyManager,
       isDraggingPoint,
       drawRef,
+      pointSelectionManager,
     } = context
     console.log("[curveToolHandlers.click] Handling curve tool click", {
       managerType: typeof manager,
@@ -90,6 +91,8 @@ export const curveToolHandlers = {
     // Alt+click: Insert point by proximity into existing spline
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       console.log("[curveToolHandlers] Alt+click: inserting point by proximity")
+      // Clear any existing multi-point selection before modifying spline
+      pointSelectionManager?.current?.clearSelection?.()
       manager.insertPointByProximity(selectedSpline.id, x, y)
       // Save to history
       const splineData =
@@ -128,6 +131,8 @@ export const curveToolHandlers = {
       }
       const spline = manager.createSplineAt(x, y)
       console.log("[curveToolHandlers] createSplineAt returned:", spline)
+      // Starting a new spline should clear any prior multi-point selection
+      pointSelectionManager?.current?.clearSelection?.()
       // Only create the first point, do NOT add a second point immediately
       e.stopPropagation()
       return
@@ -141,6 +146,8 @@ export const curveToolHandlers = {
     )
     if (activeSpline && activeSpline.selected) {
       console.log("[curveToolHandlers] Adding point to spline", activeSpline.id)
+      // Deselect multi-selected points when appending a new point
+      pointSelectionManager?.current?.clearSelection?.()
       const point = manager.addPointToSpline(activeSpline.id, x, y)
       console.log("[curveToolHandlers] addPointToSpline returned:", point)
       // Save to history
