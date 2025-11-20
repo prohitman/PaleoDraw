@@ -26,7 +26,9 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     () => {
       // Point multi-selection (curve tool) takes priority
       if (
-        selectedToolRef?.current === "curve" &&
+        (selectedToolRef?.current === "curve" ||
+          selectedToolRef?.current === "line" ||
+          selectedToolRef?.current === "straight") &&
         pointSelectionManager?.current?.hasSelection?.()
       ) {
         pointSelectionManager.current.deleteSelectedPoints()
@@ -58,7 +60,9 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "selection",
     () => {
       if (
-        selectedToolRef?.current === "curve" &&
+        (selectedToolRef?.current === "curve" ||
+          selectedToolRef?.current === "line" ||
+          selectedToolRef?.current === "straight") &&
         pointSelectionManager?.current?.hasSelection?.()
       ) {
         pointSelectionManager.current.deleteSelectedPoints()
@@ -83,18 +87,26 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "Delete selected spline (alternate)"
   )
 
-  // Copy selected spline or SVG object (only in select tool)
+  // Copy selected spline or SVG object (select tool OR an active editing tool with a selected spline)
   hotkeysManager.register(
     "ctrl+c",
     "selection",
     () => {
-      // Only allow copy in select tool
-      if (selectedToolRef?.current !== "select") {
-        console.log("[Hotkeys] Copy only available in select tool")
+      const tool = selectedToolRef?.current
+      const splineSelected = splineManager?.current?.getSelected?.()
+      // Allow copy if in select tool OR (tool is curve/line/straight and a spline is selected)
+      const canCopySpline =
+        tool === "select" ||
+        ((tool === "curve" || tool === "line" || tool === "straight") &&
+          !!splineSelected)
+      if (!canCopySpline) {
+        console.log(
+          "[Hotkeys] Copy requires selection (select or edit tool with active spline)"
+        )
         return
       }
 
-      // Try spline first
+      // Try spline first (priority if selected)
       const selectedSpline = splineManager?.current?.getSelected?.()
       if (selectedSpline) {
         clipboard = selectedSpline.toJSON()
@@ -123,14 +135,21 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "Copy selected spline or SVG"
   )
 
-  // Cut selected spline or SVG object (only in select tool)
+  // Cut selected spline or SVG object (select tool OR active edit tool with selected spline)
   hotkeysManager.register(
     "ctrl+x",
     "selection",
     () => {
-      // Only allow cut in select tool
-      if (selectedToolRef?.current !== "select") {
-        console.log("[Hotkeys] Cut only available in select tool")
+      const tool = selectedToolRef?.current
+      const splineSelected = splineManager?.current?.getSelected?.()
+      const canCutSpline =
+        tool === "select" ||
+        ((tool === "curve" || tool === "line" || tool === "straight") &&
+          !!splineSelected)
+      if (!canCutSpline) {
+        console.log(
+          "[Hotkeys] Cut requires selection (select or edit tool with active spline)"
+        )
         return
       }
 
@@ -410,9 +429,11 @@ function nudgeSelected(
   const pointSelectionManager = pointSelectionManagerRef?.current
   const historyManager = historyManagerRef?.current
 
-  // Point multi-selection first (curve tool)
+  // Point multi-selection first (curve or line tool)
   if (
-    selectedToolRefRef?.current === "curve" &&
+    (selectedToolRefRef?.current === "curve" ||
+      selectedToolRefRef?.current === "line" ||
+      selectedToolRefRef?.current === "straight") &&
     pointSelectionManager?.hasSelection?.()
   ) {
     pointSelectionManager.moveSelectedPoints(dx, dy)
@@ -471,7 +492,7 @@ function nudgeSelected(
   // Try SVG object
   const selectedSvgId = svgObjectManager?.getSelectedId?.()
   if (selectedSvgId) {
-    const obj = svgObjectManager.getObjectById(selectedSvgId)
+    const obj = svgObjectManager.getObject(selectedSvgId)
     if (obj?.element) {
       const currentX = obj.element.x() || 0
       const currentY = obj.element.y() || 0

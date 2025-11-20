@@ -38,9 +38,9 @@ export default class SplineManager extends EventEmitter {
    * @param {boolean} autoSelect - Whether to automatically select the new spline (default: true)
    * @returns {Spline}
    */
-  createSpline(autoSelect = true) {
+  createSpline(autoSelect = true, type = "bspline") {
     console.log("[SplineManager] Creating new spline")
-    const spline = new Spline({ draw: this.draw })
+    const spline = new Spline({ draw: this.draw, type })
     console.log("[SplineManager] Spline instance created:", spline.id)
     this.splines.set(spline.id, spline)
     console.log(
@@ -73,8 +73,8 @@ export default class SplineManager extends EventEmitter {
         return
       }
 
-      // Curve tool - select if not already selected
-      if (tool === "curve") {
+      // Curve/Line/Straight tools - select if not already selected
+      if (tool === "curve" || tool === "line" || tool === "straight") {
         if (this.selectedSplineId !== spline.id) {
           e.stopPropagation()
           this.selectSpline(spline.id)
@@ -382,7 +382,7 @@ export default class SplineManager extends EventEmitter {
    * Handles visual state updates for tool switching
    */
   updateOnToolChange(tool) {
-    if (tool !== "curve") {
+    if (tool !== "curve" && tool !== "line" && tool !== "straight") {
       // Hide points when not in curve tool
       this.splines.forEach((spline) => {
         if (spline.selected) {
@@ -593,8 +593,8 @@ export default class SplineManager extends EventEmitter {
               return
             }
 
-            // Curve tool - select for adding points
-            if (tool === "curve") {
+            // Curve/Line/Straight tools - select for adding points
+            if (tool === "curve" || tool === "line" || tool === "straight") {
               e.stopPropagation()
               this.selectSpline(spline.id)
               return
@@ -632,7 +632,12 @@ export default class SplineManager extends EventEmitter {
     this._transformAPI?.attachToAll?.()
 
     // Auto-select the last spline if in curve mode (so user can continue editing)
-    if (context.selectedToolRef?.current === "curve" && this.splines.size > 0) {
+    if (
+      (context.selectedToolRef?.current === "curve" ||
+        context.selectedToolRef?.current === "line" ||
+        context.selectedToolRef?.current === "straight") &&
+      this.splines.size > 0
+    ) {
       const lastSpline = Array.from(this.splines.values())[
         this.splines.size - 1
       ]
@@ -755,8 +760,8 @@ export default class SplineManager extends EventEmitter {
               return
             }
 
-            // Curve tool - select for adding points
-            if (tool === "curve") {
+            // Curve/Line/Straight tools - select for adding points
+            if (tool === "curve" || tool === "line" || tool === "straight") {
               e.stopPropagation()
               this.selectSpline(spline.id)
               return
@@ -794,7 +799,12 @@ export default class SplineManager extends EventEmitter {
     this._transformAPI?.attachToAll?.()
 
     // Auto-select the last spline if in curve mode (so user can continue editing)
-    if (context.selectedToolRef?.current === "curve" && this.splines.size > 0) {
+    if (
+      (context.selectedToolRef?.current === "curve" ||
+        context.selectedToolRef?.current === "line" ||
+        context.selectedToolRef?.current === "straight") &&
+      this.splines.size > 0
+    ) {
       const lastSpline = Array.from(this.splines.values())[
         this.splines.size - 1
       ]
@@ -860,7 +870,11 @@ export default class SplineManager extends EventEmitter {
       }
       // Allow selection in both select and curve modes
       const currentTool = selectedToolRef?.current
-      const canSelect = currentTool === "select" || currentTool === "curve"
+      const canSelect =
+        currentTool === "select" ||
+        currentTool === "curve" ||
+        currentTool === "line" ||
+        currentTool === "straight"
       if (!canSelect) {
         console.log(
           "[transformAPI.selectSpline] Tool not select or curve:",
@@ -1223,10 +1237,12 @@ export default class SplineManager extends EventEmitter {
    * @param {number} y - Y coordinate of first point
    * @returns {Spline} - The newly created and selected spline
    */
-  createSplineAt(x, y) {
+  createSplineAt(x, y, type = "bspline") {
     console.log("[SplineManager.createSplineAt] Creating spline at", { x, y })
-    const spline = this.createSpline(true) // auto-select
+    const spline = this.createSpline(true, type) // auto-select with type
     this.addPointToSpline(spline.id, x, y)
+    // Flag to suppress immediate background clearance so next click can add a point
+    this._justCreatedSplineId = spline.id
     return spline
   }
 
@@ -1246,6 +1262,8 @@ export default class SplineManager extends EventEmitter {
       "[SplineManager.addPointToActiveSpline] Adding point to",
       activeSpline.id
     )
+    // While actively adding points keep suppression flag
+    this._justCreatedSplineId = activeSpline.id
     return this.addPointToSpline(activeSpline.id, x, y)
   }
 

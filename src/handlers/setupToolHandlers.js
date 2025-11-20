@@ -7,6 +7,7 @@
 import ToolRegistry from "./ToolRegistry"
 import {
   curveToolHandlers,
+  lineToolHandlers,
   selectToolHandlers,
   deleteSplineToolHandlers,
 } from "./toolHandlers"
@@ -22,6 +23,9 @@ export function setupToolHandlers() {
 
   // Register all tools
   registry.registerTool("curve", curveToolHandlers)
+  registry.registerTool("line", lineToolHandlers)
+  // Alias 'straight' to line (polyline) behavior for UI consistency
+  registry.registerTool("straight", lineToolHandlers)
   registry.registerTool("select", selectToolHandlers)
   registry.registerTool("delete_spline", deleteSplineToolHandlers)
 

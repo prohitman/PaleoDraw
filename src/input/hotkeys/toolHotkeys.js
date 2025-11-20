@@ -33,6 +33,19 @@ export function registerToolHotkeys(hotkeysManager, context) {
     "Activate Curve tool"
   )
 
+  // Line (polyline) tool (L)
+  hotkeysManager.register(
+    "l",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "line") {
+        selectedToolRef.current = "line"
+        onToolChange?.("line")
+      }
+    },
+    "Activate Line (polyline) tool"
+  )
+
   // Import SVG (I)
   hotkeysManager.register(
     "i",

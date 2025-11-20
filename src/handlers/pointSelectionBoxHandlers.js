@@ -29,8 +29,13 @@ export function setupPointDragSelectionHandlers(
   }
 
   const pointerDown = (e) => {
-    // Only in curve tool
-    if (selectedToolRef?.current !== "curve") return
+    // Allow in curve, line, straight tools
+    if (
+      selectedToolRef?.current !== "curve" &&
+      selectedToolRef?.current !== "line" &&
+      selectedToolRef?.current !== "straight"
+    )
+      return
     if (e.button !== 2) return // right mouse button
 
     e.preventDefault()
@@ -137,7 +142,11 @@ export function setupPointDragSelectionHandlers(
 
   // Suppress context menu in curve tool when starting a drag
   draw.node.addEventListener("contextmenu", (e) => {
-    if (selectedToolRef?.current === "curve") {
+    if (
+      selectedToolRef?.current === "curve" ||
+      selectedToolRef?.current === "line" ||
+      selectedToolRef?.current === "straight"
+    ) {
       e.preventDefault()
     }
   })

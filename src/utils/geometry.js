@@ -43,6 +43,21 @@ export function generateBSplinePath(points) {
   return d.join(" ")
 }
 
+// Simple polyline path generator (straight segments)
+export function generatePolylinePath(points) {
+  if (!points || points.length === 0) return ""
+  if (points.length === 1) {
+    const p = points[0]
+    return `M${p.x},${p.y} L${p.x + 0.1},${p.y + 0.1}`
+  }
+  const parts = [`M${points[0].x},${points[0].y}`]
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]
+    parts.push(`L${p.x},${p.y}`)
+  }
+  return parts.join(" ")
+}
+
 export function maxBoxFromPoints(points) {
   let x = Infinity
   let y = Infinity

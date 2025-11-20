@@ -251,13 +251,14 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     if (!draw || !ptMgr) return
 
     const count = ptMgr.getSelectionCount?.() || 0
-    const inCurveTool = selectedToolRef.current === "curve"
+    const inEditTool =
+      selectedToolRef.current === "curve" || selectedToolRef.current === "line"
     const bounds = ptMgr.getSelectionBounds?.()
-    const shouldShow = inCurveTool && bounds && count >= 2
+    const shouldShow = inEditTool && bounds && count >= 2
 
     console.log("[Canvas.updatePointGroupOverlay]", {
       count,
-      inCurveTool,
+      inEditTool,
       hasBounds: !!bounds,
       shouldShow,
       bounds,
@@ -1096,6 +1097,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
                     isDraggingPoint,
                     splineManager.current,
                     selectedTool,
+                    pointSelectionManager.current,
                     historyManager // Pass historyManager for drag/delete batching
                   )
                 }
@@ -1173,7 +1175,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
                     spline,
                     isDraggingPoint,
                     splineManager.current,
-                    selectedTool
+                    selectedTool,
+                    pointSelectionManager.current,
+                    historyManager
                   )
                 }
               })

@@ -21,7 +21,11 @@ export function setupPointHandlers(
   const bindDragControl = () => {
     circle.off("beforedrag.toolcheck")
     circle.on("beforedrag.toolcheck", (e) => {
-      if (selectedTool?.current !== "curve") {
+      if (
+        selectedTool?.current !== "curve" &&
+        selectedTool?.current !== "line" &&
+        selectedTool?.current !== "straight"
+      ) {
         e.preventDefault()
       }
     })
@@ -35,7 +39,12 @@ export function setupPointHandlers(
     console.log("[pointHandlers] dragstart fired", {
       selectedTool: selectedTool?.current,
     })
-    if (selectedTool?.current !== "curve") return
+    if (
+      selectedTool?.current !== "curve" &&
+      selectedTool?.current !== "line" &&
+      selectedTool?.current !== "straight"
+    )
+      return
     isDraggingRef.current = true
 
     // If multi-point selection active and this point is selected, snapshot all selected points
@@ -57,7 +66,12 @@ export function setupPointHandlers(
   })
 
   circle.on("dragmove.curveTool", () => {
-    if (selectedTool?.current !== "curve") return
+    if (
+      selectedTool?.current !== "curve" &&
+      selectedTool?.current !== "line" &&
+      selectedTool?.current !== "straight"
+    )
+      return
 
     const cx = circle.cx()
     const cy = circle.cy()
@@ -109,7 +123,12 @@ export function setupPointHandlers(
     })
     isDraggingRef.current = false
     // Batch: Save history only at drag end
-    if (selectedTool?.current === "curve" && historyManager) {
+    if (
+      (selectedTool?.current === "curve" ||
+        selectedTool?.current === "line" ||
+        selectedTool?.current === "straight") &&
+      historyManager
+    ) {
       const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
       historyManager.pushState(splineData, [])
       console.log("[pointHandlers] Dragged point saved to history")
@@ -119,7 +138,12 @@ export function setupPointHandlers(
 
   // Handle point deletion via right-click
   circle.on("contextmenu.curveTool", (e) => {
-    if (selectedTool?.current !== "curve") return
+    if (
+      selectedTool?.current !== "curve" &&
+      selectedTool?.current !== "line" &&
+      selectedTool?.current !== "straight"
+    )
+      return
 
     e.preventDefault()
     e.stopPropagation()
@@ -147,7 +171,12 @@ export function setupPointHandlers(
   // Shift-click (or plain click) point selection logic for multi-point selection
   // Use pointerdown to ensure selection occurs even when user drags immediately.
   circle.on("pointerdown.pointSelect", (e) => {
-    if (selectedTool?.current !== "curve") return
+    if (
+      selectedTool?.current !== "curve" &&
+      selectedTool?.current !== "line" &&
+      selectedTool?.current !== "straight"
+    )
+      return
     const additive = e.shiftKey
     const pointIndex = spline.points.findIndex((p) => p.circle === circle)
     if (pointIndex === -1) return
@@ -163,7 +192,8 @@ export function setupPointHandlers(
 
   // Keep click as fallback (no shift) if user just clicks.
   circle.on("click.pointSelect", (e) => {
-    if (selectedTool?.current !== "curve") return
+    if (selectedTool?.current !== "curve" && selectedTool?.current !== "line")
+      return
     if (e.shiftKey) return // already handled by pointerdown
     const pointIndex = spline.points.findIndex((p) => p.circle === circle)
     if (pointIndex === -1) return

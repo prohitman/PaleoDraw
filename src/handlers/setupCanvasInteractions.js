@@ -261,10 +261,26 @@ export function setupBackgroundClickBehavior(
       tool: selectedTool?.current,
     })
     // CRITICAL: Don't clear selection if in curve mode - let unifiedCanvasClickHandler manage it
-    if (selectedTool?.current === "curve") {
+    // Also skip clearing if user just created a spline in line/straight mode so next click adds a point
+    const manager = splineManager.current
+    const justCreatedId = manager?._justCreatedSplineId
+    const inEditLineMode =
+      selectedTool?.current === "line" || selectedTool?.current === "straight"
+    if (
+      selectedTool?.current === "curve" ||
+      (inEditLineMode &&
+        justCreatedId &&
+        manager?.getSelected?.()?.id === justCreatedId)
+    ) {
       console.log(
-        "[Canvas.handleBackgroundClick] In curve mode, skipping clear"
+        "[Canvas.handleBackgroundClick] Skipping clear (active edit mode or just created spline)"
       )
+      // Clear the suppression after allowing one additive click
+      if (inEditLineMode && justCreatedId) {
+        // Keep selection; allow next click to add a point
+        // Remove flag only AFTER next successful additive click handled elsewhere
+        // If user clicks truly empty again (no additive point) we clear below on next event
+      }
       return
     }
     if (
@@ -272,6 +288,7 @@ export function setupBackgroundClickBehavior(
       e.target != selectedRef.current
     ) {
       console.log("[Canvas.handleBackgroundClick] Clearing selections")
+      if (manager) manager._justCreatedSplineId = null
       if (selectedRef.current) {
         selectedRef.current.select(false)
         selectedRef.current.resize(false)

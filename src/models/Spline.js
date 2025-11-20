@@ -1,5 +1,5 @@
 // src/models/Spline.js
-import { generateBSplinePath } from "../utils/geometry"
+import { generateBSplinePath, generatePolylinePath } from "../utils/geometry"
 
 const SPLINE_COLORS = {
   SELECTED: "#00ffff",
@@ -14,7 +14,7 @@ const POINT_COLOR = "#ffcc00"
  * Manages the SVG group, path, and points that make up the spline
  */
 export default class Spline {
-  constructor({ id, draw, color } = {}) {
+  constructor({ id, draw, color, type = "bspline" } = {}) {
     this.id = id ?? `spline_${Date.now()}`
     console.log("[Spline.constructor] Creating new Spline:", {
       id: this.id,
@@ -23,6 +23,8 @@ export default class Spline {
     this.points = []
     this.selected = false
     this.color = color || SPLINE_COLORS.SELECTED
+    // Spline type: 'bspline' (default) or 'polyline'
+    this.type = type
 
     this._draw = draw
     console.log("[Spline.constructor] Creating SVG group")
@@ -137,7 +139,9 @@ export default class Spline {
     const [removed] = this.points.splice(idx, 1)
     try {
       removed.circle?.remove()
-    } catch {}
+    } catch (err) {
+      console.warn("[Spline.removePointByRef] circle remove error", err)
+    }
     return removed
   }
 
@@ -155,7 +159,9 @@ export default class Spline {
     point.y = y
     try {
       point.circle?.center(x, y)
-    } catch {}
+    } catch (err) {
+      console.warn("[Spline.updatePointByCircle] center error", err)
+    }
     return point
   }
 
@@ -173,7 +179,9 @@ export default class Spline {
     point.y = y
     try {
       point.circle?.center(x, y)
-    } catch {}
+    } catch (err) {
+      console.warn("[Spline.updatePointByIndex] center error", err)
+    }
     return point
   }
 
@@ -181,38 +189,37 @@ export default class Spline {
    * Recalculate and redraw the B-spline path
    */
   plot() {
-    console.log("[Spline.plot] Called with", this.points.length, "points")
+    console.log(
+      "[Spline.plot] Called with",
+      this.points.length,
+      "points",
+      "type:",
+      this.type
+    )
+    if (this.type === "polyline") {
+      const pathData = generatePolylinePath(this.points)
+      this.path.plot(pathData)
+      return
+    }
+    // Default bspline behavior
     if (this.points.length < 2) {
       console.log("[Spline.plot] Less than 2 points, clearing path for now")
       this.path.plot("")
-      // Draw a circle at the single point so user sees something
       if (this.points.length === 1) {
-        console.log("[Spline.plot] Drawing single point indicator")
         try {
           this.path.plot(
-            "M " +
-              this.points[0].x +
-              " " +
-              this.points[0].y +
-              " L " +
-              (this.points[0].x + 0.1) +
-              " " +
-              (this.points[0].y + 0.1)
+            `M${this.points[0].x},${this.points[0].y} L${
+              this.points[0].x + 0.1
+            },${this.points[0].y + 0.1}`
           )
         } catch (err) {
-          console.warn(
-            "[Spline.plot] Could not draw single point indicator:",
-            err
-          )
+          console.warn("[Spline.plot] Single point indicator error", err)
         }
       }
       return
     }
-    console.log("[Spline.plot] Generating B-spline path")
     const pathData = generateBSplinePath(this.points)
-    console.log("[Spline.plot] Path data generated, plotting")
     this.path.plot(pathData)
-    console.log("[Spline.plot] Path plotted successfully")
   }
 
   /**
@@ -267,7 +274,9 @@ export default class Spline {
   remove() {
     try {
       this.group.remove()
-    } catch {}
+    } catch (err) {
+      console.warn("[Spline.remove] group remove error", err)
+    }
   }
 
   /**
@@ -278,6 +287,7 @@ export default class Spline {
     return {
       id: this.id,
       color: this.color,
+      type: this.type,
       points: this.points.map((p) => ({ x: p.x, y: p.y })),
     }
   }
@@ -289,6 +299,7 @@ export default class Spline {
   loadFromJSON(obj) {
     this.id = obj.id ?? this.id
     this.color = obj.color ?? this.color
+    this.type = obj.type || this.type || "bspline"
     this.points = []
     if (Array.isArray(obj.points)) {
       obj.points.forEach(({ x, y }) => this.addPoint(x, y, true))
