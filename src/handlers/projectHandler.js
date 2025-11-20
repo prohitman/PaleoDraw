@@ -1,7 +1,7 @@
 // handlers/projectHandler.js
 import { SVG } from "@svgdotjs/svg.js"
 import { drawGrid } from "../utils/svgHelpers"
-import { generateBSplinePath } from "../utils/geometry"
+import { generateBSplinePath, generatePolylinePath } from "../utils/geometry"
 
 const GRID_BASE_THICKNESS = 0.5
 
@@ -243,7 +243,11 @@ export function exportAsSVG(
 
       // draw the path using points (this ensures no transform attributes are copied)
       if (pts.length >= 2) {
-        const pathData = generateBSplinePath(pts)
+        // Respect original spline type when exporting
+        const pathData =
+          spline.type === "polyline"
+            ? generatePolylinePath(pts)
+            : generateBSplinePath(pts)
         group
           .path(pathData)
           .stroke({ color: DEFAULT_UNSELECTED_STROKE, width: 2 })

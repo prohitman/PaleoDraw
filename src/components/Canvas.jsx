@@ -251,8 +251,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     if (!draw || !ptMgr) return
 
     const count = ptMgr.getSelectionCount?.() || 0
+    // Show overlay in all point-editing tools: curve, line, straight
     const inEditTool =
-      selectedToolRef.current === "curve" || selectedToolRef.current === "line"
+      selectedToolRef.current === "curve" ||
+      selectedToolRef.current === "line" ||
+      selectedToolRef.current === "straight"
     const bounds = ptMgr.getSelectionBounds?.()
     const shouldShow = inEditTool && bounds && count >= 2
 
@@ -294,7 +297,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       })
 
       overlay.on("pointerdown", (e) => {
-        if (selectedToolRef.current !== "curve" || e.button !== 0) return
+        // Allow group drag in all editing tools (curve, line, straight)
+        if (
+          !["curve", "line", "straight"].includes(selectedToolRef.current) ||
+          e.button !== 0
+        )
+          return
         e.stopPropagation()
         e.preventDefault()
         const coords = getViewportCoordsFromEvent(e)
@@ -648,7 +656,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     const allSplines = manager.getAllSplines()
     if (allSplines.length === 0) return
 
-    if (selectedToolRef.current !== "curve") {
+    // Only hide points when leaving all point-editing tools (curve, line, straight)
+    if (
+      selectedToolRef.current !== "curve" &&
+      selectedToolRef.current !== "line" &&
+      selectedToolRef.current !== "straight"
+    ) {
       allSplines.forEach((spline) => {
         spline.setSelected(false)
       })
