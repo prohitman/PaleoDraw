@@ -663,8 +663,49 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // run once on mount only
 
-  // Remove the separate effect that tried to re-run setupSplineTransformations based on ref length.
-  // Instead we'll call splineTransformRef.current.attachToAll() explicitly when splines are created / loaded.
+  // --- Ensure canvas/grid/overlays update on window resize/fullscreen ---
+  useEffect(() => {
+    const handleResizeOrFullscreen = () => {
+      // Get container size
+      const container = canvasRef.current
+      if (!container || !drawRef.current) return
+      const rect = container.getBoundingClientRect()
+      const newWidth = rect.width
+      const newHeight = rect.height
+      // Update canvas size and grid
+      canvasSizeRef.current = { width: newWidth, height: newHeight }
+      drawRef.current.size(newWidth, newHeight)
+      drawRef.current.viewbox(0, 0, newWidth, newHeight)
+      const bg = drawRef.current.findOne("#canvas-bg")
+      if (bg) bg.size(newWidth, newHeight)
+      if (gridRef.current) {
+        drawGrid(gridRef.current, canvasSizeRef.current, gridSizeRef.current)
+      }
+      // Re-fit overlays and objects
+      if (typeof fitToCanvas === "function") {
+        fitToCanvas()
+      } else if (typeof fitToCanvasHelper === "function") {
+        fitToCanvasHelper(
+          drawRef,
+          canvasSizeRef,
+          canvasRef.current,
+          panZoomRef,
+          panZoomOptionsRef,
+          updateGridLineThickness
+        )
+      }
+      // Update overlays
+      if (typeof updateGroupOverlay === "function") updateGroupOverlay()
+      if (typeof updatePointGroupOverlay === "function")
+        updatePointGroupOverlay()
+    }
+    window.addEventListener("resize", handleResizeOrFullscreen)
+    window.addEventListener("fullscreenchange", handleResizeOrFullscreen)
+    return () => {
+      window.removeEventListener("resize", handleResizeOrFullscreen)
+      window.removeEventListener("fullscreenchange", handleResizeOrFullscreen)
+    }
+  }, [])
 
   // When tool switches away from curve, hide all spline points
   useEffect(() => {
