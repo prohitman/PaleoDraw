@@ -358,7 +358,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     const draw = SVG()
       .addTo(container)
-      .size(width, height)
+      // Use percentage sizing so SVG always matches container pixel size; logical space defined by viewBox below.
+      .size("100%", "100%")
       .viewbox(0, 0, width, height)
     drawRef.current = draw
 
@@ -666,29 +667,33 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   // --- Ensure canvas/grid/overlays update on window resize/fullscreen ---
   useEffect(() => {
     const handleResizeOrFullscreen = () => {
-      // Get container size
+      // Preserve original logical canvas size (do NOT overwrite canvasSizeRef).
+      // Only refit zoom/pan and redraw grid to match new container dimensions.
       const container = canvasRef.current
-      if (!container || !drawRef.current) return
+      const draw = drawRef.current
+      if (!container || !draw) return
+
+      // Ensure viewbox matches logical size
+      const { width: logicalW, height: logicalH } = canvasSizeRef.current
+      draw.viewbox(0, 0, logicalW, logicalH)
+
+      // Match SVG element pixel size to container to avoid letterboxing slabs
       const rect = container.getBoundingClientRect()
-      const newWidth = rect.width
-      const newHeight = rect.height
-      // Update canvas size and grid
-      canvasSizeRef.current = { width: newWidth, height: newHeight }
-      drawRef.current.size(newWidth, newHeight)
-      drawRef.current.viewbox(0, 0, newWidth, newHeight)
-      const bg = drawRef.current.findOne("#canvas-bg")
-      if (bg) bg.size(newWidth, newHeight)
+      draw.size(rect.width, rect.height)
+
+      // Redraw grid with logical dimensions
       if (gridRef.current) {
         drawGrid(gridRef.current, canvasSizeRef.current, gridSizeRef.current)
       }
-      // Re-fit overlays and objects
+
+      // Re-fit zoom to container
       if (typeof fitToCanvas === "function") {
         fitToCanvas()
       } else if (typeof fitToCanvasHelper === "function") {
         fitToCanvasHelper(
           drawRef,
           canvasSizeRef,
-          canvasRef.current,
+          container,
           panZoomRef,
           panZoomOptionsRef,
           updateGridLineThickness
@@ -1148,12 +1153,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     <div
       ref={canvasRef}
       className="canvas-container"
-      style={{
-        cursor: "grab",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-      }}
+      style={{ cursor: "grab" }}
     />
   )
 })
