@@ -603,9 +603,17 @@ export default class SplineManager extends EventEmitter {
 
             // Curve/Line/Straight tools - select for adding points
             if (tool === "curve" || tool === "line" || tool === "straight") {
-              e.stopPropagation()
-              this.selectSpline(spline.id)
-              return
+              const selectedSpline = this.getSelected()
+              if (selectedSpline && selectedSpline.id === spline.id) {
+                // Already selected in curve mode: allow point addition by not stopping propagation
+                // The canvas click handler will handle adding the point
+                return
+              } else {
+                // Not selected: select it and stop propagation
+                e.stopPropagation()
+                this.selectSpline(spline.id)
+                return
+              }
             }
           }
 
@@ -1050,8 +1058,21 @@ export default class SplineManager extends EventEmitter {
         spline.__splineAttachBound = true
         spline.group.off("click.selectSpline")
         spline.group.on("click.selectSpline", (e) => {
-          e.stopPropagation()
-          selectSpline(spline)
+          const tool = selectedToolRef?.current
+          const selectedSpline = this.getSelected()
+          if (
+            (tool === "curve" || tool === "line" || tool === "straight") &&
+            selectedSpline &&
+            selectedSpline.id === spline.id
+          ) {
+            // Already selected in curve mode: allow point addition by not stopping propagation
+            // Still call selectSpline to ensure state is correct
+            selectSpline(spline)
+            return
+          } else {
+            e.stopPropagation()
+            selectSpline(spline)
+          }
         })
       })
     }
