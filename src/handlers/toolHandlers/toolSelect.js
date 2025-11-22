@@ -23,8 +23,27 @@ export const selectToolHandlers = {
       shiftKey: e.shiftKey,
     })
 
-    // Use delete tool's robust event logic for path/circle clicks
-    // Accept path/circle or .spline-hover class
+    // First attempt: detect SVG object by ancestor traversal (handles clicks on child nodes inside imported SVGs)
+    if (svgObjectManager) {
+      let el = e.target
+      while (el && el !== e.currentTarget) {
+        if (el._objectId) {
+          const objectId = el._objectId
+          console.log(
+            "[selectToolHandlers] Selecting SVG object via ancestor traversal:",
+            objectId
+          )
+          // Shift for future multi-select support (placeholder)
+          svgObjectManager.selectObject(objectId)
+          selectedRef.current = svgObjectManager.getSelected()
+          e.stopPropagation()
+          return
+        }
+        el = el.parentElement
+      }
+    }
+
+    // Spline detection: path/circle or .spline-hover class
     if (
       e.target.tagName === "path" ||
       e.target.tagName === "circle" ||
@@ -88,15 +107,6 @@ export const selectToolHandlers = {
           return
         }
       }
-    }
-    // Check for imported SVG object
-    if (svgObjectManager && e.target.tagName === "g" && e.target._objectId) {
-      const objectId = e.target._objectId
-      console.log("[selectToolHandlers] Found SVG object to select:", objectId)
-      svgObjectManager.selectObject(objectId)
-      selectedRef.current = svgObjectManager.getSelected()
-      e.stopPropagation()
-      return
     }
     // Click on empty area: clear selection
     console.log(

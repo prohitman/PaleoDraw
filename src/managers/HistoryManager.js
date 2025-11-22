@@ -24,10 +24,25 @@ export default class HistoryManager extends EventEmitter {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
+    // Prepare deep copies
+    const splinesCopy = JSON.parse(JSON.stringify(splineData))
+    const svgsCopy = JSON.parse(JSON.stringify(svgData))
+    const snapshotString = `${JSON.stringify(splinesCopy)}|${JSON.stringify(
+      svgsCopy
+    )}`
+
+    // Skip push if identical to last snapshot
+    const last = this.history[this.history.length - 1]
+    if (last && last._snapshotString === snapshotString) {
+      console.log("[HistoryManager] Skipping pushState (duplicate state)")
+      return
+    }
+
     const state = {
       timestamp: Date.now(),
-      splines: JSON.parse(JSON.stringify(splineData)),
-      svgs: JSON.parse(JSON.stringify(svgData)),
+      splines: splinesCopy,
+      svgs: svgsCopy,
+      _snapshotString: snapshotString,
     }
     if (this.currentIndex >= 0) {
       this.history = this.history.slice(0, this.currentIndex + 1)

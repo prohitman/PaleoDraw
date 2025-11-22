@@ -36,6 +36,21 @@ export default class SVGObjectManager extends EventEmitter {
       id || `svg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     this.objects.set(objectId, svgElement)
     svgElement._objectId = objectId
+    if (svgElement.node) {
+      svgElement.node._objectId = objectId
+    }
+
+    // Detect if this group actually wraps a root <svg> element (import pattern draw.group().svg(text))
+    try {
+      if (
+        svgElement.node?.tagName?.toLowerCase() === "g" &&
+        /<svg[\s>]/i.test(svgElement.svg?.())
+      ) {
+        svgElement._wrapsRootSvg = true
+      }
+    } catch {
+      // ignore detection errors
+    }
 
     console.log(
       "[SVGObjectManager] Object added:",
@@ -247,10 +262,21 @@ export default class SVGObjectManager extends EventEmitter {
    * @returns {object[]}
    */
   getState() {
-    return this.getAllObjects().map((obj) => ({
-      svg: obj.svg?.(),
-      transform: obj.transform?.(),
-    }))
+    return this.getAllObjects().map((obj) => {
+      let matrix = null
+      try {
+        matrix = obj.matrixify?.()
+      } catch {
+        matrix = null
+      }
+      return {
+        id: obj._objectId,
+        svg: obj.svg?.(), // full markup for uniform restoration
+        transform: obj.transform?.(), // legacy fallback
+        matrix, // preferred precise transform representation
+        bbox: obj.bbox?.(),
+      }
+    })
   }
 
   /**
@@ -263,15 +289,94 @@ export default class SVGObjectManager extends EventEmitter {
 
     objectDataArray.forEach((data) => {
       try {
-        const imported = drawRef.svg(data.svg)
-        if (data.transform) {
-          imported.transform(data.transform)
+        if (!data) return
+        let imported = null
+        if (data.svg) {
+          imported = drawRef.group().svg(data.svg)
+        } else if (data.inner) {
+          // legacy schema support
+          imported = drawRef.group().svg(`<svg>${data.inner}</svg>`)
         }
-        this.addObject(imported)
+        if (imported) {
+          if (data.matrix && typeof imported.matrix === "function") {
+            try {
+              imported.matrix(data.matrix)
+            } catch {
+              if (data.transform) imported.transform(data.transform)
+            }
+          } else if (data.transform) {
+            imported.transform(data.transform)
+          }
+          this.addObject(imported, data.id)
+        }
       } catch {
         // ignore load errors
       }
     })
+  }
+
+  /**
+   * Restore SVG objects from state (used by undo/redo)
+   * @param {object[]} svgDataArray - Array of serialized SVG object data
+   * @param {object} context - Context with drawRef for re-initialization
+   */
+  restoreFromState(svgDataArray, context = {}) {
+    // Clear current objects
+    this.objects.forEach((obj) => {
+      try {
+        obj.select?.(false)
+        obj.resize?.(false)
+        obj.remove?.()
+      } catch (error) {
+        console.warn(
+          "[SVGObjectManager.restoreFromState] Error clearing object:",
+          error
+        )
+      }
+    })
+    this.objects.clear()
+    this.selectedObjectId = null
+
+    // Restore SVG objects from state
+    if (
+      svgDataArray &&
+      Array.isArray(svgDataArray) &&
+      context.drawRef?.current
+    ) {
+      svgDataArray.forEach((svgData) => {
+        try {
+          if (!svgData) return
+          let imported = null
+          if (svgData.svg) {
+            imported = context.drawRef.current.group().svg(svgData.svg)
+          } else if (svgData.inner) {
+            imported = context.drawRef.current
+              .group()
+              .svg(`<svg>${svgData.inner}</svg>`)
+          }
+          if (imported) {
+            if (svgData.matrix && typeof imported.matrix === "function") {
+              try {
+                imported.matrix(svgData.matrix)
+              } catch {
+                if (svgData.transform) imported.transform(svgData.transform)
+              }
+            } else if (svgData.transform) {
+              imported.transform(svgData.transform)
+            }
+            this.addObject(imported, svgData.id)
+          }
+        } catch (error) {
+          console.error(
+            "[SVGObjectManager.restoreFromState] Error restoring SVG object:",
+            error
+          )
+        }
+      })
+    }
+
+    this.clearSelection()
+    this.emit("change")
   }
 
   /**
@@ -315,11 +420,27 @@ export default class SVGObjectManager extends EventEmitter {
     if (state.svgs && Array.isArray(state.svgs) && context.drawRef) {
       state.svgs.forEach((svgData) => {
         try {
-          const imported = context.drawRef.svg(svgData.svg)
-          if (svgData.transform) {
-            imported.transform(svgData.transform)
+          if (!svgData) return
+          let imported = null
+          if (svgData.svg) {
+            imported = context.drawRef.current.group().svg(svgData.svg)
+          } else if (svgData.inner) {
+            imported = context.drawRef.current
+              .group()
+              .svg(`<svg>${svgData.inner}</svg>`)
           }
-          this.addObject(imported)
+          if (imported) {
+            if (svgData.matrix && typeof imported.matrix === "function") {
+              try {
+                imported.matrix(svgData.matrix)
+              } catch {
+                if (svgData.transform) imported.transform(svgData.transform)
+              }
+            } else if (svgData.transform) {
+              imported.transform(svgData.transform)
+            }
+            this.addObject(imported, svgData.id)
+          }
         } catch (error) {
           console.error(
             "[SVGObjectManager.undo] Error restoring SVG object:",
@@ -363,11 +484,27 @@ export default class SVGObjectManager extends EventEmitter {
     if (state.svgs && Array.isArray(state.svgs) && context.drawRef) {
       state.svgs.forEach((svgData) => {
         try {
-          const imported = context.drawRef.svg(svgData.svg)
-          if (svgData.transform) {
-            imported.transform(svgData.transform)
+          if (!svgData) return
+          let imported = null
+          if (svgData.svg) {
+            imported = context.drawRef.current.group().svg(svgData.svg)
+          } else if (svgData.inner) {
+            imported = context.drawRef.current
+              .group()
+              .svg(`<svg>${svgData.inner}</svg>`)
           }
-          this.addObject(imported)
+          if (imported) {
+            if (svgData.matrix && typeof imported.matrix === "function") {
+              try {
+                imported.matrix(svgData.matrix)
+              } catch {
+                if (svgData.transform) imported.transform(svgData.transform)
+              }
+            } else if (svgData.transform) {
+              imported.transform(svgData.transform)
+            }
+            this.addObject(imported, svgData.id)
+          }
         } catch (error) {
           console.error(
             "[SVGObjectManager.redo] Error restoring SVG object:",

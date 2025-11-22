@@ -67,6 +67,8 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
 
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
+      const selectionManager = context.selectionManager?.current
+      const historyManager = splineManager?.historyManager
 
       // Deselect all splines and SVG objects before undo
       if (splineManager && typeof splineManager.clearSelection === "function") {
@@ -78,24 +80,43 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       ) {
         svgObjectManager.clearSelection()
       }
+      // Clear multi-selection manager (removes group overlay box)
+      if (
+        selectionManager &&
+        typeof selectionManager.clearSelection === "function"
+      ) {
+        selectionManager.clearSelection()
+      }
 
-      // Perform undo on spline manager (primary manager)
-      if (splineManager && typeof splineManager.undo === "function") {
-        // Pass context for point handler re-initialization
-        const state = splineManager.undo({
+      // Get previous state from history manager (single step)
+      if (!historyManager) {
+        console.log("[canvasHotkeys] History manager not available")
+        return
+      }
+
+      const state = historyManager.undo()
+      if (!state) {
+        console.log("[canvasHotkeys] Nothing to undo")
+        return
+      }
+
+      // Restore splines from state
+      if (splineManager && state.splines) {
+        splineManager.restoreFromState(state.splines, {
           setupPointHandlers,
           drawRef: context.drawRef,
           selectedToolRef: context.selectedToolRef,
           isDraggingRef: context.isDraggingRef,
         })
+        console.log("[canvasHotkeys] Restored splines from state")
+      }
 
-        if (state) {
-          console.log("[canvasHotkeys] Undo executed (splines)")
-        } else {
-          console.log("[canvasHotkeys] Nothing to undo")
-        }
-      } else {
-        console.log("[canvasHotkeys] Spline manager not available")
+      // Restore SVG objects from state
+      if (svgObjectManager && state.svgs) {
+        svgObjectManager.restoreFromState(state.svgs, {
+          drawRef: context.drawRef,
+        })
+        console.log("[canvasHotkeys] Restored SVG objects from state")
       }
     },
     "Undo"
@@ -108,6 +129,8 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
+      const selectionManager = context.selectionManager?.current
+      const historyManager = splineManager?.historyManager
 
       // Deselect all splines and SVG objects before redo
       if (splineManager && typeof splineManager.clearSelection === "function") {
@@ -119,28 +142,42 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       ) {
         svgObjectManager.clearSelection()
       }
+      if (
+        selectionManager &&
+        typeof selectionManager.clearSelection === "function"
+      ) {
+        selectionManager.clearSelection()
+      }
 
-      // Perform redo on spline manager
-      if (splineManager && typeof splineManager.redo === "function") {
-        // Pass context for point handler re-initialization
-        const drawRef = context.drawRef
-        const selectedToolRef = context.selectedToolRef
-        const isDraggingRef = context.isDraggingRef
+      // Get next state from history manager (single step)
+      if (!historyManager) {
+        console.log("[canvasHotkeys] History manager not available")
+        return
+      }
 
-        const state = splineManager.redo({
+      const state = historyManager.redo()
+      if (!state) {
+        console.log("[canvasHotkeys] Nothing to redo")
+        return
+      }
+
+      // Restore splines from state
+      if (splineManager && state.splines) {
+        splineManager.restoreFromState(state.splines, {
           setupPointHandlers,
-          drawRef,
-          selectedToolRef,
-          isDraggingRef,
+          drawRef: context.drawRef,
+          selectedToolRef: context.selectedToolRef,
+          isDraggingRef: context.isDraggingRef,
         })
+        console.log("[canvasHotkeys] Restored splines from state")
+      }
 
-        if (state) {
-          console.log("[canvasHotkeys] Redo executed (splines)")
-        } else {
-          console.log("[canvasHotkeys] Nothing to redo")
-        }
-      } else {
-        console.log("[canvasHotkeys] Spline manager not available")
+      // Restore SVG objects from state
+      if (svgObjectManager && state.svgs) {
+        svgObjectManager.restoreFromState(state.svgs, {
+          drawRef: context.drawRef,
+        })
+        console.log("[canvasHotkeys] Restored SVG objects from state")
       }
     },
     "Redo"

@@ -233,7 +233,9 @@ export default class SelectionManager extends EventEmitter {
         try {
           obj?.resize?.(false)
           obj?.select?.(false)
-        } catch {}
+        } catch {
+          // ignore
+        }
       })
     }
 
@@ -275,7 +277,9 @@ export default class SelectionManager extends EventEmitter {
         try {
           obj.select?.(false)
           obj.resize?.(false)
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
     })
 
@@ -563,9 +567,27 @@ export default class SelectionManager extends EventEmitter {
         typeof obj.y === "function" &&
         typeof obj.move === "function"
       ) {
-        const currentX = obj.x() || 0
-        const currentY = obj.y() || 0
-        obj.move(currentX + dx, currentY + dy)
+        // If the object has a transform, convert global delta to local
+        let tdx = dx,
+          tdy = dy
+        if (typeof obj.ctm === "function") {
+          const ctm = obj.ctm()
+          if (ctm && typeof ctm.inverse === "function") {
+            const inverse = ctm.inverse()
+            if (inverse && typeof inverse.transformPoint === "function") {
+              const local = inverse.transformPoint({ x: dx, y: dy })
+              tdx = local.x
+              tdy = local.y
+            }
+          }
+        }
+        if (typeof obj.dmove === "function") {
+          obj.dmove(tdx, tdy)
+        } else {
+          const currentX = obj.x() || 0
+          const currentY = obj.y() || 0
+          obj.move(currentX + tdx, currentY + tdy)
+        }
       }
     })
 

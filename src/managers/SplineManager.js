@@ -14,6 +14,7 @@ export default class SplineManager extends EventEmitter {
     selectedToolRef,
     isDraggingRef,
     historyManager = null,
+    linkedSvgManager = null,
   } = {}) {
     super()
 
@@ -23,6 +24,7 @@ export default class SplineManager extends EventEmitter {
     this.selectedToolRef = selectedToolRef
     this.isDraggingRef = isDraggingRef
     this.historyManager = historyManager // HistoryManager instance for undo/redo
+    this.linkedSvgManager = linkedSvgManager // Reference to SVGObjectManager for unified history
 
     // Optional external reference set by Canvas for point multi-selection
     this.pointSelectionManager = null
@@ -122,7 +124,7 @@ export default class SplineManager extends EventEmitter {
     // Push to history after deleting spline
     if (this.historyManager) {
       const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = []
+      const svgData = this.linkedSvgManager?.getState?.() || []
       this.historyManager.pushState(splineData, svgData)
     }
   }
@@ -203,7 +205,7 @@ export default class SplineManager extends EventEmitter {
     })
     if (this.historyManager) {
       const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = []
+      const svgData = this.linkedSvgManager?.getState?.() || []
       console.log(
         "[SplineManager.addPointToSpline] Pushing to history, splineData length:",
         splineData.length
@@ -267,7 +269,7 @@ export default class SplineManager extends EventEmitter {
     // Push to history after inserting point
     if (this.historyManager) {
       const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = []
+      const svgData = this.linkedSvgManager?.getState?.() || []
       this.historyManager.pushState(splineData, svgData)
     }
 
@@ -296,7 +298,7 @@ export default class SplineManager extends EventEmitter {
       // Push to history after deleting point
       if (this.historyManager) {
         const splineData = this.getAllSplines().map((s) => s.toJSON())
-        const svgData = []
+        const svgData = this.linkedSvgManager?.getState?.() || []
         this.historyManager.pushState(splineData, svgData)
       }
     }
@@ -495,31 +497,29 @@ export default class SplineManager extends EventEmitter {
   }
 
   /**
-   * Undo to previous state and restore splines
-   * @param {object} context - Optional context with setupPointHandlers for re-initialization
-   * @returns {object|null} - The restored state or null if already at start
+   * Restore splines from state data (used by undo/redo)
+   * @param {object[]} splineDataArray - Array of serialized spline data
+   * @param {object} context - Context with setupPointHandlers, drawRef, etc.
    */
-  undo(context = {}) {
-    if (!this.historyManager) return null
-
-    const state = this.historyManager.undo()
-    if (!state) return null
-
+  restoreFromState(splineDataArray, context = {}) {
     // Clear and restore splines
     this.splines.forEach((spline) => {
       try {
         spline.setSelected?.(false)
         spline.group?.remove?.()
       } catch (err) {
-        console.warn("[SplineManager.undo] Error clearing spline:", err)
+        console.warn(
+          "[SplineManager.restoreFromState] Error clearing spline:",
+          err
+        )
       }
     })
     this.splines.clear()
     this.selectedSplineId = null
 
     // Restore splines from state, skip splines with <2 points
-    if (state.splines && Array.isArray(state.splines)) {
-      state.splines.forEach((splineData) => {
+    if (splineDataArray && Array.isArray(splineDataArray)) {
+      splineDataArray.forEach((splineData) => {
         if (!splineData.points || splineData.points.length < 2) return
         try {
           const spline = new Spline({ draw: this.draw, id: splineData.id })
@@ -532,7 +532,7 @@ export default class SplineManager extends EventEmitter {
             context.selectedToolRef
           ) {
             console.log(
-              `[SplineManager.undo] Re-attaching handlers for ${spline.points.length} points in spline ${spline.id}`,
+              `[SplineManager.restoreFromState] Re-attaching handlers for ${spline.points.length} points in spline ${spline.id}`,
               {
                 hasSetupPointHandlers: !!context.setupPointHandlers,
                 hasIsDraggingRef: !!context.isDraggingRef,
@@ -543,7 +543,7 @@ export default class SplineManager extends EventEmitter {
             spline.points.forEach((point, idx) => {
               if (point.circle) {
                 console.log(
-                  `[SplineManager.undo] Attaching handlers to point ${idx}`,
+                  `[SplineManager.restoreFromState] Attaching handlers to point ${idx}`,
                   {
                     hasCircle: true,
                     cx: point.circle.cx(),
@@ -560,12 +560,14 @@ export default class SplineManager extends EventEmitter {
                   this.historyManager
                 )
               } else {
-                console.warn(`[SplineManager.undo] Point ${idx} has no circle!`)
+                console.warn(
+                  `[SplineManager.restoreFromState] Point ${idx} has no circle!`
+                )
               }
             })
           } else {
             console.warn(
-              "[SplineManager.undo] Cannot re-attach point handlers, missing context:",
+              "[SplineManager.restoreFromState] Cannot re-attach point handlers, missing context:",
               {
                 hasSetupPointHandlers: !!context?.setupPointHandlers,
                 hasIsDraggingRef: !!context?.isDraggingRef,
@@ -612,7 +614,10 @@ export default class SplineManager extends EventEmitter {
 
           this.splines.set(spline.id, spline)
         } catch (error) {
-          console.error("[SplineManager.undo] Error restoring spline:", error)
+          console.error(
+            "[SplineManager.restoreFromState] Error restoring spline:",
+            error
+          )
         }
       })
     }
@@ -628,7 +633,7 @@ export default class SplineManager extends EventEmitter {
         }
       } catch (error) {
         console.warn(
-          "[SplineManager.undo] Error clearing selection box:",
+          "[SplineManager.restoreFromState] Error clearing selection box:",
           error
         )
       }
@@ -650,13 +655,27 @@ export default class SplineManager extends EventEmitter {
       if (lastSpline) {
         this.selectSpline(lastSpline.id)
         console.log(
-          "[SplineManager.undo] Auto-selected last spline:",
+          "[SplineManager.restoreFromState] Auto-selected last spline:",
           lastSpline.id
         )
       }
     }
 
     this.emit("change")
+  }
+
+  /**
+   * Undo to previous state and restore splines
+   * @param {object} context - Optional context with setupPointHandlers for re-initialization
+   * @returns {object|null} - The restored state or null if already at start
+   */
+  undo(context = {}) {
+    if (!this.historyManager) return null
+
+    const state = this.historyManager.undo()
+    if (!state) return null
+
+    this.restoreFromState(state.splines, context)
 
     return state
   }
@@ -672,158 +691,7 @@ export default class SplineManager extends EventEmitter {
     const state = this.historyManager.redo()
     if (!state) return null
 
-    // Clear and restore splines
-    this.splines.forEach((spline) => {
-      try {
-        spline.setSelected?.(false)
-        spline.group?.remove?.()
-      } catch (error) {
-        console.warn("[SplineManager.redo] Error clearing spline:", error)
-      }
-    })
-    this.splines.clear()
-    this.selectedSplineId = null
-
-    // Restore splines from state, skip splines with <2 points
-    if (state.splines && Array.isArray(state.splines)) {
-      state.splines.forEach((splineData) => {
-        if (!splineData.points || splineData.points.length < 2) return
-        try {
-          const spline = new Spline({ draw: this.draw, id: splineData.id })
-          spline.loadFromJSON(splineData)
-
-          // Re-attach point handlers if context provided
-          if (
-            context.setupPointHandlers &&
-            context.isDraggingRef &&
-            context.selectedToolRef
-          ) {
-            console.log(
-              `[SplineManager.redo] Re-attaching handlers for ${spline.points.length} points in spline ${spline.id}`,
-              {
-                hasSetupPointHandlers: !!context.setupPointHandlers,
-                hasIsDraggingRef: !!context.isDraggingRef,
-                hasSelectedToolRef: !!context.selectedToolRef,
-                currentTool: context.selectedToolRef?.current,
-              }
-            )
-            spline.points.forEach((point, idx) => {
-              if (point.circle) {
-                console.log(
-                  `[SplineManager.redo] Attaching handlers to point ${idx}`,
-                  {
-                    hasCircle: true,
-                    cx: point.circle.cx(),
-                    cy: point.circle.cy(),
-                  }
-                )
-                context.setupPointHandlers(
-                  point.circle,
-                  spline,
-                  context.isDraggingRef,
-                  this,
-                  context.selectedToolRef,
-                  this.pointSelectionManager,
-                  this.historyManager
-                )
-              } else {
-                console.warn(`[SplineManager.redo] Point ${idx} has no circle!`)
-              }
-            })
-          } else {
-            console.warn(
-              "[SplineManager.redo] Cannot re-attach point handlers, missing context:",
-              {
-                hasSetupPointHandlers: !!context?.setupPointHandlers,
-                hasIsDraggingRef: !!context?.isDraggingRef,
-                hasSelectedToolRef: !!context?.selectedToolRef,
-              }
-            )
-          }
-
-          // Attach hover and click handlers
-          spline.path.on("mouseover", () => spline.setHovering(true))
-          spline.path.on("mouseout", () => spline.setHovering(false))
-          spline.group.on("mouseover", () => spline.setHovering(true))
-          spline.group.on("mouseout", () => spline.setHovering(false))
-
-          // Attach click handlers for tool interactions
-          const clickHandler = (e) => {
-            const tool = this.selectedToolRef?.current
-
-            // Delete tool
-            if (tool === "delete_spline") {
-              e.stopPropagation()
-              this.deleteSpline(spline.id)
-              this.saveHistorySnapshot([])
-              return
-            }
-
-            // Select tool - select the spline
-            if (tool === "select") {
-              e.stopPropagation()
-              this.selectSpline(spline.id)
-              return
-            }
-
-            // Curve/Line/Straight tools - select for adding points
-            if (tool === "curve" || tool === "line" || tool === "straight") {
-              e.stopPropagation()
-              this.selectSpline(spline.id)
-              return
-            }
-          }
-
-          spline.path.on("click", clickHandler)
-          spline.group.on("click", clickHandler)
-
-          this.splines.set(spline.id, spline)
-        } catch (error) {
-          console.error("[SplineManager.redo] Error restoring spline:", error)
-        }
-      })
-    }
-
-    // Deselect all splines and remove selection boxes
-    this.clearSelection()
-    this.splines.forEach((spline) => {
-      try {
-        if (spline.group && typeof spline.group.select === "function") {
-          spline.group.select(false)
-          const selBox = spline.group.node.querySelector(".svg-select-box")
-          if (selBox) selBox.remove()
-        }
-      } catch (error) {
-        console.warn(
-          "[SplineManager.redo] Error clearing selection box:",
-          error
-        )
-      }
-    })
-
-    // Re-attach transform handlers
-    this._transformAPI?.attachToAll?.()
-
-    // Auto-select the last spline if in curve mode (so user can continue editing)
-    if (
-      (context.selectedToolRef?.current === "curve" ||
-        context.selectedToolRef?.current === "line" ||
-        context.selectedToolRef?.current === "straight") &&
-      this.splines.size > 0
-    ) {
-      const lastSpline = Array.from(this.splines.values())[
-        this.splines.size - 1
-      ]
-      if (lastSpline) {
-        this.selectSpline(lastSpline.id)
-        console.log(
-          "[SplineManager.redo] Auto-selected last spline:",
-          lastSpline.id
-        )
-      }
-    }
-
-    this.emit("change")
+    this.restoreFromState(state.splines, context)
 
     return state
   }
@@ -1008,7 +876,10 @@ export default class SplineManager extends EventEmitter {
           // Save transform to history
           if (historyManager) {
             const splineData = this.getAllSplines().map((s) => s.toJSON())
-            historyManager.pushState(splineData, [])
+            historyManager.pushState(
+              splineData,
+              this.linkedSvgManager?.getState?.() || []
+            )
             console.log("[splineManager] Drag transform saved to history")
           }
 
@@ -1129,7 +1000,10 @@ export default class SplineManager extends EventEmitter {
               // Save resize transform to history
               if (historyManager) {
                 const splineData = this.getAllSplines().map((s) => s.toJSON())
-                historyManager.pushState(splineData, [])
+                historyManager.pushState(
+                  splineData,
+                  this.linkedSvgManager?.getState?.() || []
+                )
                 console.log("[splineManager] Resize transform saved to history")
               }
               // Re-show selection box after resize completes
@@ -1142,7 +1016,10 @@ export default class SplineManager extends EventEmitter {
               // Save rotate transform to history
               if (historyManager) {
                 const splineData = this.getAllSplines().map((s) => s.toJSON())
-                historyManager.pushState(splineData, [])
+                historyManager.pushState(
+                  splineData,
+                  this.linkedSvgManager?.getState?.() || []
+                )
                 console.log("[splineManager] Rotate transform saved to history")
               }
             }

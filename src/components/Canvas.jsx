@@ -137,7 +137,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     if (groupOverlayRef.current) {
       try {
         groupOverlayRef.current.remove()
-      } catch {}
+      } catch {
+        // ignore removal errors
+      }
       groupOverlayRef.current = null
     }
 
@@ -390,12 +392,16 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       selectedToolRef: selectedToolRef,
       isDraggingRef: isDraggingPoint,
       historyManager: historyManager.current, // Pass the instance, not the ref
+      linkedSvgManager: null, // temporarily null, set after svgObjectManager init
     })
 
     // Initialize SVGObjectManager for imported SVG objects
     svgObjectManager.current = new SVGObjectManager({
       selectedToolRef: selectedToolRef,
     })
+
+    // Link managers for unified history snapshots
+    splineManager.current.linkedSvgManager = svgObjectManager.current
 
     // Initialize SelectionManager for multi-selection
     selectionManager.current = new SelectionManager({
@@ -785,6 +791,103 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   }, [zoomSignal])
 
   // --- Import arbitrary SVG (unchanged behavioral expectations) ---
+  // Helper to (re)initialize interactive behaviors (drag, resize, select) for an imported SVG.
+  // This is now used both on initial import and when SVG objects are reconstructed via undo/redo.
+  const initializeSvgInteractive = (imported) => {
+    if (!imported || imported._initializedInteractive) return
+    imported._initializedInteractive = true
+
+    // Ensure draggable capability
+    try {
+      imported.draggable?.()
+    } catch (err) {
+      console.warn("[Canvas] Failed to enable draggable on imported SVG", err)
+    }
+
+    // drag logic
+    imported.on("dragstart", () => {
+      if (selectedRef.current === imported) {
+        imported.select(false)
+        selectedRef.current = null
+      }
+    })
+    imported.on("dragend", () => {
+      const now = Date.now()
+      if (imported._lastDragPush && now - imported._lastDragPush < 50) {
+        return
+      }
+      imported._lastDragPush = now
+      if (selectedRef.current === imported) {
+        try {
+          imported.select(false)
+          imported.resize(false)
+          setTimeout(() => {
+            imported.select(true)
+            imported.resize({ rotationPoint: true })
+            selectedRef.current = imported
+          }, 0)
+        } catch (err) {
+          console.warn("[Canvas] SVG dragend reselection error:", err)
+        }
+      }
+      const splineData =
+        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+      const svgData = svgObjectManager.current?.getState?.() || []
+      if (historyManager?.current) {
+        historyManager.current.pushState(splineData, svgData)
+        console.log("[Canvas] SVG drag end saved to history")
+      }
+    })
+
+    // resize logic
+    imported.on("resize", () => {
+      if (!imported._resizingActive) imported._resizingActive = true
+      clearTimeout(imported._resizeTimeout)
+      imported._resizeTimeout = setTimeout(() => {
+        imported._resizingActive = false
+        const now = Date.now()
+        if (imported._lastResizePush && now - imported._lastResizePush < 50) {
+          return
+        }
+        imported._lastResizePush = now
+        const splineData =
+          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+        const svgData = svgObjectManager.current?.getState?.() || []
+        if (historyManager?.current) {
+          historyManager.current.pushState(splineData, svgData)
+          console.log("[Canvas] SVG resize end saved to history")
+        }
+      }, 150)
+
+      clearTimeout(imported._refreshTimeout)
+      imported._refreshTimeout = setTimeout(() => {
+        if (selectedRef.current === imported) {
+          imported.select(false)
+          selectedRef.current = null
+          imported.select(true)
+          selectedRef.current = imported
+        }
+      }, 1)
+    })
+
+    // click selection logic
+    imported.on("click", (ev) => {
+      ev.stopPropagation()
+      const svgMgr = svgObjectManager.current
+      if (svgMgr) {
+        svgMgr.selectObject(imported._objectId)
+        selectedRef.current = svgMgr.getSelected()
+      } else {
+        if (selectedRef.current && selectedRef.current !== imported) {
+          selectedRef.current.select(false)
+        }
+        imported.select(true)
+        imported.resize({ rotationPoint: true })
+        selectedRef.current = imported
+      }
+    })
+  }
+
   const handleImportSVG = async () => {
     const input = document.createElement("input")
     input.type = "file"
@@ -797,126 +900,33 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       const imported = draw.group().svg(text)
 
       imported.center(draw.viewbox().width / 2, draw.viewbox().height / 2)
-      imported.draggable()
-
-      // drag logic
-      imported.on("dragstart", () => {
-        if (selectedRef.current === imported) {
-          imported.select(false)
-          selectedRef.current = null
-        }
-      })
-      imported.on("dragend", () => {
-        if (selectedRef.current === imported) {
-          try {
-            imported.select(false)
-            imported.resize(false)
-            setTimeout(() => {
-              imported.select(true)
-              imported.resize({ rotationPoint: true })
-              selectedRef.current = imported
-            }, 0)
-          } catch (err) {
-            console.warn("[Canvas] SVG dragend reselection error:", err)
-          }
-        }
-        // Save to history after drag end
-        const splineData =
-          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.current?.getState?.() || []
-        if (historyManager?.current) {
-          if (
-            historyManager.current.currentIndex <
-            historyManager.current.history.length - 1
-          ) {
-            historyManager.current.history =
-              historyManager.current.history.slice(
-                0,
-                historyManager.current.currentIndex + 1
-              )
-            console.log(
-              "[Canvas] History truncated at currentIndex (SVG drag)",
-              {
-                currentIndex: historyManager.current.currentIndex,
-                newHistoryLength: historyManager.current.history.length,
-              }
-            )
-          }
-          historyManager.current.pushState(splineData, svgData)
-          console.log("[Canvas] SVG drag end saved to history")
-        }
-      })
-
-      // resize refresh logic
-      imported.on("resize", () => {
-        if (!imported._resizingActive) imported._resizingActive = true
-        clearTimeout(imported._resizeTimeout)
-        imported._resizeTimeout = setTimeout(() => {
-          imported._resizingActive = false
-          // Save to history after resize end
-          const splineData =
-            splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) ||
-            []
-          const svgData = svgObjectManager.current?.getState?.() || []
-          if (historyManager?.current) {
-            if (
-              historyManager.current.currentIndex <
-              historyManager.current.history.length - 1
-            ) {
-              historyManager.current.history =
-                historyManager.current.history.slice(
-                  0,
-                  historyManager.current.currentIndex + 1
-                )
-              console.log(
-                "[Canvas] History truncated at currentIndex (SVG resize)",
-                {
-                  currentIndex: historyManager.current.currentIndex,
-                  newHistoryLength: historyManager.current.history.length,
-                }
-              )
-            }
-            historyManager.current.pushState(splineData, svgData)
-            console.log("[Canvas] SVG resize end saved to history")
-          }
-        }, 150)
-
-        clearTimeout(imported._refreshTimeout)
-        imported._refreshTimeout = setTimeout(() => {
-          if (selectedRef.current === imported) {
-            imported.select(false)
-            selectedRef.current = null
-            imported.select(true)
-            selectedRef.current = imported
-          }
-        }, 1)
-      })
-
-      // click selection for imported SVG
-      imported.on("click", (ev) => {
-        ev.stopPropagation()
-        // Use SVGObjectManager to select
-        const svgMgr = svgObjectManager.current
-        if (svgMgr) {
-          svgMgr.selectObject(imported._objectId)
-          selectedRef.current = svgMgr.getSelected()
-        } else {
-          // Fallback if manager not available
-          if (selectedRef.current && selectedRef.current !== imported) {
-            selectedRef.current.select(false)
-          }
-          imported.select(true)
-          imported.resize({ rotationPoint: true })
-          selectedRef.current = imported
-        }
-      })
+      initializeSvgInteractive(imported)
 
       // Add to SVGObjectManager
       svgObjectManager.current?.addObject(imported)
       svgObjects.current.push(imported)
+
+      // Push initial import state to history for proper undo (baseline)
+      if (historyManager.current) {
+        const splineData =
+          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+        const svgData = svgObjectManager.current?.getState?.() || []
+        historyManager.current.pushState(splineData, svgData)
+        console.log("[Canvas] SVG import saved to history baseline")
+      }
     }
     input.click()
   }
+
+  // Reinitialize interactive handlers for objects restored via undo/redo.
+  useEffect(() => {
+    const mgr = svgObjectManager.current
+    if (!mgr) return
+    const unsub = mgr.on("imported", (obj) => {
+      initializeSvgInteractive(obj)
+    })
+    return () => unsub?.()
+  }, [])
 
   const handleDeleteSelected = () => {
     // Try to delete selected SVG object first
@@ -931,22 +941,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
       const svgData = svgObjectManager.current?.getState?.() || []
       if (historyManager?.current) {
-        if (
-          historyManager.current.currentIndex <
-          historyManager.current.history.length - 1
-        ) {
-          historyManager.current.history = historyManager.current.history.slice(
-            0,
-            historyManager.current.currentIndex + 1
-          )
-          console.log(
-            "[Canvas] History truncated at currentIndex (SVG delete)",
-            {
-              currentIndex: historyManager.current.currentIndex,
-              newHistoryLength: historyManager.current.history.length,
-            }
-          )
-        }
         historyManager.current.pushState(splineData, svgData)
         console.log("[Canvas] SVG delete saved to history")
       }
@@ -1070,99 +1064,23 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // Expose history manager for hotkeys (private API)
     _historyManager: historyManager.current,
     _restoreState: (state) => {
-      if (
-        !state ||
-        !drawRef.current ||
-        !splineManager.current ||
-        !svgObjectManager.current
-      ) {
-        console.warn("[Canvas] Cannot restore state, missing dependencies")
+      // Unified restore delegating to managers' restoreFromState implementations
+      if (!state) return
+      const splineMgr = splineManager.current
+      const svgMgr = svgObjectManager.current
+      if (!splineMgr || !svgMgr) {
+        console.warn("[Canvas] _restoreState missing managers")
         return
       }
-
-      // FULLY DELETE all current splines (remove SVG group and clear from collection)
-      splineManager.current.getAllSplines().forEach((spline) => {
-        try {
-          // Deselect before removing to clear selection box and highlights
-          if (spline.setSelected) spline.setSelected(false)
-          if (spline.group) spline.group.remove()
-        } catch (err) {
-          console.warn("[Canvas] Error removing spline group:", err)
-        }
+      // Use manager restore which handles clearing & handler reattachment
+      splineMgr.restoreFromState(state.splines || [], {
+        setupPointHandlers,
+        drawRef,
+        selectedToolRef,
+        isDraggingRef: isDraggingPoint,
       })
-      // Clear SplineManager's internal collection
-      splineManager.current.splines.clear()
-      svgObjectManager.current.clear()
-
-      // Restore splines with original IDs, skip splines with <2 points
-      if (state.splines && Array.isArray(state.splines)) {
-        const restoredSplines = []
-        state.splines.forEach((splineData) => {
-          if (!splineData.points || splineData.points.length < 2) return
-          try {
-            // Remove any existing spline with same ID to prevent duplicates
-            if (splineManager.current.splines.has(splineData.id)) {
-              const existing = splineManager.current.splines.get(splineData.id)
-              if (existing && existing.setSelected) existing.setSelected(false)
-              if (existing && existing.group) existing.group.remove()
-              splineManager.current.splines.delete(splineData.id)
-            }
-            // Use silent mode to avoid duplicate events/collection
-            const spline = splineManager.current.createSpline(false)
-            spline.id = splineData.id // Set original ID
-            spline.loadFromJSON(splineData)
-
-            // Re-setup point handlers after loading from JSON
-            if (spline.points && spline.points.length > 0) {
-              spline.points.forEach((point) => {
-                if (point.circle) {
-                  setupPointHandlers(
-                    point.circle,
-                    spline,
-                    isDraggingPoint,
-                    splineManager.current,
-                    selectedTool,
-                    pointSelectionManager.current,
-                    historyManager // Pass historyManager for drag/delete batching
-                  )
-                }
-              })
-            }
-            splineManager.current.splines.set(spline.id, spline)
-            restoredSplines.push(spline)
-          } catch (err) {
-            console.error("[Canvas] Error restoring spline:", err)
-          }
-        })
-        // Always deselect all splines and remove selection boxes after restore
-        restoredSplines.forEach((spline) => {
-          if (spline.setSelected) spline.setSelected(false)
-          if (spline.group && typeof spline.group.select === "function") {
-            spline.group.select(false)
-            // Also remove any lingering selection box elements if present
-            const selBox = spline.group.node.querySelector(".svg-select-box")
-            if (selBox) selBox.remove()
-          }
-        })
-      }
-
-      // Restore SVG objects
-      const drawRef_current = drawRef.current
-      if (state.svgs && Array.isArray(state.svgs)) {
-        state.svgs.forEach((svgData) => {
-          try {
-            const imported = drawRef_current.group().svg(svgData.svg)
-            if (svgData.transform) {
-              imported.transform(svgData.transform)
-            }
-            svgObjectManager.current.addObject(imported)
-          } catch (err) {
-            console.error("[Canvas] Error restoring SVG object:", err)
-          }
-        })
-      }
-
-      console.log("[Canvas] State restored")
+      svgMgr.restoreFromState(state.svgs || [], { drawRef })
+      console.log("[Canvas] State restored (delegated)")
     },
   }))
 
@@ -1170,72 +1088,18 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   if (ref?.current) {
     ref.current._historyManager = historyManager.current
     ref.current._restoreState = (state) => {
-      // This will be called by hotkeys
       if (!state) return
-
-      // FULLY DELETE all current splines (remove SVG group and clear from collection)
-      splineManager.current.getAllSplines().forEach((spline) => {
-        try {
-          if (spline.group) spline.group.remove()
-        } catch (err) {
-          console.warn("[Canvas] Error removing spline group:", err)
-        }
-        splineManager.current.splines.delete(spline.id)
+      const splineMgr = splineManager.current
+      const svgMgr = svgObjectManager.current
+      if (!splineMgr || !svgMgr) return
+      splineMgr.restoreFromState(state.splines || [], {
+        setupPointHandlers,
+        drawRef,
+        selectedToolRef,
+        isDraggingRef: isDraggingPoint,
       })
-
-      // Restore splines
-      if (state.splines && Array.isArray(state.splines)) {
-        const restoredSplines = []
-        state.splines.forEach((splineData) => {
-          try {
-            const spline = splineManager.current.createSpline()
-            spline.loadFromJSON(splineData)
-
-            // Re-setup point handlers after loading from JSON
-            if (spline.points && spline.points.length > 0) {
-              spline.points.forEach((point) => {
-                if (point.circle) {
-                  setupPointHandlers(
-                    point.circle,
-                    spline,
-                    isDraggingPoint,
-                    splineManager.current,
-                    selectedTool,
-                    pointSelectionManager.current,
-                    historyManager
-                  )
-                }
-              })
-            }
-            restoredSplines.push(spline)
-          } catch (err) {
-            console.error("[Canvas] Error restoring spline:", err)
-          }
-        })
-        // If curve tool is active and there are splines, select the last one
-        if (selectedTool?.current === "curve" && restoredSplines.length > 0) {
-          const lastSpline = restoredSplines[restoredSplines.length - 1]
-          splineManager.current.selectSpline(lastSpline.id)
-        }
-      }
-
-      // Restore SVG objects
-      svgObjectManager.current.clear()
-      if (state.svgs && Array.isArray(state.svgs)) {
-        state.svgs.forEach((svgData) => {
-          try {
-            const imported = drawRef.current.group().svg(svgData.svg)
-            if (svgData.transform) {
-              imported.transform(svgData.transform)
-            }
-            svgObjectManager.current.addObject(imported)
-          } catch (err) {
-            console.error("[Canvas] Error restoring SVG object:", err)
-          }
-        })
-      }
-
-      console.log("[Canvas] State restored from history")
+      svgMgr.restoreFromState(state.svgs || [], { drawRef })
+      console.log("[Canvas] State restored from history (delegated)")
     }
   }
 
