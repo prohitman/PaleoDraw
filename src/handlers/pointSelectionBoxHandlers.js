@@ -41,11 +41,10 @@ export function setupPointDragSelectionHandlers(
     e.preventDefault()
     e.stopPropagation()
 
-    const coords = getViewportCoords
-      ? getViewportCoords(e)
-      : { x: e.offsetX, y: e.offsetY }
-    startX = coords.x
-    startY = coords.y
+    // Use SVG.js point() for robust coordinate conversion
+    const { x, y } = draw.point(e.clientX, e.clientY)
+    startX = x
+    startY = y
     isDragging = true
     dragButton = 2
 
@@ -63,11 +62,7 @@ export function setupPointDragSelectionHandlers(
 
   const pointerMove = (e) => {
     if (!isDragging || dragButton !== 2) return
-    const coords = getViewportCoords
-      ? getViewportCoords(e)
-      : { x: e.offsetX, y: e.offsetY }
-    const currentX = coords.x
-    const currentY = coords.y
+    const { x: currentX, y: currentY } = draw.point(e.clientX, e.clientY)
     const width = Math.abs(currentX - startX)
     const height = Math.abs(currentY - startY)
     const minX = Math.min(startX, currentX)
@@ -80,11 +75,7 @@ export function setupPointDragSelectionHandlers(
 
   const finalize = (e, cancelled = false) => {
     if (!isDragging || dragButton !== 2) return
-    const coords = getViewportCoords
-      ? getViewportCoords(e)
-      : { x: e.offsetX, y: e.offsetY }
-    const endX = coords.x
-    const endY = coords.y
+    const { x: endX, y: endY } = draw.point(e.clientX, e.clientY)
     const additive = e.shiftKey
 
     if (!cancelled) {

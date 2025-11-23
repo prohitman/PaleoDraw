@@ -175,6 +175,10 @@ export default class SelectionManager extends EventEmitter {
   selectSplines(splineIds, additive = false) {
     if (!additive) {
       this.clearSelection()
+    } else if (this.getSelectionCount() > 0 || splineIds.length > 0) {
+      // If adding to selection, ensure any single-spline transform box is removed
+      // so we don't have a mix of multi-selection overlay and single-spline resize box
+      this.splineManager.clearTransformSelection()
     }
 
     splineIds.forEach((id) => {
@@ -205,6 +209,9 @@ export default class SelectionManager extends EventEmitter {
   selectSvgObjects(svgObjectIds, additive = false) {
     if (!additive) {
       this.clearSelection()
+    } else if (this.getSelectionCount() > 0 || svgObjectIds.length > 0) {
+      // If adding to selection, ensure any single-spline transform box is removed
+      this.splineManager.clearTransformSelection()
     }
 
     svgObjectIds.forEach((id) => {

@@ -123,6 +123,9 @@ export class PointSelectionManager extends EventEmitter {
     const newlySelected = []
 
     this.splineManager.getAllSplines().forEach((spline) => {
+      // Only select points from selected splines
+      if (!spline.selected) return
+
       spline.points.forEach((pt, idx) => {
         if (pt.x >= minX && pt.x <= maxX && pt.y >= minY && pt.y <= maxY) {
           const key = `${spline.id}_${idx}`

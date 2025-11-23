@@ -33,28 +33,22 @@ export function setupDragSelectionHandlers(
       e.preventDefault()
       e.stopPropagation()
 
-      const coords = getViewportCoords
-        ? getViewportCoords(e)
-        : { x: e.offsetX, y: e.offsetY }
+      // Use SVG.js point() for robust coordinate conversion
+      const { x, y } = draw.point(e.clientX, e.clientY)
       // screen offsets accessible via event; no persistent vars needed
       isDraggingSelection = true
       dragButton = 2
-      selectionManager.startDragSelection(coords.x, coords.y, draw)
+      selectionManager.startDragSelection(x, y, draw)
 
-      console.log("[selectionHandlers] Starting drag selection at", coords)
+      console.log("[selectionHandlers] Starting drag selection at", { x, y })
     }
   })
 
   const handleMove = (e) => {
     if (!isDraggingSelection || dragButton !== 2) return
-    // Update visual box using raw screen offsets for precise cursor following
-    const screenX = e.offsetX
-    const screenY = e.offsetY
-    // Convert to viewport for logical selection bounds
-    const coords = getViewportCoords
-      ? getViewportCoords(e)
-      : { x: screenX, y: screenY }
-    selectionManager.updateDragSelection(coords.x, coords.y)
+    // Use SVG.js point() for robust coordinate conversion
+    const { x, y } = draw.point(e.clientX, e.clientY)
+    selectionManager.updateDragSelection(x, y)
   }
   draw.node.addEventListener("pointermove", (e) => {
     if (!isDraggingSelection) return
@@ -65,12 +59,10 @@ export function setupDragSelectionHandlers(
 
   const finalizeDrag = (e, cancelled = false) => {
     if (!isDraggingSelection || dragButton !== 2) return
-    const coords = getViewportCoords
-      ? getViewportCoords(e)
-      : { x: e.offsetX, y: e.offsetY }
+    const { x, y } = draw.point(e.clientX, e.clientY)
     if (!cancelled) {
       const additive = e.shiftKey
-      selectionManager.endDragSelection(coords.x, coords.y, additive)
+      selectionManager.endDragSelection(x, y, additive)
       console.log("[selectionHandlers] Ended drag selection")
     } else {
       selectionManager.cancelDragSelection()

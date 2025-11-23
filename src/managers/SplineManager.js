@@ -1132,6 +1132,14 @@ export default class SplineManager extends EventEmitter {
     return this._transformAPI
   }
 
+  /**
+   * Clear the transform selection (visual box) without deselecting the spline in the manager
+   * Used by SelectionManager when switching to multi-selection
+   */
+  clearTransformSelection() {
+    this._transformAPI?.clearSelection?.()
+  }
+
   // ========== CONVENIENCE METHODS FOR CANVAS ==========
 
   /**
@@ -1153,7 +1161,7 @@ export default class SplineManager extends EventEmitter {
   /**
    * Add a point to the currently selected/active spline
    * @param {number} x - X coordinate
-   * @param {number} y - Y coordinate
+   * @param {number} y - Y Coordinate
    * @returns {object} - The point object, or null if no active spline
    */
   addPointToActiveSpline(x, y) {
