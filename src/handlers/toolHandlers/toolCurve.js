@@ -19,7 +19,6 @@ export const curveToolHandlers = {
       historyManager,
       isDraggingPoint,
       drawRef,
-      pointSelectionManager,
     } = context
     console.log("[curveToolHandlers.click] Handling curve tool click", {
       managerType: typeof manager,
@@ -92,7 +91,9 @@ export const curveToolHandlers = {
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       console.log("[curveToolHandlers] Alt+click: inserting point by proximity")
       // Clear any existing multi-point selection before modifying spline
-      pointSelectionManager?.current?.clearSelection?.()
+      if (manager.pointSelectionManager) {
+        manager.pointSelectionManager.clearSelection()
+      }
       manager.insertPointByProximity(selectedSpline.id, x, y)
       // Save to history
       const splineData =
@@ -132,7 +133,9 @@ export const curveToolHandlers = {
       const spline = manager.createSplineAt(x, y)
       console.log("[curveToolHandlers] createSplineAt returned:", spline)
       // Starting a new spline should clear any prior multi-point selection
-      pointSelectionManager?.current?.clearSelection?.()
+      if (manager.pointSelectionManager) {
+        manager.pointSelectionManager.clearSelection()
+      }
       // Only create the first point, do NOT add a second point immediately
       e.stopPropagation()
       return
@@ -147,13 +150,9 @@ export const curveToolHandlers = {
     if (activeSpline && activeSpline.selected) {
       console.log("[curveToolHandlers] Adding point to spline", activeSpline.id)
       // Deselect multi-selected points when appending a new point
-      if (pointSelectionManager?.current) {
-        pointSelectionManager.current.clearSelection()
-      } else if (
-        pointSelectionManager &&
-        typeof pointSelectionManager.clearSelection === "function"
-      ) {
-        pointSelectionManager.clearSelection()
+      // Access pointSelectionManager via the manager instance since it's not in context
+      if (manager.pointSelectionManager) {
+        manager.pointSelectionManager.clearSelection()
       }
 
       const point = manager.addPointToSpline(activeSpline.id, x, y)

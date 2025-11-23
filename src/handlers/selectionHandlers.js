@@ -38,6 +38,15 @@ export function setupDragSelectionHandlers(
       // screen offsets accessible via event; no persistent vars needed
       isDraggingSelection = true
       dragButton = 2
+
+      // Deselect everything else first (unless shift is held, but drag selection usually starts fresh)
+      // If shift is held, we might want additive, but the prompt says "Moment a drag operation... happens... all objects should deselect"
+      // Assuming this refers to a standard drag selection without modifiers, or even with modifiers if the user wants a clean slate.
+      // Standard behavior: Shift adds, No-Shift clears.
+      if (!e.shiftKey) {
+        selectionManager.clearSelection()
+      }
+
       selectionManager.startDragSelection(x, y, draw)
 
       console.log("[selectionHandlers] Starting drag selection at", { x, y })
