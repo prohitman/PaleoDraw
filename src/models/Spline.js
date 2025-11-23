@@ -32,14 +32,14 @@ export default class Spline {
     // Add data attribute for identification during selection
     this.group.attr("data-spline-id", this.id)
     // Ensure group is always interactive
-    if (this.group.node) {
-      this.group.node.setAttribute("pointer-events", "all")
-    }
+    // if (this.group.node) {
+    //   this.group.node.setAttribute("pointer-events", "all")
+    // }
     this.path = this.group
       .path("")
       .stroke({ color: this.color, width: 2 })
       .fill("none")
-    this.path.node.setAttribute("pointer-events", "all")
+    this.path.node.setAttribute("pointer-events", "stroke")
     // Add mouseover/mouseout for hover class
     this.path.node.addEventListener("mouseover", () => {
       this.path.node.classList.add("spline-hover")
@@ -238,9 +238,9 @@ export default class Spline {
       : SPLINE_COLORS.UNSELECTED
     console.log("[Spline.setSelected] Setting path color:", color)
     this.path.stroke({ color, width: 2 })
-    // Always ensure pointer-events: all for path and circles
+    // Always ensure pointer-events: stroke for path and all for circles
     if (this.path?.node) {
-      this.path.node.setAttribute("pointer-events", "all")
+      this.path.node.setAttribute("pointer-events", "stroke")
       this.path.node.style.display = ""
     }
     this.points.forEach((p) => {

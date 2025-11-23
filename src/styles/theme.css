@@ -10,8 +10,12 @@ body, html, #root {
 }
 
 /* Ensure spline SVG elements are always interactive */
-[data-spline-id], [data-spline-id] path, [data-spline-id] circle {
+[data-spline-id] circle {
   pointer-events: all !important;
+}
+
+[data-spline-id] path {
+  pointer-events: stroke !important;
 }
 
 .app-container {
