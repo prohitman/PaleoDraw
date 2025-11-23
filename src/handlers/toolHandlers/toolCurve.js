@@ -147,7 +147,15 @@ export const curveToolHandlers = {
     if (activeSpline && activeSpline.selected) {
       console.log("[curveToolHandlers] Adding point to spline", activeSpline.id)
       // Deselect multi-selected points when appending a new point
-      pointSelectionManager?.current?.clearSelection?.()
+      if (pointSelectionManager?.current) {
+        pointSelectionManager.current.clearSelection()
+      } else if (
+        pointSelectionManager &&
+        typeof pointSelectionManager.clearSelection === "function"
+      ) {
+        pointSelectionManager.clearSelection()
+      }
+
       const point = manager.addPointToSpline(activeSpline.id, x, y)
       console.log("[curveToolHandlers] addPointToSpline returned:", point)
       // Save to history

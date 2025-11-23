@@ -124,7 +124,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     const selMgr = selectionManager.current
     const draw = drawRef.current
     if (!selMgr || !draw) return
-    const { x, y } = getViewportCoordsFromEvent(e)
+
+    // Use SVG.js point() for robust coordinate conversion
+    const { x, y } = draw.point(e.clientX, e.clientY)
 
     const dx = x - state.lastX
     const dy = y - state.lastY
@@ -170,8 +172,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     const state = pointOverlayDragStateRef.current
     if (!state.dragging) return
     const mgr = pointSelectionManager.current
-    if (!mgr) return
-    const { x, y } = getViewportCoordsFromEvent(e)
+    const draw = drawRef.current
+    if (!mgr || !draw) return
+
+    // Use SVG.js point() for robust coordinate conversion
+    const { x, y } = draw.point(e.clientX, e.clientY)
+
     const dx = x - state.lastX
     const dy = y - state.lastY
     if (dx === 0 && dy === 0) return
@@ -232,11 +238,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (selectedToolRef.current !== "select" || e.button !== 0) return
         e.stopPropagation()
         e.preventDefault()
-        const coords = getViewportCoordsFromEvent(e)
+        // Use SVG.js point() for robust coordinate conversion
+        const { x, y } = draw.point(e.clientX, e.clientY)
         overlayDragStateRef.current = {
           dragging: true,
-          lastX: coords.x,
-          lastY: coords.y,
+          lastX: x,
+          lastY: y,
         }
         window.addEventListener("pointermove", handleOverlayDragMove)
         window.addEventListener("pointerup", handleOverlayDragUp, {
@@ -317,11 +324,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
           return
         e.stopPropagation()
         e.preventDefault()
-        const coords = getViewportCoordsFromEvent(e)
+        // Use SVG.js point() for robust coordinate conversion
+        const { x, y } = draw.point(e.clientX, e.clientY)
         pointOverlayDragStateRef.current = {
           dragging: true,
-          lastX: coords.x,
-          lastY: coords.y,
+          lastX: x,
+          lastY: y,
         }
         window.addEventListener("pointermove", handlePointOverlayDragMove)
         window.addEventListener("pointerup", handlePointOverlayDragUp, {
@@ -1118,6 +1126,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         console.warn("[Canvas] _restoreState missing managers")
         return
       }
+
+      // Clear point selection on restore to remove lingering selection boxes
+      if (pointSelectionManager.current) {
+        pointSelectionManager.current.clearSelection()
+      }
+
       // Use manager restore which handles clearing & handler reattachment
       splineMgr.restoreFromState(state.splines || [], {
         setupPointHandlers,
@@ -1138,6 +1152,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       const splineMgr = splineManager.current
       const svgMgr = svgObjectManager.current
       if (!splineMgr || !svgMgr) return
+
+      // Clear point selection on restore
+      if (pointSelectionManager.current) {
+        pointSelectionManager.current.clearSelection()
+      }
+
       splineMgr.restoreFromState(state.splines || [], {
         setupPointHandlers,
         drawRef,

@@ -231,6 +231,20 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
       // Reset the group transform so visual matches baked coords
       resetGroupTransform(el)
       console.log("[canvas] transform finalized for spline", spline.id)
+
+      // Ensure resize plugin knows about the reset
+      // If we don't do this, the next resize might start from the old transformed box state
+      try {
+        if (spline.selected) {
+          el.resize(false)
+          // We don't immediately re-enable resize here because the resize END event
+          // in SplineManager will handle re-enabling it.
+          // If we enable it here, it might conflict or be redundant.
+          // However, we MUST clear the internal state of the resize plugin if possible.
+        }
+      } catch (e) {
+        console.warn("[canvas] error resetting resize plugin", e)
+      }
     }
 
     if (transformOccurred) {

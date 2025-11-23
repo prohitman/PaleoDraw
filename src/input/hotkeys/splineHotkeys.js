@@ -552,6 +552,26 @@ function nudgeSelected(
     })
     selectedSpline.plot()
 
+    // Update selection box position if visible
+    if (
+      selectedSpline.group &&
+      typeof selectedSpline.group.select === "function"
+    ) {
+      // Re-apply selection to update the box position
+      // We need to briefly deselect and reselect or force update if the library supports it
+      // svg.select.js usually updates on resize/drag but not manual point changes
+      // A quick toggle forces a redraw of the selection box
+      try {
+        // Only toggle if currently selected visually
+        if (selectedToolRefRef?.current === "select") {
+          selectedSpline.group.select(false)
+          selectedSpline.group.select(true)
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // Save to history
     if (historyManager) {
       const splineData = splineManager.getAllSplines().map((s) => s.toJSON())

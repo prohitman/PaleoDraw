@@ -595,6 +595,19 @@ export default class SelectionManager extends EventEmitter {
           const currentY = obj.y() || 0
           obj.move(currentX + tdx, currentY + tdy)
         }
+
+        // If this object has an individual selection box active, hide/update it
+        // This prevents the "ghost" selection box issue during group drag
+        if (obj.node && obj.node.querySelector(".svg-select-box")) {
+          try {
+            // Temporarily disable selection box during move
+            // It will be re-enabled if needed when selection is refreshed or drag ends
+            obj.select(false)
+            obj.resize(false)
+          } catch (e) {
+            // ignore
+          }
+        }
       }
     })
 

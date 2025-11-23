@@ -893,6 +893,8 @@ export default class SplineManager extends EventEmitter {
 
           setTimeout(() => {
             try {
+              // Force refresh of selection box to match new position
+              el.select(false)
               el.select(true)
             } catch {
               // ignore
@@ -939,6 +941,8 @@ export default class SplineManager extends EventEmitter {
 
           // ----- RESIZE START -----
           if (!isRotateOp && !spline._resizeIsActive && !isDone) {
+            // Always use the current bbox as the start box for a new resize operation
+            // This ensures we don't use stale cached boxes from previous operations
             const sb = box || el.bbox()
             spline._resizeStartBox = {
               x: sb.x,
@@ -946,6 +950,7 @@ export default class SplineManager extends EventEmitter {
               w: sb.w || sb.width,
               h: sb.h || sb.height,
             }
+            // Snapshot points at the start of THIS resize operation
             spline._resizeStartPoints = spline.points.map((pt) => ({
               x: pt.x,
               y: pt.y,
