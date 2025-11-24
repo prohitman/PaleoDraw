@@ -24,7 +24,8 @@ export function setupPointHandlers(
       if (
         selectedTool?.current !== "curve" &&
         selectedTool?.current !== "line" &&
-        selectedTool?.current !== "straight"
+        selectedTool?.current !== "straight" &&
+        selectedTool?.current !== "nurbs"
       ) {
         e.preventDefault()
       }
@@ -42,7 +43,8 @@ export function setupPointHandlers(
     if (
       selectedTool?.current !== "curve" &&
       selectedTool?.current !== "line" &&
-      selectedTool?.current !== "straight"
+      selectedTool?.current !== "straight" &&
+      selectedTool?.current !== "nurbs"
     )
       return
     isDraggingRef.current = true
@@ -69,7 +71,8 @@ export function setupPointHandlers(
     if (
       selectedTool?.current !== "curve" &&
       selectedTool?.current !== "line" &&
-      selectedTool?.current !== "straight"
+      selectedTool?.current !== "straight" &&
+      selectedTool?.current !== "nurbs"
     )
       return
 
@@ -126,7 +129,8 @@ export function setupPointHandlers(
     if (
       (selectedTool?.current === "curve" ||
         selectedTool?.current === "line" ||
-        selectedTool?.current === "straight") &&
+        selectedTool?.current === "straight" ||
+        selectedTool?.current === "nurbs") &&
       historyManager
     ) {
       const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
@@ -141,7 +145,8 @@ export function setupPointHandlers(
     if (
       selectedTool?.current !== "curve" &&
       selectedTool?.current !== "line" &&
-      selectedTool?.current !== "straight"
+      selectedTool?.current !== "straight" &&
+      selectedTool?.current !== "nurbs"
     )
       return
 
@@ -174,7 +179,8 @@ export function setupPointHandlers(
     if (
       selectedTool?.current !== "curve" &&
       selectedTool?.current !== "line" &&
-      selectedTool?.current !== "straight"
+      selectedTool?.current !== "straight" &&
+      selectedTool?.current !== "nurbs"
     )
       return
     const additive = e.shiftKey
@@ -192,7 +198,12 @@ export function setupPointHandlers(
 
   // Keep click as fallback (no shift) if user just clicks.
   circle.on("click.pointSelect", (e) => {
-    if (selectedTool?.current !== "curve" && selectedTool?.current !== "line")
+    if (
+      selectedTool?.current !== "curve" &&
+      selectedTool?.current !== "line" &&
+      selectedTool?.current !== "straight" &&
+      selectedTool?.current !== "nurbs"
+    )
       return
     if (e.shiftKey) return // already handled by pointerdown
     const pointIndex = spline.points.findIndex((p) => p.circle === circle)
@@ -203,6 +214,24 @@ export function setupPointHandlers(
         pointIndex,
       })
       pointSelectionManager.selectPoint(spline.id, pointIndex, false)
+    }
+  })
+
+  // Double-click to toggle sharpness (only for NURBS tool)
+  circle.on("dblclick.toggleSharpness", (e) => {
+    if (selectedTool?.current !== "nurbs") return
+    e.preventDefault()
+    e.stopPropagation()
+
+    const point = spline.points.find((p) => p.circle === circle)
+    if (point) {
+      point.isSharp = !point.isSharp
+      console.log("[pointHandlers] Toggled sharpness:", point.isSharp)
+      spline.plot()
+      if (historyManager) {
+        const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
+        historyManager.pushState(splineData, [])
+      }
     }
   })
 }

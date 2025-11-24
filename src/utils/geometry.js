@@ -58,6 +58,64 @@ export function generatePolylinePath(points) {
   return parts.join(" ")
 }
 
+/**
+ * Generates a Hybrid path string from a set of points.
+ * Supports mixed smooth and sharp points.
+ * If a point has isSharp=true, it creates a C0 continuity (sharp corner).
+ *
+ * @param {Array<{x: number, y: number, isSharp?: boolean}>} points - Array of points
+ * @returns {string} - SVG path data
+ */
+export function generateHybridPath(points) {
+  if (!points || points.length < 2) return ""
+  const d = [`M${points[0].x},${points[0].y}`]
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i]
+    const p1 = points[i]
+    const p2 = points[i + 1]
+    const p3 = points[i + 2] || p2
+
+    // Calculate Control Point 1 (associated with p1)
+    let cp1x, cp1y
+    if (p1.isSharp) {
+      // Sharp corner at start of segment: no tangent from previous
+      cp1x = p1.x
+      cp1y = p1.y
+    } else {
+      // Smooth: Catmull-Rom tangent
+      cp1x = p1.x + (p2.x - p0.x) / 6
+      cp1y = p1.y + (p2.y - p0.y) / 6
+    }
+
+    // Calculate Control Point 2 (associated with p2)
+    let cp2x, cp2y
+    if (p2.isSharp) {
+      // Sharp corner at end of segment: no tangent to next
+      cp2x = p2.x
+      cp2y = p2.y
+    } else {
+      // Smooth: Catmull-Rom tangent
+      cp2x = p2.x - (p3.x - p1.x) / 6
+      cp2y = p2.y - (p3.y - p1.y) / 6
+    }
+
+    d.push(`C${cp1x},${cp1y},${cp2x},${cp2y},${p2.x},${p2.y}`)
+  }
+  return d.join(" ")
+}
+
+/**
+ * Generates a NURBS path string from a set of points.
+ * Uses the hybrid generator to support mixed sharp/smooth edges.
+ *
+ * @param {Array<{x: number, y: number}>} points - Array of points
+ * @returns {string} - SVG path data
+ */
+export function generateNurbsPath(points) {
+  return generateHybridPath(points)
+}
+
 export function maxBoxFromPoints(points) {
   let x = Infinity
   let y = Infinity

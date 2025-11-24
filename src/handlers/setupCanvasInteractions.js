@@ -283,6 +283,7 @@ export function setupBackgroundClickBehavior(
       selectedTool?.current === "line" || selectedTool?.current === "straight"
     if (
       selectedTool?.current === "curve" ||
+      selectedTool?.current === "nurbs" ||
       (inEditLineMode &&
         justCreatedId &&
         manager?.getSelected?.()?.id === justCreatedId)

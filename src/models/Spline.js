@@ -1,5 +1,9 @@
 // src/models/Spline.js
-import { generateBSplinePath, generatePolylinePath } from "../utils/geometry"
+import {
+  generateBSplinePath,
+  generatePolylinePath,
+  generateNurbsPath,
+} from "../utils/geometry"
 
 const SPLINE_COLORS = {
   SELECTED: "#00ffff",
@@ -75,14 +79,16 @@ export default class Spline {
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
    * @param {boolean} withCircle - Whether to create a visual circle for the point
+   * @param {boolean} isSharp - Whether the point is a sharp corner (C0 continuity)
    * @returns {object} - The point object
    */
-  addPoint(x, y, withCircle = true) {
+  addPoint(x, y, withCircle = true, isSharp = false) {
     console.log("[Spline.addPoint]", {
       splineId: this.id,
       x,
       y,
       withCircle,
+      isSharp,
       groupExists: !!this.group,
     })
     let circle = null
@@ -105,7 +111,7 @@ export default class Spline {
         console.error("[Spline.addPoint] Error creating circle:", err)
       }
     }
-    const point = { x, y, circle }
+    const point = { x, y, circle, isSharp }
     this.points.push(point)
     console.log(
       "[Spline.addPoint] Point added, total points:",
@@ -119,11 +125,12 @@ export default class Spline {
    * @param {number} index - Index to insert at
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
+   * @param {boolean} isSharp - Whether the point is a sharp corner
    * @returns {object} - The point object
    */
-  insertPointAt(index, x, y) {
+  insertPointAt(index, x, y, isSharp = false) {
     const circle = this.group.circle(6).fill(POINT_COLOR).center(x, y).show()
-    const point = { x, y, circle }
+    const point = { x, y, circle, isSharp }
     this.points.splice(index, 0, point)
     return point
   }
@@ -198,6 +205,11 @@ export default class Spline {
     )
     if (this.type === "polyline") {
       const pathData = generatePolylinePath(this.points)
+      this.path.plot(pathData)
+      return
+    }
+    if (this.type === "nurbs") {
+      const pathData = generateNurbsPath(this.points)
       this.path.plot(pathData)
       return
     }
@@ -288,7 +300,11 @@ export default class Spline {
       id: this.id,
       color: this.color,
       type: this.type,
-      points: this.points.map((p) => ({ x: p.x, y: p.y })),
+      points: this.points.map((p) => ({
+        x: p.x,
+        y: p.y,
+        isSharp: !!p.isSharp,
+      })),
     }
   }
 
@@ -302,7 +318,13 @@ export default class Spline {
     this.type = obj.type || this.type || "bspline"
     this.points = []
     if (Array.isArray(obj.points)) {
-      obj.points.forEach(({ x, y }) => this.addPoint(x, y, true))
+      obj.points.forEach((p) => {
+        // Handle both old format {x,y} and new format {x,y,isSharp}
+        const x = typeof p.x === "number" ? p.x : p[0]
+        const y = typeof p.y === "number" ? p.y : p[1]
+        const isSharp = !!p.isSharp
+        this.addPoint(x, y, true, isSharp)
+      })
     }
     this.plot()
   }

@@ -270,11 +270,12 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     if (!draw || !ptMgr) return
 
     const count = ptMgr.getSelectionCount?.() || 0
-    // Show overlay in all point-editing tools: curve, line, straight
+    // Show overlay in all point-editing tools: curve, line, straight, nurbs
     const inEditTool =
       selectedToolRef.current === "curve" ||
       selectedToolRef.current === "line" ||
-      selectedToolRef.current === "straight"
+      selectedToolRef.current === "straight" ||
+      selectedToolRef.current === "nurbs"
     const bounds = ptMgr.getSelectionBounds?.()
     const shouldShow = inEditTool && bounds && count >= 2
 
@@ -316,9 +317,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       })
 
       overlay.on("pointerdown", (e) => {
-        // Allow group drag in all editing tools (curve, line, straight)
+        // Allow group drag in all editing tools (curve, line, straight, nurbs)
         if (
-          !["curve", "line", "straight"].includes(selectedToolRef.current) ||
+          !["curve", "line", "straight", "nurbs"].includes(
+            selectedToolRef.current
+          ) ||
           e.button !== 0
         )
           return

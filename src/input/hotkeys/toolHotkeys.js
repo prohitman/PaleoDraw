@@ -46,6 +46,19 @@ export function registerToolHotkeys(hotkeysManager, context) {
     "Activate Line (polyline) tool"
   )
 
+  // NURBS tool (N)
+  hotkeysManager.register(
+    "n",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "nurbs") {
+        selectedToolRef.current = "nurbs"
+        onToolChange?.("nurbs")
+      }
+    },
+    "Activate NURBS tool"
+  )
+
   // Import SVG (I)
   hotkeysManager.register(
     "i",

@@ -26,7 +26,8 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     if (
       (selectedToolRef?.current === "curve" ||
         selectedToolRef?.current === "line" ||
-        selectedToolRef?.current === "straight") &&
+        selectedToolRef?.current === "straight" ||
+        selectedToolRef?.current === "nurbs") &&
       pointSelectionManager?.current?.hasSelection?.()
     ) {
       pointSelectionManager.current.deleteSelectedPoints()
@@ -83,10 +84,13 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     () => {
       const tool = selectedToolRef?.current
       const splineSelected = splineManager?.current?.getSelected?.()
-      // Allow copy if in select tool OR (tool is curve/line/straight and a spline is selected)
+      // Allow copy if in select tool OR (tool is curve/line/straight/nurbs and a spline is selected)
       const canCopySpline =
         tool === "select" ||
-        ((tool === "curve" || tool === "line" || tool === "straight") &&
+        ((tool === "curve" ||
+          tool === "line" ||
+          tool === "straight" ||
+          tool === "nurbs") &&
           !!splineSelected)
       if (!canCopySpline) {
         console.log(
@@ -133,7 +137,10 @@ export function registerSplineHotkeys(hotkeysManager, context) {
       const splineSelected = splineManager?.current?.getSelected?.()
       const canCutSpline =
         tool === "select" ||
-        ((tool === "curve" || tool === "line" || tool === "straight") &&
+        ((tool === "curve" ||
+          tool === "line" ||
+          tool === "straight" ||
+          tool === "nurbs") &&
           !!splineSelected)
       if (!canCutSpline) {
         console.log(
@@ -510,7 +517,8 @@ function nudgeSelected(
   if (
     (selectedToolRefRef?.current === "curve" ||
       selectedToolRefRef?.current === "line" ||
-      selectedToolRefRef?.current === "straight") &&
+      selectedToolRefRef?.current === "straight" ||
+      selectedToolRefRef?.current === "nurbs") &&
     pointSelectionManager?.hasSelection?.()
   ) {
     pointSelectionManager.moveSelectedPoints(dx, dy)

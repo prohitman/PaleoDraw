@@ -139,6 +139,9 @@ export default function Toolbar({
             <button onClick={() => handleClick(() => onSelectTool("straight"))}>
               Draw Straight
             </button>
+            <button onClick={() => handleClick(() => onSelectTool("nurbs"))}>
+              Draw NURBS
+            </button>
             <button onClick={() => handleClick(() => onSelectTool("select"))}>
               Select
             </button>

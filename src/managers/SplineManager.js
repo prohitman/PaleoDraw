@@ -75,8 +75,13 @@ export default class SplineManager extends EventEmitter {
         return
       }
 
-      // Curve/Line/Straight tools - select if not already selected
-      if (tool === "curve" || tool === "line" || tool === "straight") {
+      // Curve/Line/Straight/NURBS tools - select if not already selected
+      if (
+        tool === "curve" ||
+        tool === "line" ||
+        tool === "straight" ||
+        tool === "nurbs"
+      ) {
         if (this.selectedSplineId !== spline.id) {
           e.stopPropagation()
           this.selectSpline(spline.id)
@@ -153,13 +158,15 @@ export default class SplineManager extends EventEmitter {
    * @param {string} splineId
    * @param {number} x
    * @param {number} y
+   * @param {boolean} isSharp - Whether the point is a sharp corner
    * @returns {object} - The point object
    */
-  addPointToSpline(splineId, x, y) {
+  addPointToSpline(splineId, x, y, isSharp = false) {
     console.log("[SplineManager.addPointToSpline] Adding point", {
       splineId,
       x,
       y,
+      isSharp,
     })
     const spline = this.splines.get(splineId)
     if (!spline) {
@@ -173,7 +180,7 @@ export default class SplineManager extends EventEmitter {
     console.log(
       "[SplineManager.addPointToSpline] Spline found, calling addPoint"
     )
-    const point = spline.addPoint(x, y, true)
+    const point = spline.addPoint(x, y, true, isSharp)
     console.log(
       "[SplineManager.addPointToSpline] Point created, has circle:",
       !!point?.circle
@@ -226,9 +233,10 @@ export default class SplineManager extends EventEmitter {
    * @param {string} splineId
    * @param {number} x
    * @param {number} y
+   * @param {boolean} isSharp - Whether the point is a sharp corner
    * @returns {object} - The inserted point object
    */
-  insertPointByProximity(splineId, x, y) {
+  insertPointByProximity(splineId, x, y, isSharp = false) {
     const spline = this.splines.get(splineId)
     if (!spline || spline.points.length < 2) return null
 
@@ -248,7 +256,7 @@ export default class SplineManager extends EventEmitter {
     }
 
     // Insert at closest segment
-    const point = spline.insertPointAt(insertIndex, x, y)
+    const point = spline.insertPointAt(insertIndex, x, y, isSharp)
 
     if (point && point.circle) {
       setupPointHandlers(
@@ -384,7 +392,12 @@ export default class SplineManager extends EventEmitter {
    * Handles visual state updates for tool switching
    */
   updateOnToolChange(tool) {
-    if (tool !== "curve" && tool !== "line" && tool !== "straight") {
+    if (
+      tool !== "curve" &&
+      tool !== "line" &&
+      tool !== "straight" &&
+      tool !== "nurbs"
+    ) {
       // Leaving point-edit tools: clear any multi-point selection state/colors
       try {
         this.pointSelectionManager?.clearSelection?.()
@@ -601,8 +614,13 @@ export default class SplineManager extends EventEmitter {
               return
             }
 
-            // Curve/Line/Straight tools - select for adding points
-            if (tool === "curve" || tool === "line" || tool === "straight") {
+            // Curve/Line/Straight/NURBS tools - select for adding points
+            if (
+              tool === "curve" ||
+              tool === "line" ||
+              tool === "straight" ||
+              tool === "nurbs"
+            ) {
               const selectedSpline = this.getSelected()
               if (selectedSpline && selectedSpline.id === spline.id) {
                 // Already selected in curve mode: allow point addition by not stopping propagation
@@ -654,7 +672,8 @@ export default class SplineManager extends EventEmitter {
     if (
       (context.selectedToolRef?.current === "curve" ||
         context.selectedToolRef?.current === "line" ||
-        context.selectedToolRef?.current === "straight") &&
+        context.selectedToolRef?.current === "straight" ||
+        context.selectedToolRef?.current === "nurbs") &&
       this.splines.size > 0
     ) {
       const lastSpline = Array.from(this.splines.values())[
@@ -756,7 +775,8 @@ export default class SplineManager extends EventEmitter {
         currentTool === "select" ||
         currentTool === "curve" ||
         currentTool === "line" ||
-        currentTool === "straight"
+        currentTool === "straight" ||
+        currentTool === "nurbs"
       if (!canSelect) {
         console.log(
           "[transformAPI.selectSpline] Tool not select or curve:",
@@ -1066,7 +1086,10 @@ export default class SplineManager extends EventEmitter {
           const tool = selectedToolRef?.current
           const selectedSpline = this.getSelected()
           if (
-            (tool === "curve" || tool === "line" || tool === "straight") &&
+            (tool === "curve" ||
+              tool === "line" ||
+              tool === "straight" ||
+              tool === "nurbs") &&
             selectedSpline &&
             selectedSpline.id === spline.id
           ) {
@@ -1157,7 +1180,8 @@ export default class SplineManager extends EventEmitter {
   createSplineAt(x, y, type = "bspline") {
     console.log("[SplineManager.createSplineAt] Creating spline at", { x, y })
     const spline = this.createSpline(true, type) // auto-select with type
-    this.addPointToSpline(spline.id, x, y)
+    // First point of a spline is always sharp/endpoint effectively, but we can mark it
+    this.addPointToSpline(spline.id, x, y, false)
     // Flag to suppress immediate background clearance so next click can add a point
     this._justCreatedSplineId = spline.id
     return spline

@@ -29,11 +29,12 @@ export function setupPointDragSelectionHandlers(
   }
 
   const pointerDown = (e) => {
-    // Allow in curve, line, straight tools
+    // Allow in curve, line, straight, nurbs tools
     if (
       selectedToolRef?.current !== "curve" &&
       selectedToolRef?.current !== "line" &&
-      selectedToolRef?.current !== "straight"
+      selectedToolRef?.current !== "straight" &&
+      selectedToolRef?.current !== "nurbs"
     )
       return
     if (e.button !== 2) return // right mouse button
@@ -136,7 +137,8 @@ export function setupPointDragSelectionHandlers(
     if (
       selectedToolRef?.current === "curve" ||
       selectedToolRef?.current === "line" ||
-      selectedToolRef?.current === "straight"
+      selectedToolRef?.current === "straight" ||
+      selectedToolRef?.current === "nurbs"
     ) {
       e.preventDefault()
     }

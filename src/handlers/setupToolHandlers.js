@@ -10,6 +10,7 @@ import {
   lineToolHandlers,
   selectToolHandlers,
   deleteSplineToolHandlers,
+  nurbsToolHandlers,
 } from "./toolHandlers"
 
 /**
@@ -28,6 +29,7 @@ export function setupToolHandlers() {
   registry.registerTool("straight", lineToolHandlers)
   registry.registerTool("select", selectToolHandlers)
   registry.registerTool("delete_spline", deleteSplineToolHandlers)
+  registry.registerTool("nurbs", nurbsToolHandlers)
 
   console.log(
     "[setupToolHandlers] All tools registered:",
