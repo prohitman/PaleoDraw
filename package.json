@@ -11,6 +11,10 @@
     "package:win": "electron-packager . PaleoDraw --platform=win32 --arch=x64 --out=dist --overwrite"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.5",
+    "@mui/material": "^7.3.5",
     "@svgdotjs/svg.draggable.js": "^3.0.6",
     "@svgdotjs/svg.js": "^3.2.5",
     "@svgdotjs/svg.panzoom.js": "^2.1.2",

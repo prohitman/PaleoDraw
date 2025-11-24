@@ -485,6 +485,47 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     },
     "Fine nudge selected spline right 1px"
   )
+
+  // Layering operations
+  const handleLayering = (action) => {
+    // Try Spline
+    const selectedSpline = splineManager?.current?.getSelected?.()
+    if (selectedSpline) {
+      splineManager.current[action]?.()
+      return
+    }
+    // Try SVG
+    const selectedSvgId = svgObjectManager?.current?.getSelectedId?.()
+    if (selectedSvgId) {
+      svgObjectManager.current[action]?.()
+      return
+    }
+  }
+
+  hotkeysManager.register(
+    "ctrl+f",
+    "selection",
+    () => handleLayering("bringForward"),
+    "Bring forward"
+  )
+  hotkeysManager.register(
+    "ctrl+shift+f",
+    "selection",
+    () => handleLayering("bringToFront"),
+    "Bring to front"
+  )
+  hotkeysManager.register(
+    "ctrl+b",
+    "selection",
+    () => handleLayering("sendBackward"),
+    "Send backward"
+  )
+  hotkeysManager.register(
+    "ctrl+shift+b",
+    "selection",
+    () => handleLayering("sendToBack"),
+    "Send to back"
+  )
 }
 
 /**

@@ -385,6 +385,75 @@ export default class SplineManager extends EventEmitter {
     return this.splines.get(this.selectedSplineId) || null
   }
 
+  // ========== Z-ORDER OPERATIONS ==========
+
+  /**
+   * Move selected spline forward one step
+   */
+  bringForward() {
+    const spline = this.getSelected()
+    if (!spline || !spline.group) return
+
+    // Prevent moving past the end (though forward() handles this)
+    spline.group.forward()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected spline to front
+   */
+  bringToFront() {
+    const spline = this.getSelected()
+    if (!spline || !spline.group) return
+
+    spline.group.front()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected spline backward one step
+   * Prevents moving behind background or grid
+   */
+  sendBackward() {
+    const spline = this.getSelected()
+    if (!spline || !spline.group) return
+
+    // Check previous sibling to avoid moving behind grid/bg
+    const prev = spline.group.previous()
+    if (prev && (prev.id() === "canvas-bg" || prev.id() === "canvas-grid")) {
+      return
+    }
+
+    spline.group.backward()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected spline to back
+   * Keeps it above background and grid
+   */
+  sendToBack() {
+    const spline = this.getSelected()
+    if (!spline || !spline.group) return
+
+    // Move to back first (which puts it at index 0)
+    spline.group.back()
+
+    // Then move forward past bg and grid
+    // Assuming bg is 0 and grid is 1 (or similar)
+    // Safer: find bg and grid and move after them
+    const bg = this.draw.findOne("#canvas-bg")
+    const grid = this.draw.findOne("#canvas-grid")
+
+    if (grid) {
+      spline.group.after(grid)
+    } else if (bg) {
+      spline.group.after(bg)
+    }
+
+    this.saveHistorySnapshot()
+  }
+
   // ========== TOOL STATE UPDATES ==========
 
   /**
@@ -449,10 +518,21 @@ export default class SplineManager extends EventEmitter {
 
   /**
    * Get all spline data as JSON-serializable objects
+   * Returns splines sorted by their DOM order to preserve layering
    * @returns {object[]}
    */
   getState() {
-    return this.getAllSplines().map((s) => s.toJSON())
+    // Sort splines by DOM position
+    const allSplines = this.getAllSplines()
+    if (this.draw && this.draw.node) {
+      const domNodes = Array.from(this.draw.node.children)
+      allSplines.sort((a, b) => {
+        const idxA = domNodes.indexOf(a.group.node)
+        const idxB = domNodes.indexOf(b.group.node)
+        return idxA - idxB
+      })
+    }
+    return allSplines.map((s) => s.toJSON())
   }
 
   /**

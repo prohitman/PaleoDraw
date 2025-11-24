@@ -7,6 +7,7 @@ body, html, #root {
   color: white;
   font-family: "Inter", sans-serif;
   overflow: hidden;
+  display: block; /* Override potential flex centering from index.css */
 }
 
 /* Ensure spline SVG elements are always interactive */
@@ -22,6 +23,7 @@ body, html, #root {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
 }
 
@@ -31,8 +33,8 @@ body, html, #root {
 
 .canvas-container {
   position: relative;
-  width: 100vw;
-  height: calc(100vh - 50px); /* adjust 50px to match toolbar height */
+  flex: 1; /* Take remaining vertical space */
+  width: 100%;
   background-color: #111;
   overflow: hidden;
   margin: 0;
@@ -42,15 +44,6 @@ body, html, #root {
   justify-content: center;
   align-items: center;
 } 
-
-/* .canvas-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  background-color: #111;
-  overflow: hidden;
-  cursor: grab;
-} */
 
 .grid-overlay {
   position: absolute;

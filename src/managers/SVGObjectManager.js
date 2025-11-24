@@ -232,6 +232,74 @@ export default class SVGObjectManager extends EventEmitter {
     this.clearSelection()
   }
 
+  // ========== Z-ORDER OPERATIONS ==========
+
+  /**
+   * Move selected object forward one step
+   */
+  bringForward() {
+    const obj = this.getSelected()
+    if (!obj) return
+
+    obj.forward()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected object to front
+   */
+  bringToFront() {
+    const obj = this.getSelected()
+    if (!obj) return
+
+    obj.front()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected object backward one step
+   */
+  sendBackward() {
+    const obj = this.getSelected()
+    if (!obj) return
+
+    // Check previous sibling to avoid moving behind grid/bg
+    const prev = obj.previous()
+    if (prev && (prev.id() === "canvas-bg" || prev.id() === "canvas-grid")) {
+      return
+    }
+
+    obj.backward()
+    this.saveHistorySnapshot()
+  }
+
+  /**
+   * Move selected object to back
+   */
+  sendToBack() {
+    const obj = this.getSelected()
+    if (!obj) return
+
+    obj.back()
+
+    // Ensure it stays above bg/grid
+    // We need access to draw instance to find bg/grid, or just look at siblings
+    // Since we don't have direct ref to draw here easily (except via obj.parent()),
+    // we can use obj.parent().findOne(...)
+    const parent = obj.parent()
+    if (parent) {
+      const bg = parent.findOne("#canvas-bg")
+      const grid = parent.findOne("#canvas-grid")
+      if (grid) {
+        obj.after(grid)
+      } else if (bg) {
+        obj.after(bg)
+      }
+    }
+
+    this.saveHistorySnapshot()
+  }
+
   // ========== TOOL STATE UPDATES ==========
 
   /**
@@ -259,10 +327,26 @@ export default class SVGObjectManager extends EventEmitter {
 
   /**
    * Get all object data as JSON-serializable objects
+   * Returns objects sorted by DOM order
    * @returns {object[]}
    */
   getState() {
-    return this.getAllObjects().map((obj) => {
+    const allObjects = this.getAllObjects()
+
+    // Sort by DOM order if possible
+    if (allObjects.length > 0 && allObjects[0].parent()) {
+      const parent = allObjects[0].parent()
+      if (parent && parent.node) {
+        const domNodes = Array.from(parent.node.children)
+        allObjects.sort((a, b) => {
+          const idxA = domNodes.indexOf(a.node)
+          const idxB = domNodes.indexOf(b.node)
+          return idxA - idxB
+        })
+      }
+    }
+
+    return allObjects.map((obj) => {
       let matrix = null
       try {
         matrix = obj.matrixify?.()
