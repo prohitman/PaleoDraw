@@ -1,13 +1,16 @@
-import React, { useState, useRef } from "react"
+import React, { useState, useRef, useEffect } from "react"
 import Toolbar from "./components/ToolBar"
 import Canvas from "./components/Canvas"
+import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
 import { HotkeysProvider } from "./hooks/HotkeysProvider"
+import { loadProjectFromPath } from "./handlers/projectHandler"
 
 export default function App() {
   const canvasRef = useRef()
   const [zoomSignal, setZoomSignal] = useState(null)
   const [selectedTool, setSelectedTool] = useState("select")
+  const [showWelcome, setShowWelcome] = useState(true)
 
   const handleZoom = (type) => {
     setZoomSignal({ type, timestamp: Date.now() })
@@ -36,8 +39,14 @@ export default function App() {
 
   /** Create a new blank project */
   const handleNewProject = () => {
-    if (confirm("Start a new project? Unsaved changes will be lost.")) {
-      canvasRef.current?.newProject?.()
+    if (showWelcome) {
+      setShowWelcome(false)
+      // Canvas is already blank on init, but ensure it's reset
+      setTimeout(() => canvasRef.current?.newProject?.(), 100)
+    } else {
+      if (confirm("Start a new project? Unsaved changes will be lost.")) {
+        canvasRef.current?.newProject?.()
+      }
     }
   }
 
@@ -56,7 +65,23 @@ export default function App() {
 
   /** Load a project from .json */
   const handleOpenProject = () => {
-    canvasRef.current?.loadFromJSON?.()
+    setShowWelcome(false)
+    // Small delay to allow modal to close before file picker opens (UI smoothness)
+    setTimeout(() => {
+      canvasRef.current?.loadFromJSON?.()
+    }, 100)
+  }
+
+  const handleOpenRecent = (path) => {
+    setShowWelcome(false)
+    // We need to access internal refs from Canvas, which is tricky via ref.
+    // But we exposed _restoreState. However, loadProjectFromPath needs raw refs.
+    // Ideally, we should move loadProjectFromPath INTO Canvas or expose a method on Canvas ref.
+    // Let's use the exposed method on Canvas ref if possible, or pass the refs if we had them.
+    // Since we don't have direct access to Canvas internal refs here, we should expose a method on Canvas.
+
+    // Actually, let's call a method on the canvas ref that delegates to the handler
+    canvasRef.current?.loadProjectFromPath?.(path)
   }
 
   /** Export SVG (excluding grid/background) */
@@ -66,6 +91,13 @@ export default function App() {
 
   return (
     <div className="app-container">
+      <WelcomeScreen
+        open={showWelcome}
+        onClose={() => setShowWelcome(false)}
+        onNewProject={handleNewProject}
+        onOpenProject={handleOpenProject}
+        onOpenRecent={handleOpenRecent}
+      />
       <Toolbar
         onSelectTool={selectTool}
         onZoom={handleZoom}

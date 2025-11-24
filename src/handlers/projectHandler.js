@@ -122,6 +122,11 @@ export async function loadFromJSON(
     const file = e.target.files[0]
     if (!file) return
 
+    // If in Electron, save path to recent projects
+    if (file.path) {
+      addToRecentProjects(file.path)
+    }
+
     const text = await file.text()
     let data
 
@@ -196,6 +201,112 @@ export async function loadFromJSON(
   }
 
   input.click()
+}
+
+/**
+ * Load a project from a specific file path (Electron only).
+ */
+export async function loadProjectFromPath(
+  path,
+  drawRef,
+  canvasSizeRef,
+  gridSizeRef,
+  gridRef,
+  fitToCanvas,
+  svgObjects,
+  splineManager,
+  svgObjectManager,
+  selectedRef
+) {
+  if (!window.api?.readProjectFile) {
+    console.error("File system API not available")
+    return
+  }
+
+  try {
+    const text = await window.api.readProjectFile(path)
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch {
+      console.error("Invalid JSON project file")
+      return
+    }
+
+    const draw = drawRef.current
+    if (!draw) return
+    draw.clear()
+
+    // Restore canvas size if present
+    if (data.canvas) {
+      canvasSizeRef.current = data.canvas
+      draw.size(data.canvas.width, data.canvas.height)
+      draw.viewbox(0, 0, data.canvas.width, data.canvas.height)
+    }
+
+    // Background + grid
+    const bg = draw
+      .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
+      .fill("#222")
+      .id("canvas-bg")
+    bg.node.style.pointerEvents = "none"
+
+    const grid = draw.group().id("canvas-grid")
+    gridRef.current = grid
+    grid._drawGrid = (gSize = data.gridSize || gridSizeRef.current) =>
+      drawGrid(grid, canvasSizeRef.current, gSize)
+    grid._drawGrid(data.gridSize || gridSizeRef.current)
+    gridSizeRef.current = data.gridSize || gridSizeRef.current
+    fitToCanvas()
+
+    // Restore splines using SplineManager
+    if (Array.isArray(data.splines)) {
+      splineManager.loadState(data.splines)
+    }
+
+    // Restore imported SVGs using SVGObjectManager
+    svgObjects.current = []
+    if (Array.isArray(data.importedSVGs)) {
+      if (svgObjectManager?.loadState) {
+        svgObjectManager.loadState(data.importedSVGs, draw)
+        svgObjectManager
+          .getAllObjects()
+          .forEach((obj) => svgObjects.current.push(obj))
+      }
+    }
+
+    selectedRef.current = null
+
+    // Update recent projects
+    addToRecentProjects(path)
+  } catch (err) {
+    console.error("Failed to load project from path:", err)
+    alert("Failed to load project: " + err.message)
+  }
+}
+
+function addToRecentProjects(path) {
+  try {
+    const name = path.split(/[/\\]/).pop()
+    const recent = JSON.parse(localStorage.getItem("recentProjects") || "[]")
+
+    // Remove if exists (to move to top)
+    const filtered = recent.filter((p) => p.path !== path)
+
+    // Add to top
+    filtered.unshift({
+      name,
+      path,
+      lastOpened: new Date().toISOString(),
+    })
+
+    // Keep max 10
+    const trimmed = filtered.slice(0, 10)
+
+    localStorage.setItem("recentProjects", JSON.stringify(trimmed))
+  } catch (e) {
+    console.error("Error updating recent projects", e)
+  }
 }
 
 /**

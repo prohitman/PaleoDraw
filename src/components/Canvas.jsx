@@ -34,6 +34,7 @@ import {
   getProjectJSON,
   saveAsJSON,
   loadFromJSON,
+  loadProjectFromPath,
   exportAsSVG,
 } from "../handlers/projectHandler"
 import {
@@ -1097,6 +1098,20 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     loadFromJSON: () =>
       loadFromJSON(
+        drawRef,
+        canvasSizeRef,
+        gridSizeRef,
+        gridRef,
+        fitToCanvas,
+        svgObjects,
+        splineManager.current,
+        svgObjectManager.current,
+        selectedRef
+      ),
+
+    loadProjectFromPath: (path) =>
+      loadProjectFromPath(
+        path,
         drawRef,
         canvasSizeRef,
         gridSizeRef,
