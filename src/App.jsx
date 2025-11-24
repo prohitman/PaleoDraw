@@ -1,16 +1,31 @@
 import React, { useState, useRef, useEffect } from "react"
+import { ThemeProvider, CssBaseline } from "@mui/material"
 import Toolbar from "./components/ToolBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
 import { HotkeysProvider } from "./hooks/HotkeysProvider"
 import { loadProjectFromPath } from "./handlers/projectHandler"
+import { lightTheme, darkTheme } from "./styles/muiThemes"
 
 export default function App() {
   const canvasRef = useRef()
   const [zoomSignal, setZoomSignal] = useState(null)
   const [selectedTool, setSelectedTool] = useState("select")
   const [showWelcome, setShowWelcome] = useState(true)
+  const [isDarkMode, setIsDarkMode] = useState(true)
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark")
+    } else {
+      document.documentElement.classList.remove("dark")
+    }
+  }, [isDarkMode])
+
+  const toggleTheme = () => {
+    setIsDarkMode((prev) => !prev)
+  }
 
   const handleZoom = (type) => {
     setZoomSignal({ type, timestamp: Date.now() })
@@ -90,34 +105,39 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
-      <WelcomeScreen
-        open={showWelcome}
-        onClose={() => setShowWelcome(false)}
-        onNewProject={handleNewProject}
-        onOpenProject={handleOpenProject}
-        onOpenRecent={handleOpenRecent}
-      />
-      <Toolbar
-        onSelectTool={selectTool}
-        onZoom={handleZoom}
-        onImportSVG={handleImportSVG}
-        onDelete={handleDelete}
-        onApplyGridSize={applyGridSize}
-        onApplyCanvasSize={applyCanvasSize}
-        onNewProject={handleNewProject}
-        onOpenProject={handleOpenProject}
-        onSaveProject={handleSaveProject}
-        onSaveAs={handleSaveAs}
-        onExport={handleExport}
-      />
-      <HotkeysProvider>
-        <Canvas
-          ref={canvasRef}
-          zoomSignal={zoomSignal}
-          selectedTool={selectedTool}
+    <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
+      <CssBaseline />
+      <div className="app-container">
+        <WelcomeScreen
+          open={showWelcome}
+          onClose={() => setShowWelcome(false)}
+          onNewProject={handleNewProject}
+          onOpenProject={handleOpenProject}
+          onOpenRecent={handleOpenRecent}
         />
-      </HotkeysProvider>
-    </div>
+        <Toolbar
+          onSelectTool={selectTool}
+          onZoom={handleZoom}
+          onImportSVG={handleImportSVG}
+          onDelete={handleDelete}
+          onApplyGridSize={applyGridSize}
+          onApplyCanvasSize={applyCanvasSize}
+          onNewProject={handleNewProject}
+          onOpenProject={handleOpenProject}
+          onSaveProject={handleSaveProject}
+          onSaveAs={handleSaveAs}
+          onExport={handleExport}
+          isDarkMode={isDarkMode}
+          onToggleTheme={toggleTheme}
+        />
+        <HotkeysProvider>
+          <Canvas
+            ref={canvasRef}
+            zoomSignal={zoomSignal}
+            selectedTool={selectedTool}
+          />
+        </HotkeysProvider>
+      </div>
+    </ThemeProvider>
   )
 }

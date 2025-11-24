@@ -59,8 +59,8 @@ export default function WelcomeScreen({
       fullWidth
       PaperProps={{
         sx: {
-          bgcolor: "#1e1e1e",
-          color: "#fff",
+          bgcolor: "background.paper",
+          color: "text.primary",
           minHeight: "500px",
           display: "flex",
           flexDirection: "row",
@@ -72,42 +72,45 @@ export default function WelcomeScreen({
       <Box
         sx={{
           width: "40%",
-          bgcolor: "#252526",
+          bgcolor: "background.default",
           p: 3,
           display: "flex",
           flexDirection: "column",
-          borderRight: "1px solid #333",
+          borderRight: 1,
+          borderColor: "divider",
         }}
       >
         <Typography
           variant="h5"
-          sx={{ mb: 4, fontWeight: "bold", color: "#90caf9" }}
+          sx={{ mb: 4, fontWeight: "bold", color: "primary.main" }}
         >
           PaleoDraw
         </Typography>
 
-        <Typography variant="subtitle2" sx={{ mb: 2, color: "#aaa" }}>
+        <Typography variant="subtitle2" sx={{ mb: 2, color: "text.secondary" }}>
           Get Started
         </Typography>
 
         <Button
           variant="contained"
+          color="inherit"
           startIcon={<CreateNewFolderIcon sx={{ fontSize: 40 }} />}
           onClick={onNewProject}
           sx={{
             justifyContent: "flex-start",
             mb: 2,
             py: 2,
-            bgcolor: "#333",
-            "&:hover": { bgcolor: "#444" },
+            bgcolor: "action.hover",
+            "&:hover": { bgcolor: "action.selected" },
             textTransform: "none",
+            boxShadow: "none",
           }}
         >
           <Box sx={{ textAlign: "left", ml: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
               New Project
             </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               Create a blank canvas
             </Typography>
           </Box>
@@ -115,21 +118,23 @@ export default function WelcomeScreen({
 
         <Button
           variant="contained"
+          color="inherit"
           startIcon={<FolderOpenIcon sx={{ fontSize: 40 }} />}
           onClick={onOpenProject}
           sx={{
             justifyContent: "flex-start",
             py: 2,
-            bgcolor: "#333",
-            "&:hover": { bgcolor: "#444" },
+            bgcolor: "action.hover",
+            "&:hover": { bgcolor: "action.selected" },
             textTransform: "none",
+            boxShadow: "none",
           }}
         >
           <Box sx={{ textAlign: "left", ml: 1 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
               Open Project
             </Typography>
-            <Typography variant="caption" sx={{ color: "#aaa" }}>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
               Browse local files
             </Typography>
           </Box>
@@ -156,12 +161,12 @@ export default function WelcomeScreen({
           </Typography>
           {/* Optional close button if user wants to just dismiss and see empty canvas, 
               though usually they should pick an option. We'll allow closing to empty canvas. */}
-          <IconButton onClick={onClose} sx={{ color: "#aaa" }}>
+          <IconButton onClick={onClose} sx={{ color: "text.secondary" }}>
             <CloseIcon />
           </IconButton>
         </Box>
 
-        <Divider sx={{ bgcolor: "#333", mb: 2 }} />
+        <Divider sx={{ mb: 2 }} />
 
         {recentProjects.length === 0 ? (
           <Box
@@ -170,7 +175,7 @@ export default function WelcomeScreen({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: "#666",
+              color: "text.secondary",
             }}
           >
             <Typography>No recent projects found</Typography>
@@ -184,18 +189,18 @@ export default function WelcomeScreen({
                 sx={{
                   borderRadius: 1,
                   mb: 1,
-                  "&:hover": { bgcolor: "#333" },
+                  "&:hover": { bgcolor: "action.hover" },
                 }}
               >
                 <ListItemIcon>
-                  <DescriptionIcon sx={{ color: "#90caf9" }} />
+                  <DescriptionIcon color="primary" />
                 </ListItemIcon>
                 <ListItemText
                   primary={project.name}
                   secondary={project.path}
-                  primaryTypographyProps={{ color: "#fff" }}
+                  primaryTypographyProps={{ color: "text.primary" }}
                   secondaryTypographyProps={{
-                    color: "#aaa",
+                    color: "text.secondary",
                     style: {
                       whiteSpace: "nowrap",
                       overflow: "hidden",
@@ -203,7 +208,7 @@ export default function WelcomeScreen({
                     },
                   }}
                 />
-                <Typography variant="caption" sx={{ color: "#666" }}>
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   {new Date(project.lastOpened).toLocaleDateString()}
                 </Typography>
               </ListItemButton>

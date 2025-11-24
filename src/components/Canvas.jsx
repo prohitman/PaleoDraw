@@ -375,7 +375,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       .viewbox(0, 0, width, height)
     drawRef.current = draw
 
-    const bg = draw.rect(width, height).fill("#222").id("canvas-bg")
+    const bg = draw
+      .rect(width, height)
+      .addClass("canvas-bg-rect")
+      .id("canvas-bg")
     bg.node.style.pointerEvents = "none"
 
     // grid
