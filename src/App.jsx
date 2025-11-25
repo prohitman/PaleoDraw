@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from "react"
 import { ThemeProvider, CssBaseline } from "@mui/material"
 import Toolbar from "./components/ToolBar"
+import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
@@ -162,6 +163,7 @@ export default function App() {
             overflow: "hidden",
           }}
         >
+          <TitleBar isDarkMode={isDarkMode} />
           <Toolbar
             onSelectTool={selectTool}
             onZoom={handleZoom}

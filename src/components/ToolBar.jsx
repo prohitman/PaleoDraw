@@ -116,20 +116,6 @@ export default function ToolBar({
   return (
     <AppBar position="static" elevation={1}>
       <Toolbar variant="dense" sx={{ gap: 1 }}>
-        <Box
-          component="img"
-          src="/logo.png"
-          alt="PaleoDraw Logo"
-          sx={{ height: 32, mr: 0 }} // Adjust height as needed
-        />
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{ mr: 2, fontWeight: "bold", color: "inherit" }}
-        >
-          PaleoDraw
-        </Typography>
-
         {/* --- FILE MENU --- */}
         <Button
           color="inherit"
@@ -379,28 +365,35 @@ export default function ToolBar({
 
         <Box sx={{ flexGrow: 1 }} />
 
-        <Tooltip title="GitHub Repository">
-          <IconButton
-            color="inherit"
-            href="https://github.com"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <GitHubIcon />
-          </IconButton>
-        </Tooltip>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+          }}
+        >
+          <Tooltip title="GitHub Repository">
+            <IconButton
+              color="inherit"
+              href="https://github.com"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <GitHubIcon />
+            </IconButton>
+          </Tooltip>
 
-        <Tooltip title="Help / Documentation">
-          <IconButton color="inherit">
-            <HelpOutlineIcon />
-          </IconButton>
-        </Tooltip>
+          <Tooltip title="Help / Documentation">
+            <IconButton color="inherit">
+              <HelpOutlineIcon />
+            </IconButton>
+          </Tooltip>
 
-        <Tooltip title="Toggle light/dark theme">
-          <IconButton onClick={onToggleTheme} color="inherit">
-            {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
-          </IconButton>
-        </Tooltip>
+          <Tooltip title="Toggle light/dark theme">
+            <IconButton onClick={onToggleTheme} color="inherit">
+              {isDarkMode ? <Brightness7Icon /> : <Brightness4Icon />}
+            </IconButton>
+          </Tooltip>
+        </Box>
       </Toolbar>
     </AppBar>
   )
