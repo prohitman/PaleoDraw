@@ -22,7 +22,7 @@ export function createNewProject(
   draw.clear()
   const bg = draw
     .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-    .fill("#222")
+    .addClass("canvas-bg-rect")
     .id("canvas-bg")
   bg.node.style.pointerEvents = "none"
 
@@ -150,7 +150,7 @@ export async function loadFromJSON(
     // Background + grid
     const bg = draw
       .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-      .fill("#222")
+      .addClass("canvas-bg-rect")
       .id("canvas-bg")
     bg.node.style.pointerEvents = "none"
 
@@ -247,7 +247,7 @@ export async function loadProjectFromPath(
     // Background + grid
     const bg = draw
       .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-      .fill("#222")
+      .addClass("canvas-bg-rect")
       .id("canvas-bg")
     bg.node.style.pointerEvents = "none"
 

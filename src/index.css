@@ -11,6 +11,9 @@
   --handle-stroke: #000000;
   --point-fill: #ffcc00;
   --point-hover-fill: #ffffff;
+  --spline-default-color: #16689f;
+  --spline-selected-color: #00ffff;
+  --spline-hover-color: #e3f6f6;
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -37,6 +40,9 @@
   --handle-stroke: #000000;
   --point-fill: #ffcc00;
   --point-hover-fill: #ffffff;
+  --spline-default-color: #16689f;
+  --spline-selected-color: #00e0ff;
+  --spline-hover-color: #e3f6f6;
 }
 
 a {

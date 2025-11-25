@@ -160,18 +160,8 @@ export function setupPointHandlers(
     }
   })
 
-  // Add hover effects for visual feedback - inner white circle on hover (same size)
-  const originalFill = circle.fill()
-  const hoverFill = "#ffffff" // white for hover
-
-  circle.on("mouseover.pointHover", () => {
-    circle.fill(hoverFill)
-    // Keep same radius as original, just change color to white
-  })
-
-  circle.on("mouseout.pointHover", () => {
-    circle.fill(originalFill)
-  })
+  // Add hover effects for visual feedback - handled by CSS .spline-point:hover
+  // No manual event listeners needed for color change
 
   // Shift-click (or plain click) point selection logic for multi-point selection
   // Use pointerdown to ensure selection occurs even when user drags immediately.

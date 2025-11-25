@@ -17,10 +17,6 @@ export class PointSelectionManager extends EventEmitter {
     // Reference to SplineManager for accessing splines
     this.splineManager = null
 
-    // Visual highlight color for selected points
-    this.selectedColor = "#ff00ff" // Magenta for point selection
-    this.normalColor = "#ffffff" // White for normal points
-
     // Cached bounds of current selection (compute lazily)
     this._cachedBounds = null
   }
@@ -217,9 +213,12 @@ export class PointSelectionManager extends EventEmitter {
     const point = spline.points[pointIndex]
     if (!point.circle) return
 
-    // Change circle fill color
-    const color = highlighted ? this.selectedColor : this.normalColor
-    point.circle.fill(color)
+    // Toggle selected class
+    if (highlighted) {
+      point.circle.addClass("selected")
+    } else {
+      point.circle.removeClass("selected")
+    }
 
     console.log(
       `[PointSelectionManager] ${

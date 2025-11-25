@@ -329,8 +329,7 @@ export default class SelectionManager extends EventEmitter {
     if (drawInstance) {
       this.selectionBox = drawInstance
         .rect(0, 0)
-        .fill("rgba(0, 123, 255, 0.1)")
-        .stroke({ color: "#007bff", width: 1, dasharray: "5,5" })
+        .addClass("drag-selection-box")
         .move(x, y)
 
       // Ensure selection box is on top

@@ -5,18 +5,12 @@ import {
   generateNurbsPath,
 } from "../utils/geometry"
 
-const SPLINE_COLORS = {
-  SELECTED: "#00ffff",
-  UNSELECTED: "#16689fff",
-  HOVER: "#e3f6f6ff",
-}
-
 /**
  * Spline model: encapsulates a single B-spline with its points and visual state
  * Manages the SVG group, path, and points that make up the spline
  */
 export default class Spline {
-  constructor({ id, draw, color, type = "bspline" } = {}) {
+  constructor({ id, draw, type = "bspline" } = {}) {
     this.id = id ?? `spline_${Date.now()}`
     console.log("[Spline.constructor] Creating new Spline:", {
       id: this.id,
@@ -24,7 +18,6 @@ export default class Spline {
     })
     this.points = []
     this.selected = false
-    this.color = color || SPLINE_COLORS.SELECTED
     // Spline type: 'bspline' (default) or 'polyline'
     this.type = type
 
@@ -33,22 +26,12 @@ export default class Spline {
     this.group = draw.group()
     // Add data attribute for identification during selection
     this.group.attr("data-spline-id", this.id)
-    // Ensure group is always interactive
-    // if (this.group.node) {
-    //   this.group.node.setAttribute("pointer-events", "all")
-    // }
-    this.path = this.group
-      .path("")
-      .stroke({ color: this.color, width: 2 })
-      .fill("none")
+
+    this.path = this.group.path("").addClass("spline-path")
+
+    // Ensure pointer-events: stroke for path
     this.path.node.setAttribute("pointer-events", "stroke")
-    // Add mouseover/mouseout for hover class
-    this.path.node.addEventListener("mouseover", () => {
-      this.path.node.classList.add("spline-hover")
-    })
-    this.path.node.addEventListener("mouseout", () => {
-      this.path.node.classList.remove("spline-hover")
-    })
+
     console.log("[Spline.constructor] Group and path created")
 
     // Flag to avoid duplicate event binding
@@ -251,11 +234,13 @@ export default class Spline {
       previousSelected: this.selected,
     })
     this.selected = !!selected
-    const color = this.selected
-      ? SPLINE_COLORS.SELECTED
-      : SPLINE_COLORS.UNSELECTED
-    console.log("[Spline.setSelected] Setting path color:", color)
-    this.path.stroke({ color, width: 2 })
+
+    if (this.selected) {
+      this.path.addClass("selected")
+    } else {
+      this.path.removeClass("selected")
+    }
+
     // Always ensure pointer-events: stroke for path and all for circles
     if (this.path?.node) {
       this.path.node.setAttribute("pointer-events", "stroke")
@@ -281,9 +266,11 @@ export default class Spline {
    */
   setHovering(hovering) {
     if (this.selected) return
-    const color = hovering ? SPLINE_COLORS.HOVER : SPLINE_COLORS.UNSELECTED
-    const width = hovering ? 3 : 2
-    this.path.stroke({ color, width })
+    if (hovering) {
+      this.path.addClass("hover")
+    } else {
+      this.path.removeClass("hover")
+    }
   }
 
   /**
@@ -304,7 +291,6 @@ export default class Spline {
   toJSON() {
     return {
       id: this.id,
-      color: this.color,
       type: this.type,
       points: this.points.map((p) => ({
         x: p.x,
@@ -320,7 +306,6 @@ export default class Spline {
    */
   loadFromJSON(obj) {
     this.id = obj.id ?? this.id
-    this.color = obj.color ?? this.color
     this.type = obj.type || this.type || "bspline"
     this.points = []
     if (Array.isArray(obj.points)) {

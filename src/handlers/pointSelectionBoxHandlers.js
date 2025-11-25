@@ -53,8 +53,7 @@ export function setupPointDragSelectionHandlers(
     rectEl = draw
       .rect(1, 1)
       .move(startX, startY)
-      .fill("rgba(255,0,255,0.15)")
-      .stroke({ color: "#ff00ff", width: 1, dasharray: "4,3" })
+      .addClass("point-drag-selection-box")
       .id("point-drag-selection-rect")
 
     // Prevent context menu

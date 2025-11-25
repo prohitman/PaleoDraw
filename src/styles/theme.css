@@ -114,6 +114,26 @@ body, html, #root {
   fill: rgba(0,0,0,0) !important;
 }
 
+/* --- Drag Selection Box (Rubber Band) --- */
+.drag-selection-box {
+  fill: rgba(0, 123, 255, 0.1);
+  stroke: var(--selection-color);
+  stroke-width: 1px;
+  stroke-dasharray: 5 5;
+}
+
+.point-drag-selection-box {
+  fill: rgba(255, 0, 255, 0.15);
+  stroke: var(--point-selection-color);
+  stroke-width: 1px;
+  stroke-dasharray: 4 3;
+}
+
+/* --- Spline Point States --- */
+.spline-point.selected {
+  fill: var(--point-selection-color);
+}
+
 /* --- Handle cursors for resize directions --- */
 .svg_select_handle_lt { cursor: nw-resize !important; }
 .svg_select_handle_rt { cursor: ne-resize !important; }
@@ -133,4 +153,22 @@ body, html, #root {
 
 .spline-point:hover {
   fill: var(--point-hover-fill);
+}
+
+/* --- Spline Paths --- */
+.spline-path {
+  stroke: var(--spline-default-color);
+  stroke-width: 2px;
+  fill: none;
+  transition: stroke 0.1s, stroke-width 0.1s;
+  pointer-events: stroke;
+}
+
+.spline-path.selected {
+  stroke: var(--spline-selected-color);
+}
+
+.spline-path.hover {
+  stroke: var(--spline-hover-color);
+  stroke-width: 3px;
 }
