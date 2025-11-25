@@ -93,7 +93,11 @@ export default class Spline {
     if (withCircle) {
       console.log("[Spline.addPoint] Creating circle element")
       try {
-        circle = this.group.circle(6).addClass("spline-point").center(x, y).show()
+        circle = this.group
+          .circle(6)
+          .addClass("spline-point")
+          .center(x, y)
+          .show()
         if (circle && circle.node) {
           circle.node.setAttribute("pointer-events", "all")
           // Add mouseover/mouseout for hover class
@@ -127,7 +131,11 @@ export default class Spline {
    * @returns {object} - The point object
    */
   insertPointAt(index, x, y, isSharp = false) {
-    const circle = this.group.circle(6).addClass("spline-point").center(x, y).show()
+    const circle = this.group
+      .circle(6)
+      .addClass("spline-point")
+      .center(x, y)
+      .show()
     const point = { x, y, circle, isSharp }
     this.points.splice(index, 0, point)
     return point
