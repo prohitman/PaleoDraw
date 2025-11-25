@@ -33,7 +33,7 @@ const TitleBar = ({ isDarkMode }) => {
       }}
     >
       <img
-        src="/logo.png"
+        src="logo.png"
         alt="logo"
         style={{ height: "18px", marginRight: "8px" }}
       />

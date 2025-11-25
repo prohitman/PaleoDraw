@@ -98,7 +98,7 @@ export default function WelcomeScreen({
         <Box sx={{ display: "flex", alignItems: "center", mb: 4, zIndex: 1 }}>
           <Box
             component="img"
-            src="/logo.png"
+            src="logo.png"
             alt="PaleoDraw Logo"
             sx={{ height: 40, mr: 2 }}
           />
