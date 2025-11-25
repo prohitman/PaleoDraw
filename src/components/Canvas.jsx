@@ -42,6 +42,7 @@ import {
   updateGridLineThickness,
   fitToCanvas as fitToCanvasHelper,
 } from "../utils/svgHelpers"
+import { selectionOptions } from "../utils/selectionConfig"
 import "@svgdotjs/svg.panzoom.js"
 import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
@@ -60,6 +61,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const pointSelectionManager = useRef(null) // PointSelectionManager for multi-point selection
   // HistoryManager instance for undo/redo (persistent)
   const historyManager = useRef(null)
+  const clipboard = useRef(null) // Internal clipboard for copy/paste
   const hotkeysManagerRef = useRef(null) // HotkeysManager instance for scope activation
   const toolRegistryRef = useRef(null) // ToolRegistry instance for tool handler delegation
   const isDraggingPoint = useRef(false)
@@ -99,24 +101,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
   const ZOOM_SMOOTHNESS = 0.05
   const GRID_BASE_THICKNESS = 0.5
-
-  // Convert screen event to viewport coords using current viewBox
-  const getViewportCoordsFromEvent = (e) => {
-    const container = canvasRef.current
-    const draw = drawRef.current
-    if (!container || !draw) return { x: e.clientX, y: e.clientY }
-    const rect = container.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    try {
-      const viewBox = draw.viewbox()
-      const scaleX = viewBox.width / rect.width
-      const scaleY = viewBox.height / rect.height
-      return { x: viewBox.x + x * scaleX, y: viewBox.y + y * scaleY }
-    } catch {
-      return { x, y }
-    }
-  }
 
   // Handle overlay drag movement
   const handleOverlayDragMove = (e) => {
@@ -882,7 +866,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
           imported.select(false)
           imported.resize(false)
           setTimeout(() => {
-            imported.select(true)
+            imported.select(selectionOptions)
             imported.resize({ rotationPoint: true })
             selectedRef.current = imported
           }, 0)
@@ -924,7 +908,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (selectedRef.current === imported) {
           imported.select(false)
           selectedRef.current = null
-          imported.select(true)
+          imported.select(selectionOptions)
           selectedRef.current = imported
         }
       }, 1)
@@ -941,7 +925,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (selectedRef.current && selectedRef.current !== imported) {
           selectedRef.current.select(false)
         }
-        imported.select(true)
+        imported.select(selectionOptions)
         imported.resize({ rotationPoint: true })
         selectedRef.current = imported
       }
@@ -1134,6 +1118,156 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current,
         svgObjectManager.current
       ),
+
+    // Edit Menu Operations
+    undo: () => {
+      if (!historyManager.current) return
+      const state = historyManager.current.undo()
+      if (state) ref.current._restoreState(state)
+    },
+
+    redo: () => {
+      if (!historyManager.current) return
+      const state = historyManager.current.redo()
+      if (state) ref.current._restoreState(state)
+    },
+
+    copy: () => {
+      const selectedSpline = splineManager.current?.getSelected()
+      const selectedSvg = svgObjectManager.current?.getSelected()
+
+      if (selectedSpline) {
+        clipboard.current = {
+          type: "spline",
+          data: selectedSpline.toJSON(),
+        }
+        console.log("[Canvas] Copied spline to clipboard")
+      } else if (selectedSvg) {
+        // SVG serialization logic
+        let matrix = null
+        try {
+          matrix = selectedSvg.matrixify?.()
+        } catch {
+          matrix = null
+        }
+        clipboard.current = {
+          type: "svg",
+          data: {
+            svg: selectedSvg.svg?.(),
+            matrix,
+            transform: selectedSvg.transform?.(),
+          },
+        }
+        console.log("[Canvas] Copied SVG to clipboard")
+      }
+    },
+
+    paste: () => {
+      if (!clipboard.current) return
+
+      const { type, data } = clipboard.current
+      if (type === "spline") {
+        // Create new spline from data
+        const newSpline = splineManager.current?.createSpline(
+          true,
+          data.type || "bspline"
+        )
+        if (newSpline) {
+          newSpline.loadFromJSON(data)
+          // Offset position
+          newSpline.points.forEach((pt) => {
+            pt.x += 20
+            pt.y += 20
+            pt.circle?.center(pt.x, pt.y)
+          })
+          newSpline.plot()
+          // Regenerate ID to avoid conflicts
+          newSpline.id = `spline_${Date.now()}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`
+
+          // Re-attach handlers
+          if (setupPointHandlers && isDraggingPoint && splineManager.current) {
+            newSpline.points.forEach((point) => {
+              if (point.circle) {
+                setupPointHandlers(
+                  point.circle,
+                  newSpline,
+                  isDraggingPoint,
+                  splineManager.current,
+                  selectedToolRef,
+                  pointSelectionManager.current,
+                  historyManager.current
+                )
+              }
+            })
+          }
+
+          // Attach transform handlers
+          splineManager.current?._transformAPI?.attachToAll?.()
+
+          // Save history
+          const splineData = splineManager.current
+            ?.getAllSplines()
+            .map((s) => s.toJSON())
+          const svgData = svgObjectManager.current?.getState?.() || []
+          historyManager.current?.pushState(splineData, svgData)
+        }
+      } else if (type === "svg") {
+        if (!drawRef.current) return
+        const imported = drawRef.current.group().svg(data.svg)
+
+        // Apply transform/matrix
+        if (data.matrix && typeof imported.matrix === "function") {
+          try {
+            imported.matrix(data.matrix)
+          } catch {
+            if (data.transform) imported.transform(data.transform)
+          }
+        } else if (data.transform) {
+          imported.transform(data.transform)
+        }
+
+        // Offset
+        imported.dmove(20, 20)
+
+        // Add to manager
+        svgObjectManager.current?.addObject(imported)
+
+        // Initialize interactive
+        initializeSvgInteractive(imported)
+
+        // Save history
+        const splineData = splineManager.current
+          ?.getAllSplines()
+          .map((s) => s.toJSON())
+        const svgData = svgObjectManager.current?.getState?.() || []
+        historyManager.current?.pushState(splineData, svgData)
+      }
+    },
+
+    cut: () => {
+      ref.current.copy()
+      ref.current.deleteSelected()
+    },
+
+    // Z-Order Operations
+    bringToFront: () => {
+      splineManager.current?.bringToFront()
+      svgObjectManager.current?.bringToFront()
+    },
+    bringForward: () => {
+      splineManager.current?.bringForward()
+      svgObjectManager.current?.bringForward()
+    },
+    sendToBack: () => {
+      splineManager.current?.sendToBack()
+      svgObjectManager.current?.sendToBack()
+    },
+    sendBackward: () => {
+      splineManager.current?.sendBackward()
+      svgObjectManager.current?.sendBackward()
+    },
 
     // Expose history manager for hotkeys (private API)
     _historyManager: historyManager.current,

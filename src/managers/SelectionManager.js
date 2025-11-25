@@ -1,5 +1,6 @@
 // src/managers/SelectionManager.js
 import EventEmitter from "../utils/eventEmitter"
+import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SelectionManager: Manages multi-selection of splines and SVG objects
@@ -151,7 +152,7 @@ export default class SelectionManager extends EventEmitter {
       const obj = this.svgObjectManager?.getObject?.(svgObjectId)
       if (obj) {
         try {
-          obj.select?.({ rotationPoint: true })
+          obj.select?.(selectionOptions)
           obj.resize?.({ rotationPoint: true })
         } catch {
           // ignore
@@ -223,7 +224,7 @@ export default class SelectionManager extends EventEmitter {
       const obj = this.svgObjectManager?.getObject?.(svgObjectIds[0])
       if (obj) {
         try {
-          obj.select?.({ rotationPoint: true })
+          obj.select?.(selectionOptions)
           obj.resize?.({ rotationPoint: true })
         } catch {
           // ignore
@@ -603,7 +604,7 @@ export default class SelectionManager extends EventEmitter {
             // It will be re-enabled if needed when selection is refreshed or drag ends
             obj.select(false)
             obj.resize(false)
-          } catch (e) {
+          } catch {
             // ignore
           }
         }

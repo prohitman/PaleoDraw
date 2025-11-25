@@ -15,6 +15,8 @@ import {
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown"
 import Brightness4Icon from "@mui/icons-material/Brightness4"
 import Brightness7Icon from "@mui/icons-material/Brightness7"
+import GitHubIcon from "@mui/icons-material/GitHub"
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline"
 
 export default function ToolBar({
   onSelectTool,
@@ -30,6 +32,17 @@ export default function ToolBar({
   onExport,
   isDarkMode,
   onToggleTheme,
+  // Edit Menu Props
+  onUndo,
+  onRedo,
+  onCopy,
+  onPaste,
+  onCut,
+  // Z-Order Props
+  onBringToFront,
+  onBringForward,
+  onSendToBack,
+  onSendBackward,
 }) {
   // State for menus
   const [anchorEl, setAnchorEl] = useState(null)
@@ -65,9 +78,36 @@ export default function ToolBar({
     />
   )
 
+  function MenuItemWithShortcut({ label, shortcut, onClick, color }) {
+    return (
+      <MenuItem onClick={onClick} sx={{ color }}>
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            width: "200px",
+          }}
+        >
+          <Typography>{label}</Typography>
+          {shortcut && (
+            <Typography variant="caption" color="text.secondary" sx={{ textAlign: "right", minWidth: 10, lineHeight: 2 }}>
+              {shortcut}
+            </Typography>
+          )}
+        </Box>
+      </MenuItem>
+    )
+  }
+
   return (
     <AppBar position="static" elevation={1}>
       <Toolbar variant="dense" sx={{ gap: 1 }}>
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="PaleoDraw Logo"
+          sx={{ height: 32, mr: 0 }} // Adjust height as needed
+        />
         <Typography
           variant="h6"
           component="div"
@@ -89,20 +129,106 @@ export default function ToolBar({
           open={activeMenu === "file"}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={() => handleAction(onNewProject)}>
-            New Project
-          </MenuItem>
-          <MenuItem onClick={() => handleAction(onOpenProject)}>
-            Open Project
-          </MenuItem>
-          <MenuItem onClick={() => handleAction(onSaveProject)}>
-            Save Project
-          </MenuItem>
+          <MenuItemWithShortcut
+            label="New Project"
+            shortcut="[Ctrl+N]"
+            onClick={() => handleAction(onNewProject)}
+          />
+
+          <MenuItemWithShortcut
+            label="Open Project"
+            shortcut="[Ctrl+O]"
+            onClick={() => handleAction(onOpenProject)}
+          />
+
+          <MenuItemWithShortcut
+            label="Save Project"
+            shortcut="[Ctrl+S]"
+            onClick={() => handleAction(onSaveProject)}
+          />
+
           <MenuItem onClick={() => handleAction(onSaveAs)}>Save As...</MenuItem>
           <Divider />
-          <MenuItem onClick={() => handleAction(onExport)}>
-            Export SVG...
-          </MenuItem>
+          <MenuItemWithShortcut
+            label="Export SVG..."
+            shortcut="[Ctrl+E]"
+            onClick={() => handleAction(onExport)}
+          />
+          <Divider />
+          <MenuItemWithShortcut
+            label="Import new SVG"
+            shortcut="[I]"
+            onClick={() => handleAction(onImportSVG)}
+          />
+        </Menu>
+
+        {/* --- EDIT MENU --- */}
+        <Button
+          color="inherit"
+          endIcon={arrowIcon("edit")}
+          onClick={(e) => handleMenuOpen(e, "edit")}
+        >
+          Edit
+        </Button>
+        <Menu
+          anchorEl={anchorEl}
+          open={activeMenu === "edit"}
+          onClose={handleMenuClose}
+        >
+          <MenuItemWithShortcut
+            label="Undo"
+            shortcut="[Ctrl+Z]"
+            onClick={() => handleAction(onUndo)}
+          />
+          <MenuItemWithShortcut
+            label="Redo"
+            shortcut="[Ctrl+Y]"
+            onClick={() => handleAction(onRedo)}
+          />
+          <Divider />
+          <MenuItemWithShortcut
+            label="Copy"
+            shortcut="[Ctrl+C]"
+            onClick={() => handleAction(onCopy)}
+          />
+          <MenuItemWithShortcut
+            label="Paste"
+            shortcut="[Ctrl+V]"
+            onClick={() => handleAction(onPaste)}
+          />
+          <MenuItemWithShortcut
+            label="Cut"
+            shortcut="[Ctrl+X]"
+            onClick={() => handleAction(onCut)}
+          />
+          <Divider />
+          <MenuItemWithShortcut
+            label="Send to Back"
+            shortcut="[Ctrl+Shift+B]"
+            onClick={() => handleAction(onSendToBack)}
+          />
+          <MenuItemWithShortcut
+            label="Back One Step"
+            shortcut="[Ctrl+B]"
+            onClick={() => handleAction(onSendBackward)}
+          />
+          <MenuItemWithShortcut
+            label="Send to Front"
+            shortcut="[Ctrl+Shift+F]"
+            onClick={() => handleAction(onBringToFront)}
+          />
+          <MenuItemWithShortcut
+            label="Front One Step"
+            shortcut="[Ctrl+F]"
+            onClick={() => handleAction(onBringForward)}
+          />
+          <Divider />
+          <MenuItemWithShortcut
+            label="Delete Selected"
+            shortcut="[Del]"
+            onClick={() => handleAction(onDelete)}
+            color="error.main"
+          />
         </Menu>
 
         {/* --- VIEW MENU --- */}
@@ -190,31 +316,6 @@ export default function ToolBar({
           </Box>
         </Menu>
 
-        {/* --- OBJECT MENU --- */}
-        <Button
-          color="inherit"
-          endIcon={arrowIcon("object")}
-          onClick={(e) => handleMenuOpen(e, "object")}
-        >
-          Object
-        </Button>
-        <Menu
-          anchorEl={anchorEl}
-          open={activeMenu === "object"}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={() => handleAction(onImportSVG)}>
-            Import SVG
-          </MenuItem>
-          <Divider />
-          <MenuItem
-            onClick={() => handleAction(onDelete)}
-            sx={{ color: "error.main" }}
-          >
-            Delete Selected
-          </MenuItem>
-        </Menu>
-
         {/* --- TOOLS MENU --- */}
         <Button
           color="inherit"
@@ -229,11 +330,23 @@ export default function ToolBar({
           onClose={handleMenuClose}
         >
           <MenuItem onClick={() => handleAction(() => onSelectTool("select"))}>
-            Select Tool
+            Select Tool{" "}
+            <Typography
+              variant="caption"
+              sx={{ ml: 2, color: "text.secondary" }}
+            >
+              T
+            </Typography>
           </MenuItem>
           <Divider />
           <MenuItem onClick={() => handleAction(() => onSelectTool("curve"))}>
-            Draw Curve
+            Draw Curve{" "}
+            <Typography
+              variant="caption"
+              sx={{ ml: 2, color: "text.secondary" }}
+            >
+              C
+            </Typography>
           </MenuItem>
           <MenuItem onClick={() => handleAction(() => onSelectTool("nurbs"))}>
             Draw NURBS
@@ -244,12 +357,31 @@ export default function ToolBar({
             Draw Straight Line
           </MenuItem>
           <Divider />
-          <MenuItem onClick={() => handleAction(() => onSelectTool("pan"))}>
-            Pan Tool
+          <MenuItem
+            onClick={() => handleAction(() => onSelectTool("delete_spline"))}
+          >
+            Delete Spline Tool
           </MenuItem>
         </Menu>
 
         <Box sx={{ flexGrow: 1 }} />
+
+        <Tooltip title="GitHub Repository">
+          <IconButton
+            color="inherit"
+            href="https://github.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <GitHubIcon />
+          </IconButton>
+        </Tooltip>
+
+        <Tooltip title="Help / Documentation">
+          <IconButton color="inherit">
+            <HelpOutlineIcon />
+          </IconButton>
+        </Tooltip>
 
         <Tooltip title="Toggle light/dark theme">
           <IconButton onClick={onToggleTheme} color="inherit">

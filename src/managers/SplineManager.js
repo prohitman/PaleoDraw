@@ -3,6 +3,7 @@ import EventEmitter from "../utils/eventEmitter"
 import Spline from "../models/Spline"
 import { pointToSegmentDistance } from "../utils/geometry"
 import { setupPointHandlers } from "../handlers/pointHandlers"
+import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SplineManager: Centralized API for all spline CRUD operations and transformations
@@ -901,7 +902,7 @@ export default class SplineManager extends EventEmitter {
       )
       const el = spline.group
       // Only show selection box in select mode
-      el.select({ rotationPoint: true })
+      el.select(selectionOptions)
       el.resize({ rotationPoint: true })
       el.draggable()
       console.log("[transformAPI.selectSpline] Selection box attached")
@@ -995,7 +996,7 @@ export default class SplineManager extends EventEmitter {
             try {
               // Force refresh of selection box to match new position
               el.select(false)
-              el.select(true)
+              el.select(selectionOptions)
             } catch {
               // ignore
             }
@@ -1121,7 +1122,7 @@ export default class SplineManager extends EventEmitter {
               }
               // Re-show selection box after resize completes
               setTimeout(() => {
-                el.select(true)
+                el.select(selectionOptions)
               }, 0)
             }
             if (spline._rotateIsActive) {

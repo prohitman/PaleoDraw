@@ -5,7 +5,6 @@ import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
 import { HotkeysProvider } from "./hooks/HotkeysProvider"
-import { loadProjectFromPath } from "./handlers/projectHandler"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 
 export default function App() {
@@ -34,6 +33,20 @@ export default function App() {
   const handleDelete = () => {
     canvasRef.current?.deleteSelected()
   }
+
+  // Edit Menu Handlers
+  const handleUndo = () => canvasRef.current?.undo?.()
+  const handleRedo = () => canvasRef.current?.redo?.()
+  const handleCopy = () => canvasRef.current?.copy?.()
+  const handlePaste = () => canvasRef.current?.paste?.()
+  const handleCut = () => canvasRef.current?.cut?.()
+
+  // Z-Order Handlers
+  const handleBringToFront = () => canvasRef.current?.bringToFront?.()
+  const handleBringForward = () => canvasRef.current?.bringForward?.()
+  const handleSendToBack = () => canvasRef.current?.sendToBack?.()
+  const handleSendBackward = () => canvasRef.current?.sendBackward?.()
+
   const selectTool = (tool) => {
     console.log("[App] selectTool called with:", tool)
     setSelectedTool(tool)
@@ -129,6 +142,17 @@ export default function App() {
           onExport={handleExport}
           isDarkMode={isDarkMode}
           onToggleTheme={toggleTheme}
+          // Edit Menu Props
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          onCut={handleCut}
+          // Z-Order Props
+          onBringToFront={handleBringToFront}
+          onBringForward={handleBringForward}
+          onSendToBack={handleSendToBack}
+          onSendBackward={handleSendBackward}
         />
         <HotkeysProvider>
           <Canvas

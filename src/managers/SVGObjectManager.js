@@ -1,5 +1,6 @@
 // src/managers/SVGObjectManager.js
 import EventEmitter from "../utils/eventEmitter.js"
+import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SVGObjectManager: Centralized API for managing imported SVG objects
@@ -157,7 +158,7 @@ export default class SVGObjectManager extends EventEmitter {
 
     if (current) {
       try {
-        current.select?.({ rotationPoint: true })
+        current.select?.(selectionOptions)
         current.resize?.({ rotationPoint: true })
       } catch (err) {
         console.warn("[SVGObjectManager] Error selecting object:", err)

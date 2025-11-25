@@ -5,6 +5,8 @@
  * Also supports imported SVG objects
  */
 
+import { selectionOptions } from "../../utils/selectionConfig"
+
 // Clipboard for spline/SVG copy/cut operations
 let clipboard = null
 let clipboardType = null // 'spline' or 'svg'
@@ -274,7 +276,7 @@ export function registerSplineHotkeys(hotkeysManager, context) {
                 group.select(false)
                 group.resize(false)
                 setTimeout(() => {
-                  group.select(true)
+                  group.select(selectionOptions)
                   group.resize({ rotationPoint: true })
                   svgObjectManager.current.selectObject(group._objectId)
                 }, 0)
@@ -309,7 +311,7 @@ export function registerSplineHotkeys(hotkeysManager, context) {
               if (svgObjectManager.current.getSelected() === group) {
                 group.select(false)
                 group.resize(false)
-                group.select(true)
+                group.select(selectionOptions)
                 group.resize({ rotationPoint: true })
               }
             }, 1)
@@ -614,9 +616,9 @@ function nudgeSelected(
         // Only toggle if currently selected visually
         if (selectedToolRefRef?.current === "select") {
           selectedSpline.group.select(false)
-          selectedSpline.group.select(true)
+          selectedSpline.group.select(selectionOptions)
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -684,7 +686,7 @@ function nudgeSelected(
         obj.select?.(false)
         obj.resize?.(false)
         setTimeout(() => {
-          obj.select?.({ rotationPoint: true })
+          obj.select?.(selectionOptions)
           obj.resize?.({ rotationPoint: true })
         }, 0)
       } catch (moveErr) {
