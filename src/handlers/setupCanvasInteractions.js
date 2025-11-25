@@ -84,24 +84,47 @@ export function setupPanBehavior(
         e.target.classList.contains("svg_select_shape"))
     )
       return
-    if (!isPanning.current && selectedTool.current === "select")
-      container.style.cursor = "grab"
-    if (selectedTool && selectedTool.current !== "select")
+    if (selectedTool && selectedTool.current === "select") {
+      if (isPanning.current) {
+        container.style.cursor = "grabbing"
+      } else {
+        container.style.cursor = "default"
+      }
+    } else if (
+      selectedTool &&
+      (selectedTool.current === "curve" ||
+        selectedTool.current === "nurbs" ||
+        selectedTool.current === "line" ||
+        selectedTool.current === "straight")
+    ) {
       container.style.cursor = "crosshair"
+    } else if (selectedTool && selectedTool.current === "delete_spline") {
+      container.style.cursor = "pointer" // Distinct cursor for delete
+    } else {
+      container.style.cursor = "default"
+    }
   }
 
   const handleMouseUp = () => {
     isPanning.current = false
     if (selectedTool && selectedTool.current === "select")
-      container.style.cursor = "grab"
-    else if (selectedTool && selectedTool.current !== "select")
+      container.style.cursor = "default"
+    else if (
+      selectedTool &&
+      (selectedTool.current === "curve" ||
+        selectedTool.current === "nurbs" ||
+        selectedTool.current === "line" ||
+        selectedTool.current === "straight")
+    )
       container.style.cursor = "crosshair"
+    else if (selectedTool && selectedTool.current === "delete_spline")
+      container.style.cursor = "pointer"
   }
 
   const handleMouseLeave = () => {
     if (isPanning.current) {
       isPanning.current = false
-      container.style.cursor = "grab"
+      container.style.cursor = "default"
     }
   }
 

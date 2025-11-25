@@ -78,16 +78,42 @@ export default function WelcomeScreen({
           flexDirection: "column",
           borderRight: 1,
           borderColor: "divider",
+          position: "relative", // For decorations
         }}
       >
-        <Typography
-          variant="h5"
-          sx={{ mb: 4, fontWeight: "bold", color: "primary.main" }}
-        >
-          PaleoDraw
-        </Typography>
+        {/* Decorations Container */}
+        <Box
+          className="welcome-decorations"
+          sx={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
 
-        <Typography variant="subtitle2" sx={{ mb: 2, color: "text.secondary" }}>
+        <Box sx={{ display: "flex", alignItems: "center", mb: 4, zIndex: 1 }}>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="PaleoDraw Logo"
+            sx={{ height: 40, mr: 2 }}
+          />
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: "bold", color: "primary.main" }}
+          >
+            PaleoDraw
+          </Typography>
+        </Box>
+
+        <Typography
+          variant="subtitle2"
+          sx={{ mb: 2, color: "text.secondary", zIndex: 1 }}
+        >
           Get Started
         </Typography>
 
@@ -104,6 +130,7 @@ export default function WelcomeScreen({
             "&:hover": { bgcolor: "action.selected" },
             textTransform: "none",
             boxShadow: "none",
+            zIndex: 1,
           }}
         >
           <Box sx={{ textAlign: "left", ml: 1 }}>

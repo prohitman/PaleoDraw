@@ -6,6 +6,7 @@ import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
 import { HotkeysProvider } from "./hooks/HotkeysProvider"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
+import packageJson from "../package.json"
 
 export default function App() {
   const canvasRef = useRef()
@@ -120,7 +121,28 @@ export default function App() {
   return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <CssBaseline />
-      <div className="app-container">
+      <div
+        className="app-container"
+        style={{
+          position: "relative",
+          width: "100vw",
+          height: "100vh",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        {/* Background Decorations Layer */}
+        <div
+          className="app-background-decorations"
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 0,
+            pointerEvents: "none",
+          }}
+        />
+
         <WelcomeScreen
           open={showWelcome}
           onClose={() => setShowWelcome(false)}
@@ -128,39 +150,55 @@ export default function App() {
           onOpenProject={handleOpenProject}
           onOpenRecent={handleOpenRecent}
         />
-        <Toolbar
-          onSelectTool={selectTool}
-          onZoom={handleZoom}
-          onImportSVG={handleImportSVG}
-          onDelete={handleDelete}
-          onApplyGridSize={applyGridSize}
-          onApplyCanvasSize={applyCanvasSize}
-          onNewProject={handleNewProject}
-          onOpenProject={handleOpenProject}
-          onSaveProject={handleSaveProject}
-          onSaveAs={handleSaveAs}
-          onExport={handleExport}
-          isDarkMode={isDarkMode}
-          onToggleTheme={toggleTheme}
-          // Edit Menu Props
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onCopy={handleCopy}
-          onPaste={handlePaste}
-          onCut={handleCut}
-          // Z-Order Props
-          onBringToFront={handleBringToFront}
-          onBringForward={handleBringForward}
-          onSendToBack={handleSendToBack}
-          onSendBackward={handleSendBackward}
-        />
-        <HotkeysProvider>
-          <Canvas
-            ref={canvasRef}
-            zoomSignal={zoomSignal}
-            selectedTool={selectedTool}
+
+        {/* Main Content */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            overflow: "hidden",
+          }}
+        >
+          <Toolbar
+            onSelectTool={selectTool}
+            onZoom={handleZoom}
+            onImportSVG={handleImportSVG}
+            onDelete={handleDelete}
+            onApplyGridSize={applyGridSize}
+            onApplyCanvasSize={applyCanvasSize}
+            onNewProject={handleNewProject}
+            onOpenProject={handleOpenProject}
+            onSaveProject={handleSaveProject}
+            onSaveAs={handleSaveAs}
+            onExport={handleExport}
+            isDarkMode={isDarkMode}
+            onToggleTheme={toggleTheme}
+            // Edit Menu Props
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onCopy={handleCopy}
+            onPaste={handlePaste}
+            onCut={handleCut}
+            // Z-Order Props
+            onBringToFront={handleBringToFront}
+            onBringForward={handleBringForward}
+            onSendToBack={handleSendToBack}
+            onSendBackward={handleSendBackward}
           />
-        </HotkeysProvider>
+          <HotkeysProvider>
+            <Canvas
+              ref={canvasRef}
+              zoomSignal={zoomSignal}
+              selectedTool={selectedTool}
+            />
+          </HotkeysProvider>
+
+          {/* Version Overlay */}
+          <div className="version-overlay">v{packageJson.version}</div>
+        </div>
       </div>
     </ThemeProvider>
   )

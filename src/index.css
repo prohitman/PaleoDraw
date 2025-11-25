@@ -1,19 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --bg-color: #d9d5d5;
-  --canvas-bg: #c3bebe;
+  --bg-color: #f5f5f5;
+  --canvas-bg: #ffffff;
   --text-color: #000000;
-  --grid-color: #a0a0a0;
+  --grid-color: #dcd7d7;
   --selection-color: #00bfff;
-  --point-selection-color: #ff00ff;
+  --point-selection-color: #640c0c;
+  --point-selection-fill-color: #640c0c26;
   --handle-fill: #ffffff;
-  --handle-stroke: #000000;
-  --point-fill: #ffcc00;
-  --point-hover-fill: #ffffff;
-  --spline-default-color: #16689f;
-  --spline-selected-color: #00ffff;
-  --spline-hover-color: #e3f6f6;
+  --handle-stroke: #053748;
+  --point-fill: #ffffff;
+  --point-hover-fill: #640c0c;
+  --point-stroke: #640c0c;
+  --spline-default-color: #034d4d;
+  --spline-selected-color: #16689f;
+  --spline-hover-color: #53c6c6;
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -35,11 +37,13 @@
   --text-color: #d7d2d2;
   --grid-color: #333333;
   --selection-color: #00e0ff;
-  --point-selection-color: #ff00ff;
+  --point-selection-color: #f35151;
+  --point-selection-fill-color: #f3515126 ;
   --handle-fill: #ffffff;
   --handle-stroke: #00e0ff;
-  --point-fill: #ffcc00;
-  --point-hover-fill: #ffffff;
+  --point-fill: #212121;
+  --point-hover-fill: #f35151;
+  --point-stroke: #f35151;
   --spline-default-color: #16689f;
   --spline-selected-color: #00e0ff;
   --spline-hover-color: #e3f6f6;
@@ -82,4 +86,53 @@ h1 {
   button {
     background-color: #f9f9f9;
   }
+}
+
+/* Spline Point Styling */
+.spline-point {
+  fill: var(--point-fill);
+  stroke: var(--point-stroke);
+  stroke-width: 1px;
+  transition: fill 0.2s, stroke 0.2s;
+}
+
+.spline-point.spline-hover {
+  fill: var(--point-hover-fill);
+}
+
+/* Rotation Handle Styling */
+.svg_select_handle_rot {
+  fill: var(--handle-fill);
+  stroke: var(--handle-stroke);
+  stroke-width: 1px;
+  cursor: grab;
+  transition: fill 0.2s, stroke 0.2s, r 0.2s;
+}
+
+.svg_select_handle_rot:hover {
+  fill: var(--point-hover-fill);
+  stroke: var(--point-stroke);
+  cursor: grabbing;
+  r: 7px; /* Slightly larger on hover */
+}
+
+/* Version Overlay */
+.version-overlay {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  pointer-events: none; /* Allow clicking through */
+  z-index: 1000;
+  font-family: monospace;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.version-overlay:hover {
+  opacity: 1;
 }

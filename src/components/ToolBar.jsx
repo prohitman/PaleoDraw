@@ -78,25 +78,39 @@ export default function ToolBar({
     />
   )
 
-  function MenuItemWithShortcut({ label, shortcut, onClick, color }) {
-    return (
+  function MenuItemWithShortcut({ label, shortcut, onClick, color, tooltip }) {
+    const item = (
       <MenuItem onClick={onClick} sx={{ color }}>
         <Box
           sx={{
             display: "flex",
             justifyContent: "space-between",
+            alignItems: "center",
             width: "200px",
           }}
         >
           <Typography>{label}</Typography>
           {shortcut && (
-            <Typography variant="caption" color="text.secondary" sx={{ textAlign: "right", minWidth: 10, lineHeight: 2 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ textAlign: "right", minWidth: 10 }}
+            >
               {shortcut}
             </Typography>
           )}
         </Box>
       </MenuItem>
     )
+
+    if (tooltip) {
+      return (
+        <Tooltip title={tooltip} placement="right">
+          {item}
+        </Tooltip>
+      )
+    }
+    return item
   }
 
   return (
@@ -329,39 +343,38 @@ export default function ToolBar({
           open={activeMenu === "tools"}
           onClose={handleMenuClose}
         >
-          <MenuItem onClick={() => handleAction(() => onSelectTool("select"))}>
-            Select Tool{" "}
-            <Typography
-              variant="caption"
-              sx={{ ml: 2, color: "text.secondary" }}
-            >
-              T
-            </Typography>
-          </MenuItem>
+          <MenuItemWithShortcut
+            label="Select Tool"
+            shortcut="[T]"
+            onClick={() => handleAction(() => onSelectTool("select"))}
+            tooltip="Select and manipulate objects"
+          />
           <Divider />
-          <MenuItem onClick={() => handleAction(() => onSelectTool("curve"))}>
-            Draw Curve{" "}
-            <Typography
-              variant="caption"
-              sx={{ ml: 2, color: "text.secondary" }}
-            >
-              C
-            </Typography>
-          </MenuItem>
-          <MenuItem onClick={() => handleAction(() => onSelectTool("nurbs"))}>
-            Draw NURBS
-          </MenuItem>
-          <MenuItem
+          <MenuItemWithShortcut
+            label="Draw Curve"
+            shortcut="[C]"
+            onClick={() => handleAction(() => onSelectTool("curve"))}
+            tooltip="Draw smooth B-Spline curves by placing control points"
+          />
+          <MenuItemWithShortcut
+            label="Draw NURBS"
+            shortcut="[N]"
+            onClick={() => handleAction(() => onSelectTool("nurbs"))}
+            tooltip="Draw Non-Uniform Rational B-Splines for complex shapes"
+          />
+          <MenuItemWithShortcut
+            label="Draw Straight Line"
+            shortcut="[L]"
             onClick={() => handleAction(() => onSelectTool("straight"))}
-          >
-            Draw Straight Line
-          </MenuItem>
+            tooltip="Draw straight lines and polylines"
+          />
           <Divider />
-          <MenuItem
+          <MenuItemWithShortcut
+            label="Delete Spline Tool"
             onClick={() => handleAction(() => onSelectTool("delete_spline"))}
-          >
-            Delete Spline Tool
-          </MenuItem>
+            color="error.main"
+            tooltip="Click on a spline to delete it"
+          />
         </Menu>
 
         <Box sx={{ flexGrow: 1 }} />

@@ -265,8 +265,9 @@ export default class Spline {
    * @param {boolean} hovering - Whether spline is being hovered
    */
   setHovering(hovering) {
-    if (this.selected) return
-    if (hovering) {
+    if (this.selected) {
+      this.path.removeClass("hover")
+    } else if (hovering) {
       this.path.addClass("hover")
     } else {
       this.path.removeClass("hover")
