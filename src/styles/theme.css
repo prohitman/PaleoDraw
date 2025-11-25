@@ -56,36 +56,62 @@ body, html, #root {
   pointer-events: none;
 }
 
+.grid-line {
+  stroke: var(--grid-color);
+  shape-rendering: crispEdges;
+  pointer-events: none;
+}
+
 /* --- Selection outline --- */
 .svg_select_shape {
-  stroke: #ffffff !important;      /* bright cyan outline */
+  stroke: var(--selection-color) !important;
   stroke-width: 1.5px !important;
-  stroke-dasharray: 3 3 !important;
+  stroke-dasharray: 4 4 !important; /* Slightly larger dash for cleaner look */
   fill: none !important;
   pointer-events: none !important;
 }
 
 /* --- Resize handles --- */
 .svg_select_handle {
-  fill: #000000 !important;
-  stroke: #ffffff !important;
-  stroke-width: 1.5px !important;
-  rx: 3px !important;
-  ry: 3px !important;
+  fill: var(--handle-fill) !important;
+  stroke: var(--handle-stroke) !important;
+  stroke-width: 1px !important;
+  rx: 0 !important; /* Square shape */
+  ry: 0 !important;
+  width: 8px !important; /* Ensure visible size if SVG.js allows CSS sizing, otherwise it's set in JS usually */
+  height: 8px !important;
   cursor: pointer !important;
+  transition: fill 0.1s, stroke 0.1s;
 }
 
 .svg_select_handle:hover {
-  fill: #00e0ff !important;
-  stroke: #fff !important;
+  fill: var(--selection-color) !important;
+  stroke: var(--handle-fill) !important;
 }
 
 /* --- Rotation handle --- */
 .svg_select_handle_rot {
-  fill: #000000 !important;
-  stroke: #fff !important;
+  fill: var(--handle-fill) !important;
+  stroke: var(--handle-stroke) !important;
   stroke-width: 1px !important;
   cursor: grab !important;
+  rx: 50% !important; /* Ensure circle */
+  ry: 50% !important;
+}
+
+/* --- Multi-selection Overlays --- */
+.group-selection-overlay {
+  stroke: var(--selection-color) !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 6 4 !important;
+  fill: rgba(0,0,0,0) !important;
+}
+
+.point-group-selection-overlay {
+  stroke: var(--point-selection-color) !important;
+  stroke-width: 1.5px !important;
+  stroke-dasharray: 5 3 !important;
+  fill: rgba(0,0,0,0) !important;
 }
 
 /* --- Handle cursors for resize directions --- */
@@ -97,3 +123,14 @@ body, html, #root {
 .svg_select_handle_r  { cursor: e-resize !important; }
 .svg_select_handle_b  { cursor: s-resize !important; }
 .svg_select_handle_l  { cursor: w-resize !important; }
+
+/* --- Spline Points --- */
+.spline-point {
+  fill: var(--point-fill);
+  cursor: pointer;
+  transition: fill 0.1s;
+}
+
+.spline-point:hover {
+  fill: var(--point-hover-fill);
+}

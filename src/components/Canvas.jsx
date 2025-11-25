@@ -231,8 +231,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       const overlay = draw
         .rect(width, height)
         .move(x, y)
-        .fill("rgba(0,0,0,0)") // transparent but clickable
-        .stroke({ color: "#00bfff", width: 1.5, dasharray: "6,4" })
+        .addClass("group-selection-overlay")
         .id("group-selection-overlay")
 
       overlay.on("pointerdown", (e) => {
@@ -307,8 +306,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       const overlay = draw
         .rect(width, height)
         .move(x, y)
-        .fill("rgba(0,0,0,0)")
-        .stroke({ color: "#ff00ff", width: 1.5, dasharray: "5,3" })
+        .addClass("point-group-selection-overlay")
         .id("point-group-selection-overlay")
       console.log("[Canvas.updatePointGroupOverlay] created overlay", {
         width,
@@ -725,6 +723,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       window.removeEventListener("resize", handleResizeOrFullscreen)
       window.removeEventListener("fullscreenchange", handleResizeOrFullscreen)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // When tool switches away from curve, hide all spline points

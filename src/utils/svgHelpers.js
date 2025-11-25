@@ -11,10 +11,10 @@ export function drawGrid(
   grid.clear()
   const { width: w, height: h } = canvasSize
   for (let x = 0; x <= w; x += gSize) {
-    grid.line(x, 0, x, h).stroke({ color: "#333", width: baseThickness })
+    grid.line(x, 0, x, h).addClass("grid-line").stroke({ width: baseThickness })
   }
   for (let y = 0; y <= h; y += gSize) {
-    grid.line(0, y, w, y).stroke({ color: "#333", width: baseThickness })
+    grid.line(0, y, w, y).addClass("grid-line").stroke({ width: baseThickness })
   }
 }
 
@@ -40,9 +40,9 @@ export function resetGroupTransform(el) {
 }
 
 /** small helper to create a styled point circle inside a group */
-export function createPointCircle(group, x, y, radius = 6, color = "#ffcc00") {
+export function createPointCircle(group, x, y, radius = 6) {
   if (!group) return null
-  return group.circle(radius).fill(color).center(x, y).show()
+  return group.circle(radius).addClass("spline-point").center(x, y).show()
 }
 /** Fit the SVG drawing to the container by adjusting viewbox and zoom */
 export function fitToCanvas(
@@ -71,10 +71,7 @@ export function fitToCanvas(
   const scale = Math.min(scaleX, scaleY, maxZoom)
 
   // Zoom centered on the screen midpoint
-  const center = draw.point(
-    containerRect.width / 2,
-    containerRect.height / 2
-  )
+  const center = draw.point(containerRect.width / 2, containerRect.height / 2)
 
   const panZoom = panZoomRef.current
 

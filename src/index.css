@@ -4,6 +4,13 @@
   --bg-color: #d9d5d5;
   --canvas-bg: #c3bebe;
   --text-color: #000000;
+  --grid-color: #a0a0a0;
+  --selection-color: #00bfff;
+  --point-selection-color: #ff00ff;
+  --handle-fill: #ffffff;
+  --handle-stroke: #000000;
+  --point-fill: #ffcc00;
+  --point-hover-fill: #ffffff;
 
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -23,6 +30,13 @@
   --bg-color: #181818;
   --canvas-bg: #212121;
   --text-color: #d7d2d2;
+  --grid-color: #333333;
+  --selection-color: #00e0ff;
+  --point-selection-color: #ff00ff;
+  --handle-fill: #ffffff;
+  --handle-stroke: #000000;
+  --point-fill: #ffcc00;
+  --point-hover-fill: #ffffff;
 }
 
 a {
