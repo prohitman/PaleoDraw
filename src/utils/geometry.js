@@ -1,17 +1,22 @@
 // src/utils/geometry.js
+/**
+ * Geometry utilities for spline path generation and distance calculations
+ * @module utils/geometry
+ */
+
+/** Epsilon value for floating-point comparisons */
 export const EPS = 1e-4
 
-export function pointsAreSame(aPoints, bPoints, eps = EPS) {
-  if (!aPoints || !bPoints) return false
-  if (aPoints.length !== bPoints.length) return false
-  for (let i = 0; i < aPoints.length; i++) {
-    const a = aPoints[i]
-    const b = bPoints[i]
-    if (Math.abs(a.x - b.x) > eps || Math.abs(a.y - b.y) > eps) return false
-  }
-  return true
-}
-
+/**
+ * Calculate the shortest distance from a point to a line segment
+ * @param {number} px - Point X coordinate
+ * @param {number} py - Point Y coordinate
+ * @param {number} x1 - Segment start X
+ * @param {number} y1 - Segment start Y
+ * @param {number} x2 - Segment end X
+ * @param {number} y2 - Segment end Y
+ * @returns {number} Distance from point to segment
+ */
 export function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
   const dx = x2 - x1
   const dy = y2 - y1
@@ -25,6 +30,12 @@ export function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
   return Math.hypot(px - projX, py - projY)
 }
 
+/**
+ * Generate SVG path string for a B-spline curve through given points
+ * Uses Catmull-Rom spline algorithm for smooth curves
+ * @param {Array<{x: number, y: number}>} points - Control points for the spline
+ * @returns {string} SVG path data string
+ */
 export function generateBSplinePath(points) {
   if (!points || points.length < 2) return ""
   const d = [`M${points[0].x},${points[0].y}`]
@@ -43,7 +54,12 @@ export function generateBSplinePath(points) {
   return d.join(" ")
 }
 
-// Simple polyline path generator (straight segments)
+/**
+ * Generate SVG path string for straight line segments (polyline)
+ * Creates C0 continuous path with sharp corners at each point
+ * @param {Array<{x: number, y: number}>} points - Points to connect with straight lines
+ * @returns {string} SVG path data string
+ */
 export function generatePolylinePath(points) {
   if (!points || points.length === 0) return ""
   if (points.length === 1) {
@@ -59,12 +75,12 @@ export function generatePolylinePath(points) {
 }
 
 /**
- * Generates a Hybrid path string from a set of points.
- * Supports mixed smooth and sharp points.
- * If a point has isSharp=true, it creates a C0 continuity (sharp corner).
- *
- * @param {Array<{x: number, y: number, isSharp?: boolean}>} points - Array of points
- * @returns {string} - SVG path data
+ * Generate SVG path string with mixed smooth and sharp points
+ * Supports per-point smoothness control via isSharp property
+ * If a point has isSharp=true, creates C0 continuity (sharp corner)
+ * Otherwise creates C1 continuity (smooth curve) using Catmull-Rom tangents
+ * @param {Array<{x: number, y: number, isSharp?: boolean}>} points - Points with optional sharpness flag
+ * @returns {string} SVG path data string
  */
 export function generateHybridPath(points) {
   if (!points || points.length < 2) return ""
@@ -106,29 +122,11 @@ export function generateHybridPath(points) {
 }
 
 /**
- * Generates a NURBS path string from a set of points.
- * Uses the hybrid generator to support mixed sharp/smooth edges.
- *
- * @param {Array<{x: number, y: number}>} points - Array of points
- * @returns {string} - SVG path data
+ * Generate NURBS (Non-Uniform Rational B-Spline) path
+ * Currently implemented as an alias to generateHybridPath for mixed smooth/sharp support
+ * @param {Array<{x: number, y: number, isSharp?: boolean}>} points - Control points
+ * @returns {string} SVG path data string
  */
 export function generateNurbsPath(points) {
   return generateHybridPath(points)
-}
-
-export function maxBoxFromPoints(points) {
-  let x = Infinity
-  let y = Infinity
-  let x2 = -Infinity
-  let y2 = -Infinity
-
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i]
-    x = Math.min(x, p[0])
-    y = Math.min(y, p[1])
-    x2 = Math.max(x2, p[0])
-    y2 = Math.max(y2, p[1])
-  }
-
-  return { x, y, width: x2 - x, height: y2 - y, x2, y2 }
 }

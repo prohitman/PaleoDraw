@@ -1,15 +1,11 @@
 // src/input/hotkeys/splineHotkeys.js
 /**
  * Spline-specific hotkey bindings
- * Handles: Delete spline, Copy, Paste, Duplicate
- * Also supports imported SVG objects
+ * Handles: Delete spline
+ * Copy/Cut/Paste delegated to Canvas API for centralized clipboard management
  */
 
 import { selectionOptions } from "../../utils/selectionConfig"
-
-// Clipboard for spline/SVG copy/cut operations
-let clipboard = null
-let clipboardType = null // 'spline' or 'svg'
 
 export function registerSplineHotkeys(hotkeysManager, context) {
   const {
@@ -19,7 +15,7 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     pointSelectionManager,
     selectedToolRef,
     historyManager,
-    drawRef,
+    canvasRef, // Added to access Canvas API
   } = context
 
   // Delete selected spline(s) or SVG object(s)
@@ -34,10 +30,12 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     ) {
       pointSelectionManager.current.deleteSelectedPoints()
       // Save history
-      const splineData =
-        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager.current?.getState?.() || []
-      historyManager?.current?.pushState(splineData, svgData)
+      if (historyManager?.current) {
+        historyManager.current.saveSnapshot(
+          splineManager.current,
+          svgObjectManager.current
+        )
+      }
       return
     }
     // Check if SelectionManager has multiple items selected
@@ -51,10 +49,12 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     if (selectedSvgId) {
       svgObjectManager.current.deleteObject(selectedSvgId)
       // Save history
-      const splineData =
-        splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager.current?.getState?.() || []
-      historyManager?.current?.pushState(splineData, svgData)
+      if (historyManager?.current) {
+        historyManager.current.saveSnapshot(
+          splineManager.current,
+          svgObjectManager.current
+        )
+      }
       return
     }
 
@@ -79,7 +79,7 @@ export function registerSplineHotkeys(hotkeysManager, context) {
     "Delete selected spline or SVG object (alternate)"
   )
 
-  // Copy selected spline or SVG object (select tool OR an active editing tool with a selected spline)
+  // Copy selected spline or SVG object - delegate to Canvas API
   hotkeysManager.register(
     "ctrl+c",
     "selection",
@@ -101,36 +101,13 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         return
       }
 
-      // Try spline first (priority if selected)
-      const selectedSpline = splineManager?.current?.getSelected?.()
-      if (selectedSpline) {
-        clipboard = selectedSpline.toJSON()
-        clipboardType = "spline"
-        console.log("[Hotkeys] Copied spline:", selectedSpline.id)
-        return
-      }
-
-      // Try SVG object
-      const selectedSvgId = svgObjectManager?.current?.getSelectedId?.()
-      if (selectedSvgId) {
-        const selectedSvgObj = svgObjectManager.current.getObject(selectedSvgId)
-        if (selectedSvgObj) {
-          clipboard = {
-            svg: selectedSvgObj.svg?.(),
-            transform: selectedSvgObj.transform?.(),
-          }
-          clipboardType = "svg"
-          console.log("[Hotkeys] Copied SVG object:", selectedSvgId)
-          return
-        }
-      }
-
-      console.log("[Hotkeys] Nothing selected to copy")
+      // Delegate to Canvas copy API
+      canvasRef?.current?.copy?.()
     },
     "Copy selected spline or SVG"
   )
 
-  // Cut selected spline or SVG object (select tool OR active edit tool with selected spline)
+  // Cut selected spline or SVG object - delegate to Canvas API
   hotkeysManager.register(
     "ctrl+x",
     "selection",
@@ -151,193 +128,19 @@ export function registerSplineHotkeys(hotkeysManager, context) {
         return
       }
 
-      // Try spline first
-      const selectedSpline = splineManager?.current?.getSelected?.()
-      if (selectedSpline) {
-        clipboard = selectedSpline.toJSON()
-        clipboardType = "spline"
-        splineManager.current.deleteSpline(selectedSpline.id)
-
-        // Save history after cut
-        const splineData =
-          splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.current?.getState?.() || []
-        historyManager?.current?.pushState(splineData, svgData)
-
-        console.log("[Hotkeys] Cut spline:", selectedSpline.id)
-        return
-      }
-
-      // Try SVG object
-      const selectedSvgId = svgObjectManager?.current?.getSelectedId?.()
-      if (selectedSvgId) {
-        const selectedSvgObj = svgObjectManager.current.getObject(selectedSvgId)
-        if (selectedSvgObj) {
-          clipboard = {
-            svg: selectedSvgObj.svg?.(),
-            transform: selectedSvgObj.transform?.(),
-          }
-          clipboardType = "svg"
-          svgObjectManager.current.deleteObject(selectedSvgId)
-
-          // Save history after cut
-          const splineData =
-            splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) ||
-            []
-          const svgData = svgObjectManager.current?.getState?.() || []
-          historyManager?.current?.pushState(splineData, svgData)
-
-          console.log("[Hotkeys] Cut SVG object:", selectedSvgId)
-          return
-        }
-      }
-
-      console.log("[Hotkeys] Nothing selected to cut")
+      // Delegate to Canvas cut API
+      canvasRef?.current?.cut?.()
     },
     "Cut selected spline or SVG"
   )
 
-  // Paste spline or SVG from clipboard
+  // Paste spline or SVG from clipboard - delegate to Canvas API
   hotkeysManager.register(
     "ctrl+v",
     "global",
     () => {
-      if (!clipboard) {
-        console.log("[Hotkeys] Nothing to paste")
-        return
-      }
-
-      if (clipboardType === "spline" && splineManager?.current) {
-        const manager = splineManager.current
-        // Don't auto-select the new spline, keep original selected
-        const newSpline = manager.createSpline(false)
-
-        // Load the clipboard data, but don't overwrite the new spline's ID
-        const clipboardData = { ...clipboard, id: newSpline.id }
-        newSpline.loadFromJSON(clipboardData)
-
-        // Offset the pasted spline slightly so it's not directly on top
-        const offsetX = 20
-        const offsetY = 20
-
-        // Update point coordinates to reflect the offset
-        // Don't use group.translate() as it creates a visual transform without updating data coordinates
-        newSpline.points.forEach((p) => {
-          p.x += offsetX
-          p.y += offsetY
-          if (p.circle) p.circle.center(p.x, p.y)
-        })
-        newSpline.plot()
-
-        // Ensure pasted spline is NOT selected - set selected field to false
-        newSpline.setSelected(false)
-
-        // Save history after paste
-        const splineData =
-          manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.current?.getState?.() || []
-        historyManager?.current?.pushState(splineData, svgData)
-
-        console.log("[Hotkeys] Pasted spline:", newSpline.id)
-        manager.emit("change")
-      } else if (clipboardType === "svg" && svgObjectManager?.current) {
-        try {
-          const draw = drawRef?.current
-          if (!draw) {
-            console.warn("[Hotkeys] Cannot paste SVG: drawRef missing")
-            return
-          }
-          const group = draw.group().svg(clipboard.svg)
-          if (clipboard.transform) {
-            try {
-              group.transform(clipboard.transform)
-            } catch {
-              // ignore transform errors
-            }
-          }
-          // Offset pasted SVG slightly
-          const bbox = group.bbox?.()
-          if (bbox) {
-            group.move(bbox.x + 20, bbox.y + 20)
-          }
-
-          // Attach selection, resize, and click handlers (same as import logic)
-          group.draggable()
-          group.on("dragstart", () => {
-            if (svgObjectManager.current.getSelected() === group) {
-              group.select(false)
-              group.resize(false)
-              svgObjectManager.current.clearSelection()
-            }
-          })
-          group.on("dragend", () => {
-            if (svgObjectManager.current.getSelected() === group) {
-              try {
-                group.select(false)
-                group.resize(false)
-                setTimeout(() => {
-                  group.select(selectionOptions)
-                  group.resize({ rotationPoint: true })
-                  svgObjectManager.current.selectObject(group._objectId)
-                }, 0)
-              } catch (err) {
-                console.warn("[Hotkeys] SVG dragend reselection error:", err)
-              }
-            }
-            // Save to history after drag end
-            const splineData =
-              splineManager.current
-                ?.getAllSplines?.()
-                ?.map((s) => s.toJSON()) || []
-            const svgData = svgObjectManager.current?.getState?.() || []
-            historyManager?.current?.pushState(splineData, svgData)
-          })
-          group.on("resize", () => {
-            if (!group._resizingActive) group._resizingActive = true
-            clearTimeout(group._resizeTimeout)
-            group._resizeTimeout = setTimeout(() => {
-              group._resizingActive = false
-              // Save to history after resize end
-              const splineData =
-                splineManager.current
-                  ?.getAllSplines?.()
-                  ?.map((s) => s.toJSON()) || []
-              const svgData = svgObjectManager.current?.getState?.() || []
-              historyManager?.current?.pushState(splineData, svgData)
-            }, 150)
-
-            clearTimeout(group._refreshTimeout)
-            group._refreshTimeout = setTimeout(() => {
-              if (svgObjectManager.current.getSelected() === group) {
-                group.select(false)
-                group.resize(false)
-                group.select(selectionOptions)
-                group.resize({ rotationPoint: true })
-              }
-            }, 1)
-          })
-          group.on("click", (ev) => {
-            ev.stopPropagation()
-            svgObjectManager.current.selectObject(group._objectId)
-          })
-
-          svgObjectManager.current.addObject(group)
-
-          // Save history after paste
-          const splineData =
-            splineManager.current?.getAllSplines?.()?.map((s) => s.toJSON()) ||
-            []
-          const svgData = svgObjectManager.current?.getState?.() || []
-          historyManager?.current?.pushState(splineData, svgData)
-          console.log("[Hotkeys] Pasted SVG object with handlers attached")
-        } catch (err) {
-          console.error("[Hotkeys] Error pasting SVG object", err)
-        }
-      } else {
-        console.log(
-          "[Hotkeys] Clipboard type mismatch or manager not available"
-        )
-      }
+      // Delegate to Canvas paste API
+      canvasRef?.current?.paste?.()
     },
     "Paste spline or SVG from clipboard"
   )
@@ -566,10 +369,7 @@ function nudgeSelected(
   ) {
     pointSelectionManager.moveSelectedPoints(dx, dy)
     if (historyManager) {
-      const splineData =
-        splineManager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager?.getState?.() || []
-      historyManager.pushState(splineData, svgData)
+      historyManager.saveSnapshot(splineManager, svgObjectManager)
     }
     return
   }
@@ -580,10 +380,7 @@ function nudgeSelected(
 
     // Save to history
     if (historyManager) {
-      const splineData =
-        splineManager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager?.getState?.() || []
-      historyManager.pushState(splineData, svgData)
+      historyManager.saveSnapshot(splineManager, svgObjectManager)
     }
 
     console.log(`[nudgeSelected] Moved multi-selection by dx:${dx}, dy:${dy}`)
@@ -593,44 +390,22 @@ function nudgeSelected(
   // Try single spline
   const selectedSpline = splineManager?.getSelected?.()
   if (selectedSpline?.points) {
-    // Directly move all points instead of using group transform
-    selectedSpline.points.forEach((point) => {
-      point.x += dx
-      point.y += dy
-      if (point.circle) {
-        point.circle.center(point.x, point.y)
-      }
-    })
-    selectedSpline.plot()
+    // Use SplineManager method instead of direct point manipulation
+    splineManager.moveSplinePoints(selectedSpline.id, dx, dy)
 
     // Update selection box position if visible
-    if (
-      selectedSpline.group &&
-      typeof selectedSpline.group.select === "function"
-    ) {
-      // Re-apply selection to update the box position
-      // We need to briefly deselect and reselect or force update if the library supports it
-      // svg.select.js usually updates on resize/drag but not manual point changes
-      // A quick toggle forces a redraw of the selection box
-      try {
-        // Only toggle if currently selected visually
-        if (selectedToolRefRef?.current === "select") {
-          selectedSpline.group.select(false)
-          selectedSpline.group.select(selectionOptions)
-        }
-      } catch {
-        // ignore
-      }
+    if (selectedToolRefRef?.current === "select") {
+      splineManager.updateSplineSelectionBox(
+        selectedSpline.id,
+        selectionOptions
+      )
     }
 
     // Save to history
     if (historyManager) {
-      const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
-      const svgData = svgObjectManager?.getState?.() || []
-      historyManager.pushState(splineData, svgData)
+      historyManager.saveSnapshot(splineManager, svgObjectManager)
     }
 
-    splineManager.emit("change")
     console.log(
       `[nudgeSelected] Moved spline ${selectedSpline.id} by dx:${dx}, dy:${dy}`
     )
@@ -695,10 +470,7 @@ function nudgeSelected(
 
       // Save to history
       if (historyManager) {
-        const splineData =
-          splineManager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager.getState()
-        historyManager.pushState(splineData, svgData)
+        historyManager.saveSnapshot(splineManager, svgObjectManager)
       }
 
       console.log(

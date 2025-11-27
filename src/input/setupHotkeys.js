@@ -12,7 +12,7 @@ export function setupHotkeys(context) {
   const manager = new HotkeysManager()
 
   // Register all hotkey modules
-  registerSplineHotkeys(manager, context)
+  registerSplineHotkeys(manager, context, context.canvasRef)
   registerToolHotkeys(manager, context)
   registerCanvasHotkeys(manager, context)
 

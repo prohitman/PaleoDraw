@@ -155,4 +155,91 @@ export default class HistoryManager extends EventEmitter {
       canRedo: this.canRedo(),
     }
   }
+
+  /**
+   * Helper method to capture a unified snapshot from managers
+   * Reduces code duplication across the codebase
+   * @param {object} splineManager - SplineManager instance
+   * @param {object} svgObjectManager - SVGObjectManager instance
+   */
+  saveSnapshot(splineManager, svgObjectManager) {
+    const splineData =
+      splineManager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
+    const svgData = svgObjectManager?.getState?.() || []
+    this.pushState(splineData, svgData)
+  }
+
+  /**
+   * Initialize manager references for restoration
+   * @param {object} managers - Object containing all manager references
+   */
+  initializeManagers(managers) {
+    this.splineManager = managers.splineManager
+    this.svgObjectManager = managers.svgObjectManager
+    this.pointSelectionManager = managers.pointSelectionManager
+    this.restorationContext = managers.restorationContext
+  }
+
+  /**
+   * Restore state by delegating to managers
+   * This centralizes restoration logic that was previously in Canvas.jsx
+   * @param {object} state - The state to restore
+   * @returns {boolean} - True if restoration succeeded
+   */
+  restoreState(state) {
+    if (!state) {
+      console.warn("[HistoryManager] Cannot restore: no state provided")
+      return false
+    }
+
+    if (!this.splineManager || !this.svgObjectManager) {
+      console.warn("[HistoryManager] Cannot restore: managers not initialized")
+      return false
+    }
+
+    // Clear point selection to remove lingering selection boxes
+    if (this.pointSelectionManager) {
+      this.pointSelectionManager.clearSelection()
+    }
+
+    // Delegate to managers' restoreFromState methods
+    this.splineManager.restoreFromState(
+      state.splines || [],
+      this.restorationContext
+    )
+    this.svgObjectManager.restoreFromState(
+      state.svgs || [],
+      this.restorationContext
+    )
+
+    console.log("[HistoryManager] State restored successfully")
+    this.emit("restored", state)
+    return true
+  }
+
+  /**
+   * Undo and restore previous state automatically
+   * @returns {boolean} - True if undo succeeded
+   */
+  undoAndRestore() {
+    const state = this.undo()
+    if (!state) return false
+
+    // Handle empty state (index -1)
+    if (state.isEmpty) {
+      return this.restoreState({ splines: [], svgs: [] })
+    }
+
+    return this.restoreState(state)
+  }
+
+  /**
+   * Redo and restore next state automatically
+   * @returns {boolean} - True if redo succeeded
+   */
+  redoAndRestore() {
+    const state = this.redo()
+    if (!state) return false
+    return this.restoreState(state)
+  }
 }

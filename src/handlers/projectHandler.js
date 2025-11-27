@@ -11,7 +11,6 @@ export function createNewProject(
   gridSizeRef,
   gridRef,
   fitToCanvas,
-  svgObjects,
   splineManager,
   svgObjectManager,
   selectedRef
@@ -40,7 +39,6 @@ export function createNewProject(
   splineManager.splines.clear()
 
   // Clear imported SVGs
-  svgObjects.current = []
   svgObjectManager?.clearSelection?.()
   svgObjectManager?.getAllObjects?.().forEach((obj) => {
     try {
@@ -65,7 +63,6 @@ export function getProjectJSON(
   drawRef,
   canvasSizeRef,
   gridSizeRef,
-  svgObjects,
   splineManager,
   svgObjectManager
 ) {
@@ -77,12 +74,7 @@ export function getProjectJSON(
     // Save only raw points and minimal meta for splines (no transforms)
     splines: splineManager.getState(),
     // Keep imported SVGs as full SVG markup + transform (imported assets should keep transforms)
-    importedSVGs:
-      svgObjectManager?.getState?.() ||
-      (svgObjects.current || []).map((obj) => ({
-        svg: obj.svg(),
-        transform: obj.transform ? obj.transform() : null,
-      })),
+    importedSVGs: svgObjectManager?.getState?.() || [],
   }
   return JSON.stringify(project, null, 2)
 }
@@ -108,7 +100,6 @@ export async function loadFromJSON(
   gridSizeRef,
   gridRef,
   fitToCanvas,
-  svgObjects,
   splineManager,
   svgObjectManager,
   selectedRef
@@ -165,35 +156,17 @@ export async function loadFromJSON(
     // Restore splines using SplineManager
     if (Array.isArray(data.splines)) {
       splineManager.loadState(data.splines)
+      // Ensure all splines are deselected and points hidden on import
+      splineManager.clearSelection()
+      splineManager.getAllSplines().forEach((spline) => {
+        spline.setSelected(false)
+      })
     }
 
     // Restore imported SVGs using SVGObjectManager
-    svgObjects.current = []
     if (Array.isArray(data.importedSVGs)) {
       if (svgObjectManager?.loadState) {
         svgObjectManager.loadState(data.importedSVGs, draw)
-        // Also maintain legacy svgObjects array
-        svgObjectManager
-          .getAllObjects()
-          .forEach((obj) => svgObjects.current.push(obj))
-      } else {
-        // Fallback: load directly if manager not available
-        data.importedSVGs.forEach((objData) => {
-          try {
-            const group = draw.group().svg(objData.svg)
-            if (objData.transform) {
-              try {
-                group.transform(objData.transform)
-              } catch {
-                // ignore transform errors
-              }
-            }
-            group.draggable()
-            svgObjects.current.push(group)
-          } catch {
-            // ignore SVG load errors
-          }
-        })
       }
     }
 
@@ -213,7 +186,6 @@ export async function loadProjectFromPath(
   gridSizeRef,
   gridRef,
   fitToCanvas,
-  svgObjects,
   splineManager,
   svgObjectManager,
   selectedRef
@@ -262,16 +234,17 @@ export async function loadProjectFromPath(
     // Restore splines using SplineManager
     if (Array.isArray(data.splines)) {
       splineManager.loadState(data.splines)
+      // Ensure all splines are deselected and points hidden on import
+      splineManager.clearSelection()
+      splineManager.getAllSplines().forEach((spline) => {
+        spline.setSelected(false)
+      })
     }
 
     // Restore imported SVGs using SVGObjectManager
-    svgObjects.current = []
     if (Array.isArray(data.importedSVGs)) {
       if (svgObjectManager?.loadState) {
         svgObjectManager.loadState(data.importedSVGs, draw)
-        svgObjectManager
-          .getAllObjects()
-          .forEach((obj) => svgObjects.current.push(obj))
       }
     }
 
@@ -328,7 +301,6 @@ export function exportAsSVG(
   filename,
   drawRef,
   canvasSizeRef,
-  svgObjects,
   splineManager,
   svgObjectManager,
   includePoints = false
@@ -385,8 +357,7 @@ export function exportAsSVG(
   })
 
   // clone imported SVGs (these are external assets, keep their transforms)
-  const objectsToExport =
-    svgObjectManager?.getAllObjects?.() || svgObjects.current || []
+  const objectsToExport = svgObjectManager?.getAllObjects?.() || []
   objectsToExport.forEach((obj) => {
     try {
       temp.add(obj.clone())

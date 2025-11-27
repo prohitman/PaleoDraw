@@ -1,9 +1,16 @@
 // src/utils/transform.js
-// helpers to apply affine matrix transforms and rotate points
+/**
+ * Affine transformation utilities for applying matrix transformations to points
+ * @module utils/transform
+ */
 
 /**
- * Apply matrixify-like matrix to source points and write into destPoints (in-place)
- * Matrix expected to have { a, b, c, d, e, f } (SVGMatrix-style)
+ * Apply affine matrix transformation to points (in-place modification)
+ * Uses SVGMatrix-style matrix with properties { a, b, c, d, e, f }
+ * Transformation: [a c e; b d f] * [x; y; 1] = [x'; y'; 1]
+ * @param {object} matrix - Affine transformation matrix { a, b, c, d, e, f }
+ * @param {Array<{x: number, y: number}>} srcPoints - Source points to transform
+ * @param {Array<{x: number, y: number, circle?: object}>} destPoints - Destination points (modified in-place)
  */
 export function applyMatrixToPoints(matrix, srcPoints, destPoints) {
   if (!matrix || !srcPoints || !destPoints) return
@@ -23,18 +30,4 @@ export function applyMatrixToPoints(matrix, srcPoints, destPoints) {
       }
     }
   }
-}
-
-/** Rotate a list of points around pivot by 'delta' radians (in-place) */
-export function rotatePointsAroundPivot(points, delta, pivot) {
-  const cos = Math.cos(delta)
-  const sin = Math.sin(delta)
-  points.forEach((p) => {
-    const rx = p.x - pivot.x
-    const ry = p.y - pivot.y
-    const nx = pivot.x + (rx * cos - ry * sin)
-    const ny = pivot.y + (rx * sin + ry * cos)
-    p.x = nx
-    p.y = ny
-  })
 }

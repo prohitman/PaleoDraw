@@ -313,6 +313,70 @@ export default class SplineManager extends EventEmitter {
     }
   }
 
+  // ========== POINT MANIPULATION METHODS ==========
+
+  /**
+   * Move all points of a spline by delta
+   * Centralizes point movement logic to avoid direct array access
+   * @param {string} splineId - ID of the spline
+   * @param {number} dx - Delta x
+   * @param {number} dy - Delta y
+   * @returns {boolean} - True if successful
+   */
+  moveSplinePoints(splineId, dx, dy) {
+    const spline = this.getSpline(splineId)
+    if (!spline) {
+      console.warn(
+        "[SplineManager.moveSplinePoints] Spline not found:",
+        splineId
+      )
+      return false
+    }
+
+    spline.points.forEach((point) => {
+      point.x += dx
+      point.y += dy
+      if (point.circle) {
+        point.circle.center(point.x, point.y)
+      }
+    })
+
+    spline.plot()
+    this.emit("change")
+    return true
+  }
+
+  /**
+   * Offset all points of a spline (for copy/paste operations)
+   * @param {string} splineId - ID of the spline
+   * @param {number} offsetX - X offset
+   * @param {number} offsetY - Y offset
+   * @returns {boolean} - True if successful
+   */
+  offsetSplinePoints(splineId, offsetX, offsetY) {
+    return this.moveSplinePoints(splineId, offsetX, offsetY)
+  }
+
+  /**
+   * Update selection box position for a spline (used after point movement)
+   * @param {string} splineId - ID of the spline
+   * @param {object} selectionOptions - SVG.js selection options
+   */
+  updateSplineSelectionBox(splineId, selectionOptions) {
+    const spline = this.getSpline(splineId)
+    if (!spline || !spline.group) return
+
+    try {
+      // Re-apply selection to update box position
+      if (typeof spline.group.select === "function") {
+        spline.group.select(false)
+        spline.group.select(selectionOptions)
+      }
+    } catch (err) {
+      console.warn("[SplineManager.updateSplineSelectionBox] Error:", err)
+    }
+  }
+
   // ========== SELECTION ==========
 
   /**
@@ -580,13 +644,10 @@ export default class SplineManager extends EventEmitter {
   /**
    * Save current spline state to history
    * Called whenever splines are modified (created, deleted, points changed, etc.)
-   * Also accepts external SVG state for unified history
-   * @param {object[]} svgData - Optional SVG object state array
    */
-  saveHistorySnapshot(svgData = []) {
+  saveHistorySnapshot() {
     if (this.historyManager) {
-      const splineData = this.getState()
-      this.historyManager.pushState(splineData, svgData)
+      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
     }
   }
 

@@ -15,19 +15,115 @@ export default class SVGObjectManager extends EventEmitter {
     this.selectedObjectId = null
     this.selectedToolRef = selectedToolRef
     this.historyManager = historyManager // HistoryManager instance for undo/redo
+    this.linkedSplineManager = null // Reference to SplineManager for unified history
 
     this._transformAPI = null
+    this.selectedRef = null // Currently selected SVG element (for internal tracking)
   }
 
   // ========== OBJECT CRUD ==========
 
   /**
+   * Initialize interactive behavior for an SVG object
+   * Handles drag, resize, and click events
+   * @param {object} svgElement - SVG.js element
+   */
+  initializeInteractive(svgElement) {
+    if (!svgElement || svgElement._initializedInteractive) return
+    svgElement._initializedInteractive = true
+
+    // Ensure draggable capability
+    try {
+      svgElement.draggable?.()
+    } catch (err) {
+      console.warn("[SVGObjectManager] Failed to enable draggable on SVG", err)
+    }
+
+    // Drag start - clear selection UI temporarily
+    svgElement.on("dragstart", () => {
+      if (this.selectedRef === svgElement) {
+        svgElement.select(false)
+        this.selectedRef = null
+      }
+    })
+
+    // Drag end - restore selection UI and save to history
+    svgElement.on("dragend", () => {
+      const now = Date.now()
+      if (svgElement._lastDragPush && now - svgElement._lastDragPush < 50) {
+        return
+      }
+      svgElement._lastDragPush = now
+
+      // Restore selection UI
+      if (this.selectedRef === svgElement) {
+        try {
+          svgElement.select(false)
+          svgElement.resize(false)
+          setTimeout(() => {
+            svgElement.select(selectionOptions)
+            svgElement.resize({ rotationPoint: true })
+            this.selectedRef = svgElement
+          }, 0)
+        } catch (err) {
+          console.warn("[SVGObjectManager] SVG dragend reselection error:", err)
+        }
+      }
+
+      // Save to history
+      this.saveHistorySnapshot()
+      console.log("[SVGObjectManager] SVG drag end saved to history")
+    })
+
+    // Resize - handle resize events and save to history
+    svgElement.on("resize", () => {
+      if (!svgElement._resizingActive) svgElement._resizingActive = true
+
+      clearTimeout(svgElement._resizeTimeout)
+      svgElement._resizeTimeout = setTimeout(() => {
+        svgElement._resizingActive = false
+        const now = Date.now()
+        if (
+          svgElement._lastResizePush &&
+          now - svgElement._lastResizePush < 50
+        ) {
+          return
+        }
+        svgElement._lastResizePush = now
+
+        // Save to history
+        this.saveHistorySnapshot()
+        console.log("[SVGObjectManager] SVG resize end saved to history")
+      }, 150)
+
+      // Refresh selection UI during resize
+      clearTimeout(svgElement._refreshTimeout)
+      svgElement._refreshTimeout = setTimeout(() => {
+        if (this.selectedRef === svgElement) {
+          svgElement.select(false)
+          this.selectedRef = null
+          svgElement.select(selectionOptions)
+          this.selectedRef = svgElement
+        }
+      }, 1)
+    })
+
+    // Click - handle selection
+    svgElement.on("click", (ev) => {
+      ev.stopPropagation()
+      this.selectObject(svgElement._objectId)
+      this.selectedRef = this.getSelected()
+    })
+  }
+
+  /**
    * Add an imported SVG object to the manager
    * @param {object} svgElement - SVG.js element
    * @param {string} id - Optional custom ID
+   * @param {boolean} skipInteractive - Skip interactive initialization (for restoration)
    * @returns {object} - The SVG element with ID attached
    */
-  addObject(svgElement, id = null) {
+  addObject(svgElement, id = null, skipInteractive = false) {
     if (!svgElement) {
       console.error("[SVGObjectManager] Cannot add null/undefined object")
       return null
@@ -51,6 +147,11 @@ export default class SVGObjectManager extends EventEmitter {
       }
     } catch {
       // ignore detection errors
+    }
+
+    // Initialize interactive behavior (unless restoring from state)
+    if (!skipInteractive) {
+      this.initializeInteractive(svgElement)
     }
 
     console.log(
@@ -392,7 +493,10 @@ export default class SVGObjectManager extends EventEmitter {
           } else if (data.transform) {
             imported.transform(data.transform)
           }
-          this.addObject(imported, data.id)
+          // Add without initializing interactive (will be done after all objects loaded)
+          this.addObject(imported, data.id, true)
+          // Now initialize interactive behavior
+          this.initializeInteractive(imported)
         }
       } catch {
         // ignore load errors
@@ -449,7 +553,10 @@ export default class SVGObjectManager extends EventEmitter {
             } else if (svgData.transform) {
               imported.transform(svgData.transform)
             }
-            this.addObject(imported, svgData.id)
+            // Add without initializing interactive (will be done after all objects loaded)
+            this.addObject(imported, svgData.id, true)
+            // Now initialize interactive behavior
+            this.initializeInteractive(imported)
           }
         } catch (error) {
           console.error(
@@ -467,13 +574,10 @@ export default class SVGObjectManager extends EventEmitter {
   /**
    * Save current SVG object state to history
    * Called whenever SVG objects are modified
-   * Also accepts external spline state for unified history
-   * @param {object[]} splineData - Optional spline state array
    */
-  saveHistorySnapshot(splineData = []) {
+  saveHistorySnapshot() {
     if (this.historyManager) {
-      const svgData = this.getState()
-      this.historyManager.pushState(splineData, svgData)
+      this.historyManager.saveSnapshot(this.linkedSplineManager, this)
     }
   }
 
@@ -606,6 +710,54 @@ export default class SVGObjectManager extends EventEmitter {
   }
 
   // ========== CONVENIENCE METHODS FOR CANVAS ==========
+
+  /**
+   * Import SVG from file
+   * Opens file picker, loads SVG, and adds to manager
+   * @param {object} drawRef - SVG.js draw instance
+   * @returns {Promise<object|null>} - The imported SVG element or null
+   */
+  async importFromFile(drawRef) {
+    return new Promise((resolve) => {
+      const input = document.createElement("input")
+      input.type = "file"
+      input.accept = ".svg"
+      input.onchange = async (e) => {
+        const file = e.target.files[0]
+        if (!file) {
+          resolve(null)
+          return
+        }
+
+        try {
+          const text = await file.text()
+          const imported = drawRef.group().svg(text)
+
+          // Center in viewport
+          imported.center(
+            drawRef.viewbox().width / 2,
+            drawRef.viewbox().height / 2
+          )
+
+          // Initialize interactive behavior
+          this.initializeInteractive(imported)
+
+          // Add to manager
+          this.addObject(imported)
+
+          // Save to history
+          this.saveHistorySnapshot()
+          console.log("[SVGObjectManager] SVG import saved to history baseline")
+
+          resolve(imported)
+        } catch (err) {
+          console.error("[SVGObjectManager] Error importing SVG file:", err)
+          resolve(null)
+        }
+      }
+      input.click()
+    })
+  }
 
   /**
    * Import an SVG element at the given coordinates

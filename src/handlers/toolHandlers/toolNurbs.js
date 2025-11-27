@@ -49,21 +49,8 @@ export const nurbsToolHandlers = {
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       if (selectedSpline.points.length >= 2) {
         manager.insertPointByProximity(selectedSpline.id, x, y)
-        const splineData =
-          manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager?.getState?.() || []
         if (historyManager?.current) {
-          if (
-            historyManager.current.currentIndex <
-            historyManager.current.history.length - 1
-          ) {
-            historyManager.current.history =
-              historyManager.current.history.slice(
-                0,
-                historyManager.current.currentIndex + 1
-              )
-          }
-          historyManager.current.pushState(splineData, svgData)
+          historyManager.current.saveSnapshot(manager, svgObjectManager)
         }
         e.stopPropagation()
         return
@@ -72,17 +59,6 @@ export const nurbsToolHandlers = {
 
     // Start new nurbs spline if none selected
     if (!selectedSpline) {
-      if (historyManager?.current) {
-        if (
-          historyManager.current.currentIndex <
-          historyManager.current.history.length - 1
-        ) {
-          historyManager.current.history = historyManager.current.history.slice(
-            0,
-            historyManager.current.currentIndex + 1
-          )
-        }
-      }
       // Create spline with type 'nurbs'
       // Use Shift+Click to start with a sharp point, otherwise smooth
       const isSharp = e.shiftKey
@@ -99,11 +75,8 @@ export const nurbsToolHandlers = {
       // Use Shift+Click to add a sharp point
       const isSharp = e.shiftKey
       manager.addPointToSpline(activeSpline.id, x, y, isSharp)
-      const splineData =
-        manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager?.getState?.() || []
       if (historyManager?.current) {
-        historyManager.current.pushState(splineData, svgData)
+        historyManager.current.saveSnapshot(manager, svgObjectManager)
       }
     }
 

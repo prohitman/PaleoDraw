@@ -44,12 +44,10 @@ export function setupCanvasInteractions(
  * Sets up pan and cursor behavior for select tool
  * Returns cleanup function
  */
-export function setupPanBehavior(
-  container,
-  selectedTool,
-  selectedRef,
-  isPanning
-) {
+export function setupPanBehavior(container, selectedTool, selectedRef) {
+  // Track panning state locally within this function
+  let isPanning = false
+
   const handleMouseDown = (e) => {
     if (selectedRef.current?._isResizing) return
     if (
@@ -71,7 +69,7 @@ export function setupPanBehavior(
       return
     }
 
-    isPanning.current = true
+    isPanning = true
     container.style.cursor = "grabbing"
   }
 
@@ -85,7 +83,7 @@ export function setupPanBehavior(
     )
       return
     if (selectedTool && selectedTool.current === "select") {
-      if (isPanning.current) {
+      if (isPanning) {
         container.style.cursor = "grabbing"
       } else {
         container.style.cursor = "default"
@@ -106,7 +104,7 @@ export function setupPanBehavior(
   }
 
   const handleMouseUp = () => {
-    isPanning.current = false
+    isPanning = false
     if (selectedTool && selectedTool.current === "select")
       container.style.cursor = "default"
     else if (
@@ -122,8 +120,8 @@ export function setupPanBehavior(
   }
 
   const handleMouseLeave = () => {
-    if (isPanning.current) {
-      isPanning.current = false
+    if (isPanning) {
+      isPanning = false
       container.style.cursor = "default"
     }
   }
