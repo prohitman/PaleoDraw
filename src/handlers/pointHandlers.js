@@ -133,8 +133,7 @@ export function setupPointHandlers(
         selectedTool?.current === "nurbs") &&
       historyManager
     ) {
-      const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
-      historyManager.pushState(splineData, [])
+      historyManager.saveSnapshot(splineManager, null)
       console.log("[pointHandlers] Dragged point saved to history")
     }
     delete pointSelectionManager?._dragStartPoints
@@ -219,8 +218,7 @@ export function setupPointHandlers(
       console.log("[pointHandlers] Toggled sharpness:", point.isSharp)
       spline.plot()
       if (historyManager) {
-        const splineData = splineManager.getAllSplines().map((s) => s.toJSON())
-        historyManager.pushState(splineData, [])
+        historyManager.saveSnapshot(splineManager, null)
       }
     }
   })

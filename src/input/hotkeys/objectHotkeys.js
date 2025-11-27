@@ -1,13 +1,13 @@
-// src/input/hotkeys/splineHotkeys.js
+// src/input/hotkeys/objectHotkeys.js
 /**
- * Spline-specific hotkey bindings
- * Handles: Delete spline
+ * Object (spline and SVG) hotkey bindings
+ * Handles: Delete, Copy/Cut/Paste, Nudge, and Layering for both splines and SVG objects
  * Copy/Cut/Paste delegated to Canvas API for centralized clipboard management
  */
 
 import { selectionOptions } from "../../utils/selectionConfig"
 
-export function registerSplineHotkeys(hotkeysManager, context) {
+export function registerObjectHotkeys(hotkeysManager, context) {
   const {
     splineManager,
     svgObjectManager,

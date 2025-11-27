@@ -31,22 +31,8 @@ export const deleteSplineToolHandlers = {
           manager.deleteSpline(targetSpline.id)
 
           // Save to history after deletion
-          const splineData =
-            manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-          const svgData = svgObjectManager?.getState?.() || []
           if (historyManager?.current) {
-            // Truncate history if not at end
-            if (
-              historyManager.current.currentIndex <
-              historyManager.current.history.length - 1
-            ) {
-              historyManager.current.history =
-                historyManager.current.history.slice(
-                  0,
-                  historyManager.current.currentIndex + 1
-                )
-            }
-            historyManager.current.pushState(splineData, svgData)
+            historyManager.current.saveSnapshot(manager, svgObjectManager)
           }
 
           e.stopPropagation()
@@ -77,21 +63,8 @@ export const deleteSplineToolHandlers = {
         manager.deleteSpline(nearestSpline.id)
 
         // Save to history
-        const splineData =
-          manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager?.getState?.() || []
         if (historyManager?.current) {
-          if (
-            historyManager.current.currentIndex <
-            historyManager.current.history.length - 1
-          ) {
-            historyManager.current.history =
-              historyManager.current.history.slice(
-                0,
-                historyManager.current.currentIndex + 1
-              )
-          }
-          historyManager.current.pushState(splineData, svgData)
+          historyManager.current.saveSnapshot(manager, svgObjectManager)
         }
       } else {
         console.log(

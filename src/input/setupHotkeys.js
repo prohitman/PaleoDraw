@@ -5,16 +5,14 @@
  * Uses hotkeys-js library for robust keyboard event handling
  */
 import HotkeysManager from "./HotkeysManager"
-import { registerSplineHotkeys } from "./hotkeys/splineHotkeys"
-import { registerToolHotkeys } from "./hotkeys/toolHotkeys"
+import { registerObjectHotkeys } from "./hotkeys/objectHotkeys"
 import { registerCanvasHotkeys } from "./hotkeys/canvasHotkeys"
 
 export function setupHotkeys(context) {
   const manager = new HotkeysManager()
 
   // Register all hotkey modules
-  registerSplineHotkeys(manager, context, context.canvasRef)
-  registerToolHotkeys(manager, context)
+  registerObjectHotkeys(manager, context, context.canvasRef)
   registerCanvasHotkeys(manager, context)
 
   console.log("[setupHotkeys] HotkeysManager initialized with hotkeys-js")

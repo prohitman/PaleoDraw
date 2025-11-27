@@ -49,22 +49,9 @@ export const lineToolHandlers = {
     // Alt+click insertion (polyline) if spline selected & has >=2 points
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       if (selectedSpline.points.length >= 2) {
-        manager.insertPointByProximity(selectedSpline.id, x, y)
-        const splineData =
-          manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-        const svgData = svgObjectManager?.getState?.() || []
+        manager.finishDrawing()
         if (historyManager?.current) {
-          if (
-            historyManager.current.currentIndex <
-            historyManager.current.history.length - 1
-          ) {
-            historyManager.current.history =
-              historyManager.current.history.slice(
-                0,
-                historyManager.current.currentIndex + 1
-              )
-          }
-          historyManager.current.pushState(splineData, svgData)
+          historyManager.current.saveSnapshot(manager, svgObjectManager)
         }
         e.stopPropagation()
         return
@@ -93,11 +80,8 @@ export const lineToolHandlers = {
     const activeSpline = manager.getSelected()
     if (activeSpline && activeSpline.selected) {
       manager.addPointToSpline(activeSpline.id, x, y)
-      const splineData =
-        manager?.getAllSplines?.()?.map((s) => s.toJSON()) || []
-      const svgData = svgObjectManager?.getState?.() || []
       if (historyManager?.current) {
-        historyManager.current.pushState(splineData, svgData)
+        historyManager.current.saveSnapshot(manager, svgObjectManager)
       }
     }
 

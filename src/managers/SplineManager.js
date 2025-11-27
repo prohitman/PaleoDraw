@@ -129,9 +129,7 @@ export default class SplineManager extends EventEmitter {
 
     // Push to history after deleting spline
     if (this.historyManager) {
-      const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = this.linkedSvgManager?.getState?.() || []
-      this.historyManager.pushState(splineData, svgData)
+      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
     }
   }
 
@@ -212,13 +210,8 @@ export default class SplineManager extends EventEmitter {
       historyManager: this.historyManager,
     })
     if (this.historyManager) {
-      const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = this.linkedSvgManager?.getState?.() || []
-      console.log(
-        "[SplineManager.addPointToSpline] Pushing to history, splineData length:",
-        splineData.length
-      )
-      this.historyManager.pushState(splineData, svgData)
+      console.log("[SplineManager.addPointToSpline] Pushing to history")
+      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
     }
 
     console.log(
@@ -277,9 +270,7 @@ export default class SplineManager extends EventEmitter {
 
     // Push to history after inserting point
     if (this.historyManager) {
-      const splineData = this.getAllSplines().map((s) => s.toJSON())
-      const svgData = this.linkedSvgManager?.getState?.() || []
-      this.historyManager.pushState(splineData, svgData)
+      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
     }
 
     return point
@@ -306,9 +297,7 @@ export default class SplineManager extends EventEmitter {
 
       // Push to history after deleting point
       if (this.historyManager) {
-        const splineData = this.getAllSplines().map((s) => s.toJSON())
-        const svgData = this.linkedSvgManager?.getState?.() || []
-        this.historyManager.pushState(splineData, svgData)
+        this.historyManager.saveSnapshot(this, this.linkedSvgManager)
       }
     }
   }
@@ -833,38 +822,6 @@ export default class SplineManager extends EventEmitter {
     this.emit("change")
   }
 
-  /**
-   * Undo to previous state and restore splines
-   * @param {object} context - Optional context with setupPointHandlers for re-initialization
-   * @returns {object|null} - The restored state or null if already at start
-   */
-  undo(context = {}) {
-    if (!this.historyManager) return null
-
-    const state = this.historyManager.undo()
-    if (!state) return null
-
-    this.restoreFromState(state.splines, context)
-
-    return state
-  }
-
-  /**
-   * Redo to next state and restore splines
-   * @param {object} context - Optional context with setupPointHandlers for re-initialization
-   * @returns {object|null} - The restored state or null if already at end
-   */
-  redo(context = {}) {
-    if (!this.historyManager) return null
-
-    const state = this.historyManager.redo()
-    if (!state) return null
-
-    this.restoreFromState(state.splines, context)
-
-    return state
-  }
-
   // ========== TRANSFORMATIONS ==========
 
   /**
@@ -1045,11 +1002,7 @@ export default class SplineManager extends EventEmitter {
 
           // Save transform to history
           if (historyManager) {
-            const splineData = this.getAllSplines().map((s) => s.toJSON())
-            historyManager.pushState(
-              splineData,
-              this.linkedSvgManager?.getState?.() || []
-            )
+            historyManager.saveSnapshot(this, this.linkedSvgManager)
             console.log("[splineManager] Drag transform saved to history")
           }
 
@@ -1174,11 +1127,7 @@ export default class SplineManager extends EventEmitter {
               spline._resizeIsActive = false
               // Save resize transform to history
               if (historyManager) {
-                const splineData = this.getAllSplines().map((s) => s.toJSON())
-                historyManager.pushState(
-                  splineData,
-                  this.linkedSvgManager?.getState?.() || []
-                )
+                historyManager.saveSnapshot(this, this.linkedSvgManager)
                 console.log("[splineManager] Resize transform saved to history")
               }
               // Re-show selection box after resize completes
@@ -1190,11 +1139,7 @@ export default class SplineManager extends EventEmitter {
               spline._rotateIsActive = false
               // Save rotate transform to history
               if (historyManager) {
-                const splineData = this.getAllSplines().map((s) => s.toJSON())
-                historyManager.pushState(
-                  splineData,
-                  this.linkedSvgManager?.getState?.() || []
-                )
+                historyManager.saveSnapshot(this, this.linkedSvgManager)
                 console.log("[splineManager] Rotate transform saved to history")
               }
             }

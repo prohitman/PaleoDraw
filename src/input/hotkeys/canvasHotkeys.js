@@ -1,10 +1,8 @@
 // src/input/hotkeys/canvasHotkeys.js
 /**
- * Canvas and project hotkey bindings
- * Handles: Ctrl+N (New), Ctrl+S (Save), Ctrl+O (Open), Ctrl+E (Export), etc.
+ * Canvas, project, and tool switching hotkey bindings
+ * Handles: Project ops (Ctrl+N/S/O/E), Tool switching (T/C/L/N/I/P), Undo/Redo, Escape
  */
-
-import { setupPointHandlers } from "../../handlers/pointHandlers"
 
 export function registerCanvasHotkeys(hotkeysManager, context) {
   const { canvasRef } = context
@@ -56,68 +54,25 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "ctrl+z",
     "global",
     () => {
-      console.log("[canvasHotkeys] Undo triggered, context:", {
-        hasSplineManager: !!context.splineManager?.current,
-        hasSvgObjectManager: !!context.svgObjectManager?.current,
-        hasIsDraggingRef: !!context.isDraggingRef,
-        isDraggingRefValue: context.isDraggingRef?.current,
-        hasSelectedToolRef: !!context.selectedToolRef,
-        selectedToolRefValue: context.selectedToolRef?.current,
-      })
-
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
       const selectionManager = context.selectionManager?.current
+      const pointSelectionManager = context.pointSelectionManager?.current
       const historyManager = splineManager?.historyManager
 
-      // Deselect all splines and SVG objects before undo
-      if (splineManager && typeof splineManager.clearSelection === "function") {
-        splineManager.clearSelection()
-      }
-      if (
-        svgObjectManager &&
-        typeof svgObjectManager.clearSelection === "function"
-      ) {
-        svgObjectManager.clearSelection()
-      }
-      // Clear multi-selection manager (removes group overlay box)
-      if (
-        selectionManager &&
-        typeof selectionManager.clearSelection === "function"
-      ) {
-        selectionManager.clearSelection()
-      }
-
-      // Get previous state from history manager (single step)
       if (!historyManager) {
         console.log("[canvasHotkeys] History manager not available")
         return
       }
 
-      const state = historyManager.undo()
-      if (!state) {
-        console.log("[canvasHotkeys] Nothing to undo")
-        return
-      }
+      // Clear all selections before undo
+      splineManager?.clearSelection?.()
+      svgObjectManager?.clearSelection?.()
+      selectionManager?.clearSelection?.()
+      pointSelectionManager?.clearSelection?.()
 
-      // Restore splines from state
-      if (splineManager && state.splines) {
-        splineManager.restoreFromState(state.splines, {
-          setupPointHandlers,
-          drawRef: context.drawRef,
-          selectedToolRef: context.selectedToolRef,
-          isDraggingRef: context.isDraggingRef,
-        })
-        console.log("[canvasHotkeys] Restored splines from state")
-      }
-
-      // Restore SVG objects from state
-      if (svgObjectManager && state.svgs) {
-        svgObjectManager.restoreFromState(state.svgs, {
-          drawRef: context.drawRef,
-        })
-        console.log("[canvasHotkeys] Restored SVG objects from state")
-      }
+      // Use convenience method
+      historyManager.undoAndRestore()
     },
     "Undo"
   )
@@ -130,55 +85,22 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       const splineManager = context.splineManager?.current
       const svgObjectManager = context.svgObjectManager?.current
       const selectionManager = context.selectionManager?.current
+      const pointSelectionManager = context.pointSelectionManager?.current
       const historyManager = splineManager?.historyManager
 
-      // Deselect all splines and SVG objects before redo
-      if (splineManager && typeof splineManager.clearSelection === "function") {
-        splineManager.clearSelection()
-      }
-      if (
-        svgObjectManager &&
-        typeof svgObjectManager.clearSelection === "function"
-      ) {
-        svgObjectManager.clearSelection()
-      }
-      if (
-        selectionManager &&
-        typeof selectionManager.clearSelection === "function"
-      ) {
-        selectionManager.clearSelection()
-      }
-
-      // Get next state from history manager (single step)
       if (!historyManager) {
         console.log("[canvasHotkeys] History manager not available")
         return
       }
 
-      const state = historyManager.redo()
-      if (!state) {
-        console.log("[canvasHotkeys] Nothing to redo")
-        return
-      }
+      // Clear all selections before redo
+      splineManager?.clearSelection?.()
+      svgObjectManager?.clearSelection?.()
+      selectionManager?.clearSelection?.()
+      pointSelectionManager?.clearSelection?.()
 
-      // Restore splines from state
-      if (splineManager && state.splines) {
-        splineManager.restoreFromState(state.splines, {
-          setupPointHandlers,
-          drawRef: context.drawRef,
-          selectedToolRef: context.selectedToolRef,
-          isDraggingRef: context.isDraggingRef,
-        })
-        console.log("[canvasHotkeys] Restored splines from state")
-      }
-
-      // Restore SVG objects from state
-      if (svgObjectManager && state.svgs) {
-        svgObjectManager.restoreFromState(state.svgs, {
-          drawRef: context.drawRef,
-        })
-        console.log("[canvasHotkeys] Restored SVG objects from state")
-      }
+      // Use convenience method
+      historyManager.redoAndRestore()
     },
     "Redo"
   )
@@ -212,5 +134,83 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       console.log("[canvasHotkeys] Finish drawing and cleared all selections")
     },
     "Finish drawing spline"
+  )
+
+  // Tool switching hotkeys
+  const { selectedToolRef, onToolChange } = context
+
+  // Select tool (T)
+  hotkeysManager.register(
+    "t",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "select") {
+        selectedToolRef.current = "select"
+        onToolChange?.("select")
+      }
+    },
+    "Activate Select tool"
+  )
+
+  // Curve tool (C)
+  hotkeysManager.register(
+    "c",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "curve") {
+        selectedToolRef.current = "curve"
+        onToolChange?.("curve")
+      }
+    },
+    "Activate Curve tool"
+  )
+
+  // Line (polyline) tool (L)
+  hotkeysManager.register(
+    "l",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "line") {
+        selectedToolRef.current = "line"
+        onToolChange?.("line")
+      }
+    },
+    "Activate Line (polyline) tool"
+  )
+
+  // NURBS tool (N)
+  hotkeysManager.register(
+    "n",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "nurbs") {
+        selectedToolRef.current = "nurbs"
+        onToolChange?.("nurbs")
+      }
+    },
+    "Activate NURBS tool"
+  )
+
+  // Import SVG (I)
+  hotkeysManager.register(
+    "i",
+    "global",
+    () => {
+      context.onImportSVG?.()
+    },
+    "Import SVG"
+  )
+
+  // Pan tool (P)
+  hotkeysManager.register(
+    "p",
+    "global",
+    () => {
+      if (selectedToolRef?.current !== "pan") {
+        selectedToolRef.current = "pan"
+        onToolChange?.("pan")
+      }
+    },
+    "Activate Pan tool"
   )
 }
