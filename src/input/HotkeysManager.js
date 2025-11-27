@@ -1,13 +1,23 @@
 // src/input/HotkeysManager.js
+import hotkeys from "hotkeys-js"
+
 /**
  * HotkeysManager: Centralized registry and dispatcher for all hotkeys
- * Provides a single source of truth for hotkey definitions and handlers
+ * Leverages hotkeys-js library for robust key handling and scope management
  */
 export default class HotkeysManager {
   constructor() {
-    this.hotkeys = new Map() // key -> { scope, handler, description }
-    this.scopes = new Set(["global", "canvas", "selection", "tool"])
+    this.registry = new Map() // key -> { scope, handler, description }
+    this.scopes = new Set(["global", "canvas", "selection"])
+
+    // Configure hotkeys-js to use "all" scope so we can do our own filtering
+    hotkeys.filter = () => true // Allow hotkeys even when inputs are focused (we'll filter manually)
+    hotkeys.setScope("all") // Use "all" scope for hotkeys-js, we manage scopes ourselves
+
+    // Set initial scopes (global and canvas active by default)
     this.activeScopes = new Set(["global", "canvas"])
+
+    console.log("[HotkeysManager] Initialized with hotkeys-js")
   }
 
   /**
@@ -21,10 +31,48 @@ export default class HotkeysManager {
     if (!this.scopes.has(scope)) {
       console.warn(`[HotkeysManager] Unknown scope: ${scope}`)
     }
-    const keyLower = key.toLowerCase()
-    this.hotkeys.set(keyLower, { scope, handler, description })
+
+    const registryKey = `${key}@${scope}`
+    this.registry.set(registryKey, { key, scope, handler, description })
+
+    // Bind to hotkeys-js using "all" scope so it always listens
+    // We'll do our own scope filtering in the handler
+    hotkeys(key, "all", (event, hotkeyHandler) => {
+      // Check if scope is active
+      if (!this.activeScopes.has(scope)) {
+        console.log(
+          `[HotkeysManager] Hotkey ${key} ignored - scope ${scope} not active. Active scopes:`,
+          Array.from(this.activeScopes)
+        )
+        return
+      }
+
+      // Filter out hotkeys when typing in inputs (unless it's a special key)
+      const target = event.target || event.srcElement
+      const tagName = target.tagName
+      const isInput =
+        tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT"
+
+      // Allow Escape and navigation keys in inputs
+      const allowedInInputs = ["esc", "escape", "tab", "enter"]
+      const keyName = hotkeyHandler.key.toLowerCase()
+
+      if (isInput && !allowedInInputs.includes(keyName)) {
+        return
+      }
+
+      event.preventDefault()
+
+      try {
+        handler(event)
+        console.log(`[HotkeysManager] Executed: ${key} (${scope})`)
+      } catch (e) {
+        console.error(`[HotkeysManager] Error executing ${key}:`, e)
+      }
+    })
+
     console.log(
-      `[HotkeysManager] Registered: ${keyLower} (${scope}) - ${description}`
+      `[HotkeysManager] Registered: ${key} (${scope}) - ${description}`
     )
   }
 
@@ -35,7 +83,7 @@ export default class HotkeysManager {
    */
   getHotkeysForScope(scope) {
     const result = new Map()
-    for (const [key, data] of this.hotkeys) {
+    for (const [key, data] of this.registry) {
       if (data.scope === scope) {
         result.set(key, data)
       }
@@ -49,7 +97,7 @@ export default class HotkeysManager {
    */
   getActiveHotkeys() {
     const result = new Map()
-    for (const [key, data] of this.hotkeys) {
+    for (const [key, data] of this.registry) {
       if (this.activeScopes.has(data.scope)) {
         result.set(key, data)
       }
@@ -64,7 +112,9 @@ export default class HotkeysManager {
   activateScope(scope) {
     if (this.scopes.has(scope)) {
       this.activeScopes.add(scope)
-      console.log(`[HotkeysManager] Activated scope: ${scope}`)
+      console.log(`[HotkeysManager] Activated scope: ${scope}`, {
+        activeScopes: Array.from(this.activeScopes),
+      })
     }
   }
 
@@ -74,51 +124,9 @@ export default class HotkeysManager {
    */
   deactivateScope(scope) {
     this.activeScopes.delete(scope)
-    console.log(`[HotkeysManager] Deactivated scope: ${scope}`)
-  }
-
-  /**
-   * Execute a hotkey handler if it exists
-   * @param {string} key
-   * @returns {boolean} - True if hotkey was handled
-   */
-  execute(key) {
-    const keyLower = key.toLowerCase()
-    const data = this.hotkeys.get(keyLower)
-
-    console.log("[HotkeysManager.execute] Attempting to execute hotkey:", {
-      key: keyLower,
-      exists: !!data,
-      scope: data?.scope,
+    console.log(`[HotkeysManager] Deactivated scope: ${scope}`, {
       activeScopes: Array.from(this.activeScopes),
-      canExecute: data && this.activeScopes.has(data.scope),
     })
-
-    if (data && this.activeScopes.has(data.scope)) {
-      try {
-        console.log(
-          `[HotkeysManager.execute] Executing: ${keyLower} (scope: ${data.scope})`
-        )
-        data.handler()
-        console.log(
-          `[HotkeysManager.execute] Successfully executed: ${keyLower}`
-        )
-        return true
-      } catch (e) {
-        console.error(
-          `[HotkeysManager.execute] Error executing ${keyLower}:`,
-          e
-        )
-      }
-    } else if (!data) {
-      console.log(`[HotkeysManager.execute] Hotkey not found: ${keyLower}`)
-    } else {
-      console.log(
-        `[HotkeysManager.execute] Hotkey '${keyLower}' scope '${data.scope}' not in active scopes:`,
-        Array.from(this.activeScopes)
-      )
-    }
-    return false
   }
 
   /**
@@ -127,13 +135,22 @@ export default class HotkeysManager {
    */
   getAllHotkeys() {
     const result = []
-    for (const [key, data] of this.hotkeys) {
+    for (const [, data] of this.registry) {
       result.push({
-        key,
+        key: data.key,
         scope: data.scope,
         description: data.description,
       })
     }
     return result.sort((a, b) => a.key.localeCompare(b.key))
+  }
+
+  /**
+   * Unbind all hotkeys and cleanup
+   */
+  destroy() {
+    hotkeys.unbind()
+    this.registry.clear()
+    console.log("[HotkeysManager] Destroyed and cleaned up")
   }
 }

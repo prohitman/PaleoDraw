@@ -5,7 +5,6 @@ import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import "./styles/theme.css"
-import { HotkeysProvider } from "./hooks/HotkeysProvider"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 import packageJson from "../package.json"
 
@@ -190,13 +189,11 @@ export default function App() {
             onSendToBack={handleSendToBack}
             onSendBackward={handleSendBackward}
           />
-          <HotkeysProvider>
-            <Canvas
-              ref={canvasRef}
-              zoomSignal={zoomSignal}
-              selectedTool={selectedTool}
-            />
-          </HotkeysProvider>
+          <Canvas
+            ref={canvasRef}
+            zoomSignal={zoomSignal}
+            selectedTool={selectedTool}
+          />
 
           {/* Version Overlay */}
           <div className="version-overlay">v{packageJson.version}</div>
