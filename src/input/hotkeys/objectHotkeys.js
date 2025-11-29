@@ -64,7 +64,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
     "backspace",
     "selection",
     deleteSelectedHandler,
-    "Delete selected spline or SVG object (alternate)"
+    "Delete selected spline or SVG object"
   )
 
   // Copy selected spline or SVG object - delegate to Canvas API

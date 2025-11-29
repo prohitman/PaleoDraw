@@ -607,6 +607,17 @@ export default class SVGObjectManager {
           const text = await file.text()
           const imported = drawRef.group().svg(text)
 
+          // Fix for SVGs without explicit width/height (like Tailwind logo)
+          // Extract dimensions from viewBox and set explicit size
+          const firstChild = imported.first()
+          if (firstChild && firstChild.type === 'svg') {
+            const vb = firstChild.viewbox()
+            if (vb && (!firstChild.attr('width') || !firstChild.attr('height'))) {
+              // Set explicit dimensions based on viewBox to ensure proper scaling
+              firstChild.size(vb.width, vb.height)
+            }
+          }
+
           // Center in viewport
           imported.center(
             drawRef.viewbox().width / 2,

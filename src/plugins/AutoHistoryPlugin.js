@@ -38,7 +38,7 @@ export class AutoHistoryPlugin {
     eventBus.on("spline:moved", () => this.saveHistory())
     eventBus.on("spline:transformed", () => this.saveHistory())
 
-    // SVG events
+    // SVG Object events
     eventBus.on("svg:imported", () => this.saveHistory())
     eventBus.on("svg:deleted", () => this.saveHistory())
     eventBus.on("svg:modified", () => this.saveHistory())
