@@ -437,18 +437,18 @@ export default class SVGObjectManager {
 
   serializeObject(svgObject) {
     let matrix = null
-      try {
-        matrix = svgObject.matrixify?.()
-      } catch {
-        matrix = null
-      }
-      return {
-        id: svgObject._objectId,
-        svg: svgObject.svg?.(), // full markup for uniform restoration
-        transform: svgObject.transform?.(), // legacy fallback
-        matrix, // preferred precise transform representation
-        bbox: svgObject.bbox?.(),
-      }
+    try {
+      matrix = svgObject.matrixify?.()
+    } catch {
+      matrix = null
+    }
+    return {
+      id: svgObject._objectId,
+      svg: svgObject.svg?.(), // full markup for uniform restoration
+      transform: svgObject.transform?.(), // legacy fallback
+      matrix, // preferred precise transform representation
+      bbox: svgObject.bbox?.(),
+    }
   }
 
   /**
@@ -610,9 +610,12 @@ export default class SVGObjectManager {
           // Fix for SVGs without explicit width/height (like Tailwind logo)
           // Extract dimensions from viewBox and set explicit size
           const firstChild = imported.first()
-          if (firstChild && firstChild.type === 'svg') {
+          if (firstChild && firstChild.type === "svg") {
             const vb = firstChild.viewbox()
-            if (vb && (!firstChild.attr('width') || !firstChild.attr('height'))) {
+            if (
+              vb &&
+              (!firstChild.attr("width") || !firstChild.attr("height"))
+            ) {
               // Set explicit dimensions based on viewBox to ensure proper scaling
               firstChild.size(vb.width, vb.height)
             }
