@@ -96,9 +96,6 @@ export const curveToolHandlers = {
       }
       manager.insertPointByProximity(selectedSpline.id, x, y)
       manager.finishDrawing()
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(manager, svgObjectManager)
-      }
       e.stopPropagation()
       return
     }
@@ -144,10 +141,6 @@ export const curveToolHandlers = {
 
       const point = manager.addPointToSpline(activeSpline.id, x, y)
       console.log("[curveToolHandlers] addPointToSpline returned:", point)
-      // Save to history
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(manager, svgObjectManager)
-      }
     }
 
     e.stopPropagation()

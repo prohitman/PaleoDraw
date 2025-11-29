@@ -1,5 +1,5 @@
 // src/managers/SelectionManager.js
-import EventEmitter from "../utils/eventEmitter"
+import eventBus from "../utils/EventBus"
 import { selectionOptions } from "../utils/selectionConfig"
 
 /**
@@ -8,12 +8,15 @@ import { selectionOptions } from "../utils/selectionConfig"
  * - Drag-to-select (right-click drag creates selection box)
  * - Shift-click to add/remove from selection
  * - Group operations (delete, move, rotate, resize)
- * Emits events: 'selectionChanged', 'dragSelectionStart', 'dragSelectionMove', 'dragSelectionEnd'
+ * Emits events via EventBus:
+ *  - selection:changed
+ *  - drag-selection:start
+ *  - drag-selection:move
+ *  - drag-selection:end
+ *  - selection:moved
  */
-export default class SelectionManager extends EventEmitter {
+export default class SelectionManager {
   constructor({ splineManager, svgObjectManager }) {
-    super()
-
     this.splineManager = splineManager
     this.svgObjectManager = svgObjectManager
 
@@ -115,7 +118,7 @@ export default class SelectionManager extends EventEmitter {
       if (spline) spline.setSelected(true)
     }
 
-    this.emit("selectionChanged", {
+    eventBus.emit("selection:changed", {
       splines: Array.from(this.selectedSplines),
       svgObjects: Array.from(this.selectedSvgObjects),
       hasSelection: this.hasSelection(),
@@ -160,7 +163,7 @@ export default class SelectionManager extends EventEmitter {
       }
     }
 
-    this.emit("selectionChanged", {
+    eventBus.emit("selection:changed", {
       splines: Array.from(this.selectedSplines),
       svgObjects: Array.from(this.selectedSvgObjects),
     })
@@ -188,7 +191,7 @@ export default class SelectionManager extends EventEmitter {
       if (spline) spline.setSelected(true)
     })
 
-    this.emit("selectionChanged", {
+    eventBus.emit("selection:changed", {
       splines: Array.from(this.selectedSplines),
       svgObjects: Array.from(this.selectedSvgObjects),
       hasSelection: this.hasSelection(),
@@ -247,7 +250,7 @@ export default class SelectionManager extends EventEmitter {
       })
     }
 
-    this.emit("selectionChanged", {
+    eventBus.emit("selection:changed", {
       splines: Array.from(this.selectedSplines),
       svgObjects: Array.from(this.selectedSvgObjects),
       hasSelection: this.hasSelection(),
@@ -304,7 +307,7 @@ export default class SelectionManager extends EventEmitter {
       this.selectionBox = null
     }
 
-    this.emit("selectionChanged", {
+    eventBus.emit("selection:changed", {
       splines: [],
       svgObjects: [],
       hasSelection: false,
@@ -337,7 +340,7 @@ export default class SelectionManager extends EventEmitter {
       this.selectionBox.front()
     }
 
-    this.emit("dragSelectionStart", { x, y })
+    eventBus.emit("drag-selection:start", { x, y })
   }
 
   /**
@@ -365,7 +368,7 @@ export default class SelectionManager extends EventEmitter {
       }
     }
 
-    this.emit("dragSelectionMove", { x, y })
+    eventBus.emit("drag-selection:move", { x, y })
   }
 
   /**
@@ -412,7 +415,7 @@ export default class SelectionManager extends EventEmitter {
     this.dragStart = null
     this.dragCurrent = null
 
-    this.emit("dragSelectionEnd", {
+    eventBus.emit("drag-selection:end", {
       bounds: selectionBounds,
       selectedSplines: splinesInBounds,
       selectedSvgObjects: svgObjectsInBounds,
@@ -432,7 +435,7 @@ export default class SelectionManager extends EventEmitter {
     this.dragStart = null
     this.dragCurrent = null
 
-    this.emit("dragSelectionEnd", { cancelled: true })
+    eventBus.emit("drag-selection:end", { cancelled: true })
   }
 
   /**
@@ -615,7 +618,7 @@ export default class SelectionManager extends EventEmitter {
     // Overlays should only be re-applied after drag ends (in mouseup/dragend handler).
     // This prevents overlay artifacts during group drag.
 
-    this.emit("selectionMoved", { dx, dy })
+    eventBus.emit("selection:moved", { dx, dy })
     console.log("[SelectionManager.moveSelected] Move complete")
   }
 

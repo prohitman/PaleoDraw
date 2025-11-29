@@ -6,13 +6,7 @@
 
 export const lineToolHandlers = {
   click: (e, context) => {
-    const {
-      manager,
-      svgObjectManager,
-      historyManager,
-      isDraggingPoint,
-      drawRef,
-    } = context
+    const { manager, historyManager, isDraggingPoint, drawRef } = context
     if (isDraggingPoint?.current) return
     const draw = drawRef?.current
     if (!draw) return
@@ -50,9 +44,6 @@ export const lineToolHandlers = {
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       if (selectedSpline.points.length >= 2) {
         manager.finishDrawing()
-        if (historyManager?.current) {
-          historyManager.current.saveSnapshot(manager, svgObjectManager)
-        }
         e.stopPropagation()
         return
       }
@@ -80,9 +71,6 @@ export const lineToolHandlers = {
     const activeSpline = manager.getSelected()
     if (activeSpline && activeSpline.selected) {
       manager.addPointToSpline(activeSpline.id, x, y)
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(manager, svgObjectManager)
-      }
     }
 
     e.stopPropagation()

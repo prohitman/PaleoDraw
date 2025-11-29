@@ -11,6 +11,8 @@ import SVGObjectManager from "../managers/SVGObjectManager"
 import SelectionManager from "../managers/GroupSelectionManager"
 import { PointSelectionManager } from "../managers/GroupPointSelectionManager"
 import HistoryManager from "../managers/HistoryManager"
+import eventBus from "../utils/EventBus"
+import { AutoHistoryPlugin } from "../plugins/AutoHistoryPlugin"
 import { setupHotkeys } from "../input/setupHotkeys"
 import { setupPointHandlers } from "../handlers/pointHandlers"
 import {
@@ -59,6 +61,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const pointSelectionManager = useRef(null) // PointSelectionManager for multi-point selection
   // HistoryManager instance for undo/redo (persistent)
   const historyManager = useRef(null)
+  const autoHistoryPlugin = useRef(null) // AutoHistoryPlugin for automatic history management
   const clipboard = useRef(null) // Internal clipboard for copy/paste
   const hotkeysManagerRef = useRef(null) // HotkeysManager instance for scope activation
   const toolRegistryRef = useRef(null) // ToolRegistry instance for tool handler delegation
@@ -136,13 +139,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     // Restore overlay after drag ends
     updateGroupOverlay()
-
-    const manager = splineManager.current
-    const svgMgr = svgObjectManager.current
-    const hist = historyManager.current
-    if (manager && hist) {
-      hist.saveSnapshot(manager, svgMgr)
-    }
+    // AutoHistoryPlugin handles history save via selection:moved event
   }
 
   // ----- Point selection overlay drag handlers -----
@@ -168,12 +165,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const handlePointOverlayDragUp = () => {
     pointOverlayDragStateRef.current.dragging = false
     window.removeEventListener("pointermove", handlePointOverlayDragMove)
-    const manager = splineManager.current
-    const svgMgr = svgObjectManager.current
-    const hist = historyManager.current
-    if (manager && hist) {
-      hist.saveSnapshot(manager, svgMgr)
-    }
+    // AutoHistoryPlugin handles history save via points:moved event
   }
 
   // Create or update the multi-selection overlay rectangle
@@ -414,6 +406,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       splineManager: splineManager.current,
       svgObjectManager: svgObjectManager.current,
       pointSelectionManager: pointSelectionManager.current,
+      autoHistoryPlugin: autoHistoryPlugin.current,
       restorationContext: {
         setupPointHandlers,
         drawRef,
@@ -625,17 +618,24 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       transformAPI?.attachToAll?.()
     }
 
-    splineManager.current?.on("select", handleSplineSelect)
-    splineManager.current?.on("created", handleSplineCreated)
-    svgObjectManager.current?.on("select", handleSVGSelect)
-    selectionManager.current?.on("selectionChanged", handleSelectionChanged)
-    selectionManager.current?.on("selectionMoved", handleSelectionMoved)
-    pointSelectionManager.current?.on(
-      "selectionChanged",
-      handlePointSelectionChanged
+    // Listen to EventBus instead of individual managers
+    eventBus.on("spline:selected", handleSplineSelect)
+    eventBus.on("spline:created", handleSplineCreated)
+    eventBus.on("svg:selected", handleSVGSelect)
+    eventBus.on("selection:changed", handleSelectionChanged)
+    eventBus.on("selection:moved", handleSelectionMoved)
+    eventBus.on("point-selection:changed", handlePointSelectionChanged)
+    eventBus.on("points:moved", handlePointsMoved)
+    eventBus.on("points:deleted", handlePointsDeleted)
+
+    // Initialize AutoHistoryPlugin for automatic history management
+    autoHistoryPlugin.current = new AutoHistoryPlugin(
+      historyManager.current,
+      splineManager.current,
+      svgObjectManager.current
     )
-    pointSelectionManager.current?.on("pointsMoved", handlePointsMoved)
-    pointSelectionManager.current?.on("pointsDeleted", handlePointsDeleted)
+    autoHistoryPlugin.current.enable()
+    console.log("[Canvas] AutoHistoryPlugin initialized and enabled")
 
     // cleanup
     return () => {
@@ -647,17 +647,22 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       container.removeEventListener("click", handleBackgroundClick)
       container.removeEventListener("click", unifiedCanvasClickHandler)
       window.removeEventListener("pointerup", handleGlobalPointerUp)
-      splineManager.current?.off("select", handleSplineSelect)
-      splineManager.current?.off("created", handleSplineCreated)
-      svgObjectManager.current?.off("select", handleSVGSelect)
-      selectionManager.current?.off("selectionChanged", handleSelectionChanged)
-      selectionManager.current?.off("selectionMoved", handleSelectionMoved)
-      pointSelectionManager.current?.off(
-        "selectionChanged",
-        handlePointSelectionChanged
-      )
-      pointSelectionManager.current?.off("pointsMoved", handlePointsMoved)
-      pointSelectionManager.current?.off("pointsDeleted", handlePointsDeleted)
+
+      // Clean up EventBus listeners
+      eventBus.off("spline:selected", handleSplineSelect)
+      eventBus.off("spline:created", handleSplineCreated)
+      eventBus.off("svg:selected", handleSVGSelect)
+      eventBus.off("selection:changed", handleSelectionChanged)
+      eventBus.off("selection:moved", handleSelectionMoved)
+      eventBus.off("point-selection:changed", handlePointSelectionChanged)
+      eventBus.off("points:moved", handlePointsMoved)
+      eventBus.off("points:deleted", handlePointsDeleted)
+
+      // Destroy transform API and clean up its listeners
+      if (transformAPI?.destroy) {
+        transformAPI.destroy()
+      }
+
       hotkeySetup.cleanup()
       draw.remove()
     }
@@ -855,14 +860,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     if (selectedSvgId) {
       svgMgr.deleteObject(selectedSvgId)
       selectedRef.current = null
-      // Save to history after SVG delete
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(
-          splineManager.current,
-          svgObjectManager.current
-        )
-        console.log("[Canvas] SVG delete saved to history")
-      }
+      // AutoHistoryPlugin handles history save via svg:deleted event
       return
     }
 
@@ -1011,20 +1009,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         }
         console.log("[Canvas] Copied spline to clipboard")
       } else if (selectedSvg) {
-        // SVG serialization logic
-        let matrix = null
-        try {
-          matrix = selectedSvg.matrixify?.()
-        } catch {
-          matrix = null
-        }
+        // Serialize the SVG object with all its transformation data
         clipboard.current = {
           type: "svg",
-          data: {
-            svg: selectedSvg.svg?.(),
-            matrix,
-            transform: selectedSvg.transform?.(),
-          },
+          data: svgObjectManager.current?.serializeObject(selectedSvg),
         }
         console.log("[Canvas] Copied SVG to clipboard")
       }
@@ -1068,43 +1056,27 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
           // Attach transform handlers
           splineManager.current?._transformAPI?.attachToAll?.()
-
-          // Save history
-          if (historyManager.current) {
-            historyManager.current.saveSnapshot(
-              splineManager.current,
-              svgObjectManager.current
-            )
-          }
+          // AutoHistoryPlugin handles history save via spline:created event
         }
       } else if (type === "svg") {
-        if (!drawRef.current) return
-        const imported = drawRef.current.group().svg(data.svg)
+        if (!drawRef.current || !data) return
 
-        // Apply transform/matrix
-        if (data.matrix && typeof imported.matrix === "function") {
-          try {
-            imported.matrix(data.matrix)
-          } catch {
-            if (data.transform) imported.transform(data.transform)
-          }
-        } else if (data.transform) {
-          imported.transform(data.transform)
+        let imported = null
+        if (data.svg) {
+          imported = drawRef.current.group().svg(data.svg)
+        } else if (data.inner) {
+          // legacy schema support
+          imported = drawRef.current.group().svg(`<svg>${data.inner}</svg>`)
         }
 
-        // Offset
-        imported.dmove(20, 20)
+        if (imported) {
+          // Offset the pasted object
+          imported.dmove(20, 20)
 
-        // Add to manager (automatically initializes interactive behavior)
-        svgObjectManager.current?.addObject(imported)
-
-        // Save history
-        if (historyManager.current) {
-          historyManager.current.saveSnapshot(
-            splineManager.current,
-            svgObjectManager.current
-          )
+          // Add to manager (this will initialize interactive behavior)
+          svgObjectManager.current?.addObject(imported)
         }
+        // AutoHistoryPlugin handles history save via svg:imported event
       }
     },
     cut: () => {

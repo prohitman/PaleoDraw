@@ -3,14 +3,16 @@
  * Point Selection Manager
  * Manages multi-selection of points within splines for curve tool
  * Enables moving and deleting multiple points at once
+ * Emits events via EventBus:
+ *  - point-selection:changed
+ *  - points:moved
+ *  - points:deleted
  */
 
-import EventEmitter from "../utils/eventEmitter"
+import eventBus from "../utils/EventBus"
 
-export class PointSelectionManager extends EventEmitter {
+export class PointSelectionManager {
   constructor() {
-    super()
-
     // Set of selected points: {splineId}_{pointIndex}
     this.selectedPoints = new Set()
 
@@ -84,7 +86,7 @@ export class PointSelectionManager extends EventEmitter {
     const bounds =
       this.selectedPoints.size >= 2 ? this.getSelectionBounds() : null
 
-    this.emit("selectionChanged", {
+    eventBus.emit("point-selection:changed", {
       selectedPoints: Array.from(this.selectedPoints),
       count: this.selectedPoints.size,
       hasSelection: this.hasSelection(),
@@ -137,7 +139,7 @@ export class PointSelectionManager extends EventEmitter {
     // Precompute bounds immediately for rectangle selection visibility
     this._cachedBounds = null
     const bounds = this.getSelectionBounds()
-    this.emit("selectionChanged", {
+    eventBus.emit("point-selection:changed", {
       selectedPoints: Array.from(this.selectedPoints),
       count: this.selectedPoints.size,
       hasSelection: this.hasSelection(),
@@ -160,7 +162,7 @@ export class PointSelectionManager extends EventEmitter {
       this.selectedPoints.delete(pointKey)
       this.highlightPoint(splineId, pointIndex, false)
 
-      this.emit("selectionChanged", {
+      eventBus.emit("point-selection:changed", {
         selectedPoints: Array.from(this.selectedPoints),
         count: this.selectedPoints.size,
         hasSelection: this.hasSelection(),
@@ -189,7 +191,7 @@ export class PointSelectionManager extends EventEmitter {
     this.selectedPoints.clear()
     this._cachedBounds = null
 
-    this.emit("selectionChanged", {
+    eventBus.emit("point-selection:changed", {
       selectedPoints: [],
       count: 0,
       hasSelection: false,
@@ -266,7 +268,7 @@ export class PointSelectionManager extends EventEmitter {
       if (spline) spline.plot()
     })
 
-    this.emit("pointsMoved", { dx, dy, count: this.selectedPoints.size })
+    eventBus.emit("points:moved", { dx, dy, count: this.selectedPoints.size })
     console.log(
       `[PointSelectionManager] Moved ${this.selectedPoints.size} points across ${affectedSplines.size} splines`
     )
@@ -318,7 +320,7 @@ export class PointSelectionManager extends EventEmitter {
     })
 
     this.clearSelection()
-    this.emit("pointsDeleted", { count: deleteCount })
+    eventBus.emit("points:deleted", { count: deleteCount })
     console.log("[PointSelectionManager] Deleted selected points")
   }
 

@@ -49,9 +49,6 @@ export const nurbsToolHandlers = {
     if (e.altKey && selectedSpline && selectedSpline.selected) {
       if (selectedSpline.points.length >= 2) {
         manager.insertPointByProximity(selectedSpline.id, x, y)
-        if (historyManager?.current) {
-          historyManager.current.saveSnapshot(manager, svgObjectManager)
-        }
         e.stopPropagation()
         return
       }
@@ -75,9 +72,6 @@ export const nurbsToolHandlers = {
       // Use Shift+Click to add a sharp point
       const isSharp = e.shiftKey
       manager.addPointToSpline(activeSpline.id, x, y, isSharp)
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(manager, svgObjectManager)
-      }
     }
 
     e.stopPropagation()

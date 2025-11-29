@@ -5,13 +5,11 @@
  */
 
 import ToolRegistry from "./ToolRegistry"
-import {
-  curveToolHandlers,
-  lineToolHandlers,
-  selectToolHandlers,
-  deleteSplineToolHandlers,
-  nurbsToolHandlers,
-} from "./toolHandlers"
+import { curveToolHandlers } from "./toolHandlers/toolCurve"
+import { lineToolHandlers } from "./toolHandlers/toolLine"
+import { selectToolHandlers } from "./toolHandlers/toolSelect"
+import { deleteSplineToolHandlers } from "./toolHandlers/toolDeleteSpline"
+import { nurbsToolHandlers } from "./toolHandlers/toolNurbs"
 
 /**
  * Set up the tool registry and register all tool handlers
@@ -31,10 +29,7 @@ export function setupToolHandlers() {
   registry.registerTool("delete_spline", deleteSplineToolHandlers)
   registry.registerTool("nurbs", nurbsToolHandlers)
 
-  console.log(
-    "[setupToolHandlers] All tools registered:",
-    registry.getAllTools()
-  )
+  console.log("[setupToolHandlers] All tools registered")
 
   // Return the registry so Canvas can use it
   return registry

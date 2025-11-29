@@ -127,13 +127,11 @@ export function setupPointHandlers(
     isDraggingRef.current = false
     // Batch: Save history only at drag end
     if (
-      (selectedTool?.current === "curve" ||
-        selectedTool?.current === "line" ||
-        selectedTool?.current === "straight" ||
-        selectedTool?.current === "nurbs") &&
-      historyManager
+      selectedTool?.current === "curve" ||
+      selectedTool?.current === "line" ||
+      selectedTool?.current === "straight" ||
+      selectedTool?.current === "nurbs"
     ) {
-      historyManager.saveSnapshot(splineManager, null)
       console.log("[pointHandlers] Dragged point saved to history")
     }
     delete pointSelectionManager?._dragStartPoints
@@ -217,9 +215,6 @@ export function setupPointHandlers(
       point.isSharp = !point.isSharp
       console.log("[pointHandlers] Toggled sharpness:", point.isSharp)
       spline.plot()
-      if (historyManager) {
-        historyManager.saveSnapshot(splineManager, null)
-      }
     }
   })
 }

@@ -30,11 +30,6 @@ export const deleteSplineToolHandlers = {
           )
           manager.deleteSpline(targetSpline.id)
 
-          // Save to history after deletion
-          if (historyManager?.current) {
-            historyManager.current.saveSnapshot(manager, svgObjectManager)
-          }
-
           e.stopPropagation()
           return
         }
@@ -61,11 +56,6 @@ export const deleteSplineToolHandlers = {
           nearestSpline.id
         )
         manager.deleteSpline(nearestSpline.id)
-
-        // Save to history
-        if (historyManager?.current) {
-          historyManager.current.saveSnapshot(manager, svgObjectManager)
-        }
       } else {
         console.log(
           "[deleteSplineToolHandlers] No spline found within proximity threshold"

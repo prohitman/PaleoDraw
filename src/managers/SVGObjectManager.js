@@ -1,16 +1,18 @@
 // src/managers/SVGObjectManager.js
-import EventEmitter from "../utils/eventEmitter.js"
+import eventBus from "../utils/EventBus"
 import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SVGObjectManager: Centralized API for managing imported SVG objects
  * Handles CRUD, selection, and transformations for imported SVGs
- * Emits events: 'imported', 'deleted', 'select', 'change'
+ * Emits events via EventBus:
+ *  - svg:imported
+ *  - svg:deleted
+ *  - svg:selected
+ *  - svg:modified
  */
-export default class SVGObjectManager extends EventEmitter {
+export default class SVGObjectManager {
   constructor({ selectedToolRef = null, historyManager = null } = {}) {
-    super()
-
     this.objects = new Map() // Map<objectId, svgElement>
     this.selectedObjectId = null
     this.selectedToolRef = selectedToolRef
@@ -41,6 +43,7 @@ export default class SVGObjectManager extends EventEmitter {
 
     // Drag start - clear selection UI temporarily
     svgElement.on("dragstart", () => {
+      svgElement._isDragging = true
       if (this.selectedRef === svgElement) {
         svgElement.select(false)
         this.selectedRef = null
@@ -70,9 +73,16 @@ export default class SVGObjectManager extends EventEmitter {
         }
       }
 
-      // Save to history
-      this.saveHistorySnapshot()
-      console.log("[SVGObjectManager] SVG drag end saved to history")
+      // Only emit if we were actually dragging
+      if (svgElement._isDragging) {
+        svgElement._isDragging = false
+        // Emit transform event for AutoHistoryPlugin
+        eventBus.emit("svg:transformed", {
+          objectId: svgElement._objectId,
+          type: "drag",
+        })
+        console.log("[SVGObjectManager] SVG drag end saved to history")
+      }
     })
 
     // Resize - handle resize events and save to history
@@ -91,10 +101,13 @@ export default class SVGObjectManager extends EventEmitter {
         }
         svgElement._lastResizePush = now
 
-        // Save to history
-        this.saveHistorySnapshot()
+        // Emit transform event for AutoHistoryPlugin
+        eventBus.emit("svg:transformed", {
+          objectId: svgElement._objectId,
+          type: "resize",
+        })
         console.log("[SVGObjectManager] SVG resize end saved to history")
-      }, 150)
+      }, 300)
 
       // Refresh selection UI during resize
       clearTimeout(svgElement._refreshTimeout)
@@ -121,9 +134,10 @@ export default class SVGObjectManager extends EventEmitter {
    * @param {object} svgElement - SVG.js element
    * @param {string} id - Optional custom ID
    * @param {boolean} skipInteractive - Skip interactive initialization (for restoration)
+   * @param {boolean} skipEvent - Skip event emission (for restoration)
    * @returns {object} - The SVG element with ID attached
    */
-  addObject(svgElement, id = null, skipInteractive = false) {
+  addObject(svgElement, id = null, skipInteractive = false, skipEvent = false) {
     if (!svgElement) {
       console.error("[SVGObjectManager] Cannot add null/undefined object")
       return null
@@ -160,8 +174,11 @@ export default class SVGObjectManager extends EventEmitter {
       "total:",
       this.objects.size
     )
-    this.emit("imported", svgElement)
-    this.emit("change")
+
+    // Only emit event if not restoring from state
+    if (!skipEvent) {
+      eventBus.emit("svg:imported", { svgElement, id: objectId })
+    }
 
     return svgElement
   }
@@ -197,8 +214,7 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     console.log("[SVGObjectManager] Object deleted:", objectId)
-    this.emit("deleted", objectId)
-    this.emit("change")
+    eventBus.emit("svg:deleted", { objectId })
   }
 
   /**
@@ -265,10 +281,9 @@ export default class SVGObjectManager extends EventEmitter {
         console.warn("[SVGObjectManager] Error selecting object:", err)
       }
 
-      this.emit("select", current)
+      eventBus.emit("svg:selected", { svg: current, id: objectId })
     }
 
-    this.emit("change")
     if (isAlreadySelected) {
       console.log(
         "[SVGObjectManager] Reapplied selection to already-selected object"
@@ -295,8 +310,7 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     this.selectedObjectId = null
-    this.emit("select", null)
-    this.emit("change")
+    eventBus.emit("svg:selected", { svg: null, id: null })
   }
 
   /**
@@ -305,7 +319,6 @@ export default class SVGObjectManager extends EventEmitter {
   clear() {
     this.objects.clear()
     this.selectedObjectId = null
-    this.emit("change")
   }
 
   /**
@@ -344,7 +357,6 @@ export default class SVGObjectManager extends EventEmitter {
     if (!obj) return
 
     obj.forward()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -355,7 +367,6 @@ export default class SVGObjectManager extends EventEmitter {
     if (!obj) return
 
     obj.front()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -372,7 +383,6 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     obj.backward()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -398,8 +408,6 @@ export default class SVGObjectManager extends EventEmitter {
         obj.after(bg)
       }
     }
-
-    this.saveHistorySnapshot()
   }
 
   // ========== TOOL STATE UPDATES ==========
@@ -427,6 +435,22 @@ export default class SVGObjectManager extends EventEmitter {
 
   // ========== SERIALIZATION ==========
 
+  serializeObject(svgObject) {
+    let matrix = null
+      try {
+        matrix = svgObject.matrixify?.()
+      } catch {
+        matrix = null
+      }
+      return {
+        id: svgObject._objectId,
+        svg: svgObject.svg?.(), // full markup for uniform restoration
+        transform: svgObject.transform?.(), // legacy fallback
+        matrix, // preferred precise transform representation
+        bbox: svgObject.bbox?.(),
+      }
+  }
+
   /**
    * Get all object data as JSON-serializable objects
    * Returns objects sorted by DOM order
@@ -449,19 +473,7 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     return allObjects.map((obj) => {
-      let matrix = null
-      try {
-        matrix = obj.matrixify?.()
-      } catch {
-        matrix = null
-      }
-      return {
-        id: obj._objectId,
-        svg: obj.svg?.(), // full markup for uniform restoration
-        transform: obj.transform?.(), // legacy fallback
-        matrix, // preferred precise transform representation
-        bbox: obj.bbox?.(),
-      }
+      return this.serializeObject(obj)
     })
   }
 
@@ -496,7 +508,7 @@ export default class SVGObjectManager extends EventEmitter {
           // Add without initializing interactive (will be done after all objects loaded)
           this.addObject(imported, data.id, true)
           // Now initialize interactive behavior
-          this.initializeInteractive(imported)
+          //this.initializeInteractive(imported)
         }
       } catch {
         // ignore load errors
@@ -554,7 +566,8 @@ export default class SVGObjectManager extends EventEmitter {
               imported.transform(svgData.transform)
             }
             // Add without initializing interactive (will be done after all objects loaded)
-            this.addObject(imported, svgData.id, true)
+            // Also skip event emission during restoration
+            this.addObject(imported, svgData.id, true, true)
             // Now initialize interactive behavior
             this.initializeInteractive(imported)
           }
@@ -568,17 +581,6 @@ export default class SVGObjectManager extends EventEmitter {
     }
 
     this.clearSelection()
-    this.emit("change")
-  }
-
-  /**
-   * Save current SVG object state to history
-   * Called whenever SVG objects are modified
-   */
-  saveHistorySnapshot() {
-    if (this.historyManager) {
-      this.historyManager.saveSnapshot(this.linkedSplineManager, this)
-    }
   }
 
   // ========== CONVENIENCE METHODS FOR CANVAS ==========
@@ -617,8 +619,6 @@ export default class SVGObjectManager extends EventEmitter {
           // Add to manager
           this.addObject(imported)
 
-          // Save to history
-          this.saveHistorySnapshot()
           console.log("[SVGObjectManager] SVG import saved to history baseline")
 
           resolve(imported)

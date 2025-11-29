@@ -1,5 +1,5 @@
 // src/managers/SplineManager.js
-import EventEmitter from "../utils/eventEmitter"
+import eventBus from "../utils/EventBus"
 import Spline from "../models/Spline"
 import { pointToSegmentDistance } from "../utils/geometry"
 import { setupPointHandlers } from "../handlers/pointHandlers"
@@ -7,9 +7,17 @@ import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SplineManager: Centralized API for all spline CRUD operations and transformations
- * Emits events: 'created', 'deleted', 'select', 'change', 'pointAdded', 'pointRemoved'
+ * Emits events via EventBus:
+ *  - spline:created
+ *  - spline:deleted
+ *  - spline:selected
+ *  - spline:modified
+ *  - spline:moved
+ *  - spline:transformed
+ *  - point:added
+ *  - point:removed
  */
-export default class SplineManager extends EventEmitter {
+export default class SplineManager {
   constructor({
     draw,
     selectedToolRef,
@@ -17,8 +25,6 @@ export default class SplineManager extends EventEmitter {
     historyManager = null,
     linkedSvgManager = null,
   } = {}) {
-    super()
-
     this.draw = draw
     this.splines = new Map() // id -> Spline
     this.selectedSplineId = null
@@ -65,7 +71,6 @@ export default class SplineManager extends EventEmitter {
       if (tool === "delete_spline") {
         e.stopPropagation()
         this.deleteSpline(spline.id)
-        this.saveHistorySnapshot([])
         return
       }
 
@@ -100,8 +105,7 @@ export default class SplineManager extends EventEmitter {
       this.selectSpline(spline.id)
       console.log("[SplineManager] Spline selected and marked as active")
     }
-    this.emit("created", spline)
-    this.emit("change")
+    eventBus.emit("spline:created", { spline })
     console.log("[SplineManager] Events emitted, createSpline complete")
     return spline
   }
@@ -121,16 +125,10 @@ export default class SplineManager extends EventEmitter {
 
     if (this.selectedSplineId === splineId) {
       this.selectedSplineId = null
-      this.emit("select", null)
+      eventBus.emit("spline:selected", { spline: null })
     }
 
-    this.emit("deleted", splineId)
-    this.emit("change")
-
-    // Push to history after deleting spline
-    if (this.historyManager) {
-      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
-    }
+    eventBus.emit("spline:deleted", { splineId })
   }
 
   /**
@@ -201,18 +199,13 @@ export default class SplineManager extends EventEmitter {
 
     console.log("[SplineManager.addPointToSpline] Calling spline.plot()")
     spline.plot()
-    this.emit("pointAdded", { splineId, point })
-    this.emit("change")
+    eventBus.emit("point:added", { splineId, point })
 
     // Push to history after adding point
     console.log("[SplineManager.addPointToSpline] Checking historyManager:", {
       hasHistoryManager: !!this.historyManager,
       historyManager: this.historyManager,
     })
-    if (this.historyManager) {
-      console.log("[SplineManager.addPointToSpline] Pushing to history")
-      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
-    }
 
     console.log(
       "[SplineManager.addPointToSpline] Complete, spline has",
@@ -265,13 +258,7 @@ export default class SplineManager extends EventEmitter {
     }
 
     spline.plot()
-    this.emit("pointAdded", { splineId, point })
-    this.emit("change")
-
-    // Push to history after inserting point
-    if (this.historyManager) {
-      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
-    }
+    eventBus.emit("point:added", { splineId, point })
 
     return point
   }
@@ -292,13 +279,7 @@ export default class SplineManager extends EventEmitter {
     if (spline.points.length < 2) {
       this.deleteSpline(splineId)
     } else {
-      this.emit("pointRemoved", { splineId, point: pointRef })
-      this.emit("change")
-
-      // Push to history after deleting point
-      if (this.historyManager) {
-        this.historyManager.saveSnapshot(this, this.linkedSvgManager)
-      }
+      eventBus.emit("point:removed", { splineId, point: pointRef })
     }
   }
 
@@ -331,7 +312,6 @@ export default class SplineManager extends EventEmitter {
     })
 
     spline.plot()
-    this.emit("change")
     return true
   }
 
@@ -410,10 +390,9 @@ export default class SplineManager extends EventEmitter {
         this._transformAPI.selectSpline(current)
       }
 
-      this.emit("select", current)
+      eventBus.emit("spline:selected", { spline: current })
     }
 
-    this.emit("change")
     console.log("[SplineManager.selectSpline] Complete")
   }
 
@@ -427,8 +406,7 @@ export default class SplineManager extends EventEmitter {
     current?.setSelected(false)
 
     this.selectedSplineId = null
-    this.emit("select", null)
-    this.emit("change")
+    eventBus.emit("spline:selected", { spline: null })
   }
 
   /**
@@ -450,7 +428,6 @@ export default class SplineManager extends EventEmitter {
 
     // Prevent moving past the end (though forward() handles this)
     spline.group.forward()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -461,7 +438,6 @@ export default class SplineManager extends EventEmitter {
     if (!spline || !spline.group) return
 
     spline.group.front()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -479,7 +455,6 @@ export default class SplineManager extends EventEmitter {
     }
 
     spline.group.backward()
-    this.saveHistorySnapshot()
   }
 
   /**
@@ -504,8 +479,6 @@ export default class SplineManager extends EventEmitter {
     } else if (bg) {
       spline.group.after(bg)
     }
-
-    this.saveHistorySnapshot()
   }
 
   // ========== TOOL STATE UPDATES ==========
@@ -538,7 +511,7 @@ export default class SplineManager extends EventEmitter {
       // Also clear manager selection state when switching away from curve
       if (this.selectedSplineId) {
         this.selectedSplineId = null
-        this.emit("select", null)
+        eventBus.emit("spline:selected", { spline: null })
       }
     }
 
@@ -556,7 +529,7 @@ export default class SplineManager extends EventEmitter {
         current.setSelected(false)
       }
       this.selectedSplineId = null
-      this.emit("select", null)
+      eventBus.emit("spline:selected", { spline: null })
     }
   }
 
@@ -626,18 +599,6 @@ export default class SplineManager extends EventEmitter {
 
     // Attach transform handlers to all loaded splines
     this._transformAPI?.attachToAll?.()
-
-    this.emit("change")
-  }
-
-  /**
-   * Save current spline state to history
-   * Called whenever splines are modified (created, deleted, points changed, etc.)
-   */
-  saveHistorySnapshot() {
-    if (this.historyManager) {
-      this.historyManager.saveSnapshot(this, this.linkedSvgManager)
-    }
   }
 
   /**
@@ -734,7 +695,6 @@ export default class SplineManager extends EventEmitter {
             if (tool === "delete_spline") {
               e.stopPropagation()
               this.deleteSpline(spline.id)
-              this.saveHistorySnapshot([])
               return
             }
 
@@ -818,8 +778,6 @@ export default class SplineManager extends EventEmitter {
         )
       }
     }
-
-    this.emit("change")
   }
 
   // ========== TRANSFORMATIONS ==========
@@ -828,9 +786,8 @@ export default class SplineManager extends EventEmitter {
    * Set up drag/resize/rotate handlers for spline groups
    * Called during Canvas initialization
    * @param {Spline} spline
-   * @param {Object} historyManager - Reference to history manager for saving transforms
    */
-  setupSplineTransformations(selectedToolRef, isDraggingRef, historyManager) {
+  setupSplineTransformations(selectedToolRef, isDraggingRef) {
     let selectedSpline = null
 
     const clearSelection = () => {
@@ -902,7 +859,7 @@ export default class SplineManager extends EventEmitter {
       // This ensures hotkey scopes are activated properly
       if (this.selectedSplineId !== spline.id) {
         this.selectedSplineId = spline.id
-        this.emit("select", spline)
+        eventBus.emit("spline:selected", { spline })
       }
 
       // Only attach drag/resize/rotate handlers and show selection box in select mode
@@ -1000,11 +957,11 @@ export default class SplineManager extends EventEmitter {
           delete spline._startBox
           delete spline._startPoints
 
-          // Save transform to history
-          if (historyManager) {
-            historyManager.saveSnapshot(this, this.linkedSvgManager)
-            console.log("[splineManager] Drag transform saved to history")
-          }
+          // Emit transform event for AutoHistoryPlugin
+          eventBus.emit("spline:transformed", {
+            splineId: spline.id,
+            type: "drag",
+          })
 
           setTimeout(() => {
             try {
@@ -1125,11 +1082,11 @@ export default class SplineManager extends EventEmitter {
           if (isDone) {
             if (spline._resizeIsActive) {
               spline._resizeIsActive = false
-              // Save resize transform to history
-              if (historyManager) {
-                historyManager.saveSnapshot(this, this.linkedSvgManager)
-                console.log("[splineManager] Resize transform saved to history")
-              }
+              // Emit transform event for AutoHistoryPlugin
+              eventBus.emit("spline:transformed", {
+                splineId: spline.id,
+                type: "resize",
+              })
               // Re-show selection box after resize completes
               setTimeout(() => {
                 el.select(selectionOptions)
@@ -1137,11 +1094,11 @@ export default class SplineManager extends EventEmitter {
             }
             if (spline._rotateIsActive) {
               spline._rotateIsActive = false
-              // Save rotate transform to history
-              if (historyManager) {
-                historyManager.saveSnapshot(this, this.linkedSvgManager)
-                console.log("[splineManager] Rotate transform saved to history")
-              }
+              // Emit transform event for AutoHistoryPlugin
+              eventBus.emit("spline:transformed", {
+                splineId: spline.id,
+                type: "rotate",
+              })
             }
             return
           }
@@ -1227,13 +1184,14 @@ export default class SplineManager extends EventEmitter {
     attachToAll()
 
     // Listen for manager-level deselection and clear local selectedSpline
-    const handleManagerSelect = (spline) => {
+    const handleManagerSelect = (data) => {
+      const { spline } = data || {}
       if (!spline && selectedSpline) {
         // Manager deselected - clear our local selectedSpline too
         clearSelection()
       }
     }
-    this.on("select", handleManagerSelect)
+    eventBus.on("spline:selected", handleManagerSelect)
 
     // Return API for Canvas to use
     this._transformAPI = {
@@ -1242,6 +1200,11 @@ export default class SplineManager extends EventEmitter {
       attachToAll,
       getSelected: () => selectedSpline,
       notifyToolChange,
+      destroy: () => {
+        // Clean up EventBus listener
+        eventBus.off("spline:selected", handleManagerSelect)
+        console.log("[SplineManager] Transform API destroyed, listener removed")
+      },
     }
 
     return this._transformAPI

@@ -1,13 +1,9 @@
-import EventEmitter from "../utils/eventEmitter"
-
 /**
  * HistoryManager: Manages undo/redo history for the application
- * Emits events: 'stateChange', 'undo', 'redo'
+ * Pure state management - no events needed (none were being listened to)
  */
-export default class HistoryManager extends EventEmitter {
+export default class HistoryManager {
   constructor() {
-    super()
-
     this.history = []
     this.currentIndex = -1
     this.maxHistorySize = 50 // Maximum number of states to keep
@@ -57,7 +53,6 @@ export default class HistoryManager extends EventEmitter {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
-    this.emit("stateChange", state)
   }
 
   /**
@@ -80,7 +75,6 @@ export default class HistoryManager extends EventEmitter {
       console.log(
         "[HistoryManager] Undo executed to empty state (before first change), index: -1"
       )
-      this.emit("undo", null)
       return { splines: [], svgs: [], isEmpty: true }
     }
     this.currentIndex--
@@ -90,7 +84,6 @@ export default class HistoryManager extends EventEmitter {
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
     })
-    this.emit("undo", state)
     return state
   }
 
@@ -114,7 +107,6 @@ export default class HistoryManager extends EventEmitter {
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
     })
-    this.emit("redo", state)
     return state
   }
 
@@ -178,6 +170,7 @@ export default class HistoryManager extends EventEmitter {
     this.svgObjectManager = managers.svgObjectManager
     this.pointSelectionManager = managers.pointSelectionManager
     this.restorationContext = managers.restorationContext
+    this.autoHistoryPlugin = managers.autoHistoryPlugin
   }
 
   /**
@@ -213,7 +206,6 @@ export default class HistoryManager extends EventEmitter {
     )
 
     console.log("[HistoryManager] State restored successfully")
-    this.emit("restored", state)
     return true
   }
 
@@ -222,15 +214,39 @@ export default class HistoryManager extends EventEmitter {
    * @returns {boolean} - True if undo succeeded
    */
   undoAndRestore() {
+    // Disable AutoHistoryPlugin to prevent events during restoration
+    const wasEnabled = this.autoHistoryPlugin?.enabled
+    if (this.autoHistoryPlugin) {
+      this.autoHistoryPlugin.disable()
+    }
+
     const state = this.undo()
-    if (!state) return false
+    if (!state) {
+      // Re-enable if it was enabled
+      if (wasEnabled && this.autoHistoryPlugin) {
+        this.autoHistoryPlugin.enable()
+      }
+      return false
+    }
 
     // Handle empty state (index -1)
     if (state.isEmpty) {
-      return this.restoreState({ splines: [], svgs: [] })
+      const result = this.restoreState({ splines: [], svgs: [] })
+      // Re-enable after restoration
+      if (wasEnabled && this.autoHistoryPlugin) {
+        this.autoHistoryPlugin.enable()
+      }
+      return result
     }
 
-    return this.restoreState(state)
+    const result = this.restoreState(state)
+
+    // Re-enable after restoration
+    if (wasEnabled && this.autoHistoryPlugin) {
+      this.autoHistoryPlugin.enable()
+    }
+
+    return result
   }
 
   /**
@@ -238,8 +254,28 @@ export default class HistoryManager extends EventEmitter {
    * @returns {boolean} - True if redo succeeded
    */
   redoAndRestore() {
+    // Disable AutoHistoryPlugin to prevent events during restoration
+    const wasEnabled = this.autoHistoryPlugin?.enabled
+    if (this.autoHistoryPlugin) {
+      this.autoHistoryPlugin.disable()
+    }
+
     const state = this.redo()
-    if (!state) return false
-    return this.restoreState(state)
+    if (!state) {
+      // Re-enable if it was enabled
+      if (wasEnabled && this.autoHistoryPlugin) {
+        this.autoHistoryPlugin.enable()
+      }
+      return false
+    }
+
+    const result = this.restoreState(state)
+
+    // Re-enable after restoration
+    if (wasEnabled && this.autoHistoryPlugin) {
+      this.autoHistoryPlugin.enable()
+    }
+
+    return result
   }
 }

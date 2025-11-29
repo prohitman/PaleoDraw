@@ -29,13 +29,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
       pointSelectionManager?.current?.hasSelection?.()
     ) {
       pointSelectionManager.current.deleteSelectedPoints()
-      // Save history
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(
-          splineManager.current,
-          svgObjectManager.current
-        )
-      }
+      // AutoHistoryPlugin handles history via points:deleted event
       return
     }
     // Check if SelectionManager has multiple items selected
@@ -48,13 +42,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
     const selectedSvgId = svgObjectManager?.current?.getSelectedId?.()
     if (selectedSvgId) {
       svgObjectManager.current.deleteObject(selectedSvgId)
-      // Save history
-      if (historyManager?.current) {
-        historyManager.current.saveSnapshot(
-          splineManager.current,
-          svgObjectManager.current
-        )
-      }
+      // AutoHistoryPlugin handles history via svg:deleted event
       return
     }
 
@@ -357,7 +345,6 @@ function nudgeSelected(
   const svgObjectManager = svgObjectManagerRef?.current
   const selectionManager = selectionManagerRef?.current
   const pointSelectionManager = pointSelectionManagerRef?.current
-  const historyManager = historyManagerRef?.current
 
   // Point multi-selection first (curve or line tool)
   if (
@@ -368,21 +355,14 @@ function nudgeSelected(
     pointSelectionManager?.hasSelection?.()
   ) {
     pointSelectionManager.moveSelectedPoints(dx, dy)
-    if (historyManager) {
-      historyManager.saveSnapshot(splineManager, svgObjectManager)
-    }
+    // AutoHistoryPlugin handles history via points:moved event
     return
   }
 
   // Check for multi-selection first
   if (selectionManager?.hasSelection?.()) {
     selectionManager.moveSelected(dx, dy)
-
-    // Save to history
-    if (historyManager) {
-      historyManager.saveSnapshot(splineManager, svgObjectManager)
-    }
-
+    // AutoHistoryPlugin handles history via selection:moved event
     console.log(`[nudgeSelected] Moved multi-selection by dx:${dx}, dy:${dy}`)
     return
   }
@@ -401,11 +381,7 @@ function nudgeSelected(
       )
     }
 
-    // Save to history
-    if (historyManager) {
-      historyManager.saveSnapshot(splineManager, svgObjectManager)
-    }
-
+    // AutoHistoryPlugin handles history via spline:modified event
     console.log(
       `[nudgeSelected] Moved spline ${selectedSpline.id} by dx:${dx}, dy:${dy}`
     )
@@ -468,11 +444,7 @@ function nudgeSelected(
         console.warn("[Hotkeys] Failed to move SVG object", moveErr)
       }
 
-      // Save to history
-      if (historyManager) {
-        historyManager.saveSnapshot(splineManager, svgObjectManager)
-      }
-
+      // AutoHistoryPlugin handles history via svg:modified event
       console.log(
         `[nudgeSelected] Moved SVG object ${selectedSvgId} by dx:${dx}, dy:${dy} (local applied: ${tdx}, ${tdy})`
       )
