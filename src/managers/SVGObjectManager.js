@@ -33,12 +33,39 @@ export default class SVGObjectManager {
    * @param {object} svgElement - SVG.js element
    */
   initializeInteractive(svgElement) {
-    if (!svgElement || svgElement._initializedInteractive) return
+    if (!svgElement || svgElement._initializedInteractive) {
+      console.log(
+        "[SVGObjectManager.initializeInteractive] Skipped - already initialized or null"
+      )
+      return
+    }
+
+    console.log(
+      "[SVGObjectManager.initializeInteractive] Initializing:",
+      svgElement._objectId
+    )
+
+    // Clear any existing selection/resize UI before initializing
+    try {
+      svgElement.select?.(false)
+      svgElement.resize?.(false)
+    } catch {
+      // Ignore errors when clearing existing UI
+    }
+
     svgElement._initializedInteractive = true
 
     // Ensure draggable capability
     try {
-      svgElement.draggable?.()
+      const result = svgElement.draggable?.()
+      console.log(
+        "[SVGObjectManager.initializeInteractive] draggable() called, result:",
+        result
+      )
+      console.log(
+        "[SVGObjectManager.initializeInteractive] Element has draggable method:",
+        typeof svgElement.draggable
+      )
     } catch (err) {
       console.warn("[SVGObjectManager] Failed to enable draggable on SVG", err)
     }
@@ -63,6 +90,7 @@ export default class SVGObjectManager {
     // Drag start - clear selection UI temporarily
     svgElement.on("dragstart", () => {
       svgElement._isDragging = true
+      console.log("[SVGObjectManager] SVG drag started")
       if (this.selectedRef === svgElement) {
         svgElement.select(false)
         this.selectedRef = null
@@ -72,6 +100,7 @@ export default class SVGObjectManager {
     // Drag end - restore selection UI and save to history
     svgElement.on("dragend", () => {
       const now = Date.now()
+      console.log("[SVGObjectManager] SVG drag ended")
       if (svgElement._lastDragPush && now - svgElement._lastDragPush < 50) {
         return
       }
@@ -171,7 +200,7 @@ export default class SVGObjectManager {
     }
 
     const objectId =
-      id || `svg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      id || `svg_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
     this.objects.set(objectId, svgElement)
     svgElement._objectId = objectId
     if (svgElement.node) {
@@ -483,9 +512,25 @@ export default class SVGObjectManager {
     } catch {
       matrix = null
     }
+
+    // Get the SVG markup
+    const svgMarkup = svgObject.svg?.()
+
+    // Extract inner content if this is a group wrapper
+    let innerContent = svgMarkup
+    if (svgObject.node?.tagName?.toLowerCase() === "g") {
+      try {
+        // Get children markup without the outer <g> tag
+        innerContent = svgObject.node.innerHTML
+      } catch {
+        innerContent = svgMarkup
+      }
+    }
+
     return {
       id: svgObject._objectId,
-      svg: svgObject.svg?.(), // full markup for uniform restoration
+      svg: svgMarkup, // full markup for compatibility
+      inner: innerContent, // inner content for paste
       transform: svgObject.transform?.(), // legacy fallback
       matrix, // preferred precise transform representation
       bbox: svgObject.bbox?.(),
@@ -530,11 +575,13 @@ export default class SVGObjectManager {
       try {
         if (!data) return
         let imported = null
-        if (data.svg) {
+        if (data.inner) {
+          // Prefer inner content to avoid double-wrapping
+          imported = drawRef.group()
+          imported.svg(data.inner)
+        } else if (data.svg) {
+          // Legacy: full SVG markup
           imported = drawRef.group().svg(data.svg)
-        } else if (data.inner) {
-          // legacy schema support
-          imported = drawRef.group().svg(`<svg>${data.inner}</svg>`)
         }
         if (imported) {
           if (data.matrix && typeof imported.matrix === "function") {
@@ -546,10 +593,7 @@ export default class SVGObjectManager {
           } else if (data.transform) {
             imported.transform(data.transform)
           }
-          // Add without initializing interactive (will be done after all objects loaded)
-          this.addObject(imported, data.id, true)
-          // Now initialize interactive behavior
-          //this.initializeInteractive(imported)
+          this.addObject(imported, data.id, false)
         }
       } catch {
         // ignore load errors
@@ -563,11 +607,32 @@ export default class SVGObjectManager {
    * @param {object} context - Context with drawRef for re-initialization
    */
   restoreFromState(svgDataArray, context = {}) {
-    // Clear current objects
+    // Clear current objects and clean up all selection UI
     this.objects.forEach((obj) => {
       try {
+        // Remove all event listeners
+        obj.off?.(".selection")
+        obj.off?.(".resize")
+        obj.off?.("dragstart")
+        obj.off?.("dragend")
+        obj.off?.("resize")
+        obj.off?.("click")
+
+        // Remove keyboard listeners
+        if (obj._keyListener) {
+          document.removeEventListener("keydown", obj._keyListener)
+          document.removeEventListener("keyup", obj._keyListener)
+          delete obj._keyListener
+        }
+
+        // Disable selection/resize UI
         obj.select?.(false)
         obj.resize?.(false)
+
+        // Remove draggable
+        obj.draggable?.(false)
+
+        // Remove the element
         obj.remove?.()
       } catch (error) {
         console.warn(
@@ -578,6 +643,7 @@ export default class SVGObjectManager {
     })
     this.objects.clear()
     this.selectedObjectId = null
+    this.selectedRef = null
 
     // Restore SVG objects from state
     if (
@@ -589,14 +655,16 @@ export default class SVGObjectManager {
         try {
           if (!svgData) return
           let imported = null
-          if (svgData.svg) {
+          if (svgData.inner) {
+            // Prefer inner content to avoid double-wrapping
+            imported = context.drawRef.current.group()
+            imported.svg(svgData.inner)
+          } else if (svgData.svg) {
+            // Legacy: full SVG markup
             imported = context.drawRef.current.group().svg(svgData.svg)
-          } else if (svgData.inner) {
-            imported = context.drawRef.current
-              .group()
-              .svg(`<svg>${svgData.inner}</svg>`)
           }
           if (imported) {
+            // Apply transformations before adding to manager
             if (svgData.matrix && typeof imported.matrix === "function") {
               try {
                 imported.matrix(svgData.matrix)
@@ -606,11 +674,21 @@ export default class SVGObjectManager {
             } else if (svgData.transform) {
               imported.transform(svgData.transform)
             }
-            // Add without initializing interactive (will be done after all objects loaded)
-            // Also skip event emission during restoration
-            this.addObject(imported, svgData.id, true, true)
-            // Now initialize interactive behavior
+
+            // Initialize interactive AFTER transformations (matching importFromFile pattern)
+            console.log(
+              "[SVGObjectManager.restoreFromState] About to initialize interactive for:",
+              svgData.id
+            )
             this.initializeInteractive(imported)
+            console.log(
+              "[SVGObjectManager.restoreFromState] After initializeInteractive, _initializedInteractive:",
+              imported._initializedInteractive
+            )
+
+            // Add the object to the manager map
+            // Skip interactive (already done above) and skip event emission during restoration
+            this.addObject(imported, svgData.id, true, true)
           }
         } catch (error) {
           console.error(

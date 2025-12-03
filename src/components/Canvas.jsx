@@ -1,10 +1,5 @@
 // Canvas.jsx
-import React, {
-  useEffect,
-  useRef,
-  useImperativeHandle,
-  forwardRef,
-} from "react"
+import { useEffect, useRef, useImperativeHandle, forwardRef } from "react"
 import { SVG } from "@svgdotjs/svg.js"
 import SplineManager from "../managers/SplineManager"
 import SVGObjectManager from "../managers/SVGObjectManager"
@@ -759,7 +754,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
           // Generate unique ID to avoid conflicts
           newSpline.id = `spline_${Date.now()}_${Math.random()
             .toString(36)
-            .substr(2, 9)}`
+            .substring(2, 11)}`
 
           // Re-attach handlers
           if (setupPointHandlers && isDraggingPoint && splineManager.current) {
@@ -784,15 +779,46 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         if (!drawRef.current || !data) return
 
         let imported = null
-        if (data.svg) {
+        if (data.inner) {
+          // Use inner content to avoid double-wrapping
+          imported = drawRef.current.group()
+          imported.svg(data.inner)
+        } else if (data.svg) {
+          // Legacy: full SVG markup
           imported = drawRef.current.group().svg(data.svg)
-        } else if (data.inner) {
-          // legacy schema support
-          imported = drawRef.current.group().svg(`<svg>${data.inner}</svg>`)
         }
 
         if (imported) {
-          imported.dmove(20, 20)
+          // Restore transformation matrix if it exists (preserves rotation, scale, skew)
+          if (data.matrix && typeof imported.matrix === "function") {
+            try {
+              // Apply the matrix transformation
+              imported.matrix(data.matrix)
+              // Get current position and offset it
+              const bbox = imported.bbox()
+              imported.move(bbox.x + 20, bbox.y + 20)
+            } catch (err) {
+              console.warn("[Canvas] Failed to restore matrix on paste:", err)
+              // Fallback: just offset without matrix
+              imported.dmove(20, 20)
+            }
+          } else if (data.transform) {
+            // Legacy fallback: apply transform if matrix not available
+            try {
+              imported.transform(data.transform)
+              imported.dmove(20, 20)
+            } catch (err) {
+              console.warn(
+                "[Canvas] Failed to restore transform on paste:",
+                err
+              )
+              imported.dmove(20, 20)
+            }
+          } else {
+            // No transformation data, just offset
+            imported.dmove(20, 20)
+          }
+
           svgObjectManager.current?.addObject(imported)
         }
       }
@@ -812,7 +838,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager.current?.bringForward()
     },
     sendToBack: () => {
-      splineManager.current?.sendToBack()
+      splineManager.loadcurrent?.sendToBack()
       svgObjectManager.current?.sendToBack()
     },
     sendBackward: () => {
