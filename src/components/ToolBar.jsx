@@ -32,20 +32,18 @@ export default function ToolBar({
   onExport,
   isDarkMode,
   onToggleTheme,
-  // Edit Menu Props
   onUndo,
   onRedo,
   onCopy,
   onPaste,
   onCut,
-  // Z-Order Props
   onBringToFront,
   onBringForward,
   onSendToBack,
   onSendBackward,
 }) {
   // State for menus
-  const [anchorEl, setAnchorEl] = useState(null)
+  const [anchorElement, setAnchorElement] = useState(null)
   const [activeMenu, setActiveMenu] = useState(null)
 
   // State for inputs
@@ -54,12 +52,12 @@ export default function ToolBar({
   const [canvasH, setCanvasH] = useState(800)
 
   const handleMenuOpen = (event, menuName) => {
-    setAnchorEl(event.currentTarget)
+    setAnchorElement(event.currentTarget)
     setActiveMenu(menuName)
   }
 
   const handleMenuClose = () => {
-    setAnchorEl(null)
+    setAnchorElement(null)
     setActiveMenu(null)
   }
 
@@ -125,7 +123,7 @@ export default function ToolBar({
           File
         </Button>
         <Menu
-          anchorEl={anchorEl}
+          anchorEl={anchorElement}
           open={activeMenu === "file"}
           onClose={handleMenuClose}
         >
@@ -134,35 +132,33 @@ export default function ToolBar({
             shortcut="[Ctrl+N]"
             onClick={() => handleAction(onNewProject)}
           />
-
           <MenuItemWithShortcut
             label="Open Project"
             shortcut="[Ctrl+O]"
             onClick={() => handleAction(onOpenProject)}
           />
-
           <MenuItemWithShortcut
             label="Save Project"
             shortcut="[Ctrl+S]"
             onClick={() => handleAction(onSaveProject)}
           />
-
           <MenuItemWithShortcut
             label="Save As..."
             shortcut="[Ctrl+Shift+S]"
             onClick={() => handleAction(onSaveAs)}
+          />
+          v
+          <Divider />
+          <MenuItemWithShortcut
+            label="Import new SVG"
+            shortcut="[I]"
+            onClick={() => handleAction(onImportSVG)}
           />
           <Divider />
           <MenuItemWithShortcut
             label="Export SVG..."
             shortcut="[Ctrl+E]"
             onClick={() => handleAction(onExport)}
-          />
-          <Divider />
-          <MenuItemWithShortcut
-            label="Import new SVG"
-            shortcut="[I]"
-            onClick={() => handleAction(onImportSVG)}
           />
         </Menu>
 
@@ -175,7 +171,7 @@ export default function ToolBar({
           Edit
         </Button>
         <Menu
-          anchorEl={anchorEl}
+          anchorEl={anchorElement}
           open={activeMenu === "edit"}
           onClose={handleMenuClose}
         >
@@ -244,7 +240,7 @@ export default function ToolBar({
           View
         </Button>
         <Menu
-          anchorEl={anchorEl}
+          anchorEl={anchorElement}
           open={activeMenu === "view"}
           onClose={handleMenuClose}
           slotProps={{ paper: { sx: { width: 320, p: 1 } } }}
@@ -329,7 +325,7 @@ export default function ToolBar({
           Tools
         </Button>
         <Menu
-          anchorEl={anchorEl}
+          anchorEl={anchorElement}
           open={activeMenu === "tools"}
           onClose={handleMenuClose}
         >
