@@ -95,11 +95,12 @@ export async function saveProject(currentPath, ref) {
   if (window.api?.saveProjectFile) {
     try {
       // If currentPath exists, save directly without dialog
-      if (currentPath && window.api.saveProjectFileDirect) {
+      if (currentPath) {
         console.log("[saveProject] Saving directly to:", currentPath)
-        const result = await window.api.saveProjectFileDirect(
+        const result = await window.api.saveProjectFile(
           currentPath,
-          jsonStr
+          jsonStr,
+          true
         )
         if (result.success) {
           console.log("[saveProject] Direct save successful")
@@ -109,8 +110,11 @@ export async function saveProject(currentPath, ref) {
       } else {
         // No current path - show save dialog for new project
         console.log("[saveProject] No current path, showing dialog")
-        const defaultPath = "project.json"
-        const result = await window.api.saveProjectFile(defaultPath, jsonStr)
+        const result = await window.api.saveProjectFile(
+          "project.json",
+          jsonStr,
+          false
+        )
 
         if (result.canceled || !result.filePath) {
           return null
@@ -149,7 +153,11 @@ export async function saveAsJSON(filename, ref) {
   if (window.api?.saveProjectFile) {
     try {
       const defaultPath = filename || "project.json"
-      const result = await window.api.saveProjectFile(defaultPath, jsonStr)
+      const result = await window.api.saveProjectFile(
+        defaultPath,
+        jsonStr,
+        false
+      )
 
       if (result.canceled || !result.filePath) {
         return null
