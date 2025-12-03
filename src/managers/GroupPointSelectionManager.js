@@ -9,7 +9,7 @@
  *  - points:deleted
  */
 
-import eventBus from "../utils/EventBus"
+import eventBus from "../core/EventBus"
 
 export class PointSelectionManager {
   constructor() {

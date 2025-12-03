@@ -1,5 +1,5 @@
-import { applyMatrixToPoints } from "../utils/transform"
-import { resetGroupTransform } from "../utils/svgHelpers"
+import { applyMatrixToPoints } from "../../utils/transform"
+import { resetGroupTransform } from "../../utils/svgHelpers"
 
 /**
  * Sets up global canvas interactions (zoom, pan, cursor behavior)

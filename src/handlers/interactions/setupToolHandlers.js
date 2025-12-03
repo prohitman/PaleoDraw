@@ -1,15 +1,15 @@
-// src/handlers/setupToolHandlers.js
+// src/handlers/interactions/setupToolHandlers.js
 /**
  * setupToolHandlers: Initialize and register all tool handlers with the ToolRegistry
  * Called once during Canvas initialization
  */
 
-import ToolRegistry from "./ToolRegistry"
-import { curveToolHandlers } from "./toolHandlers/toolCurve"
-import { lineToolHandlers } from "./toolHandlers/toolLine"
-import { selectToolHandlers } from "./toolHandlers/toolSelect"
-import { deleteSplineToolHandlers } from "./toolHandlers/toolDeleteSpline"
-import { nurbsToolHandlers } from "./toolHandlers/toolNurbs"
+import ToolRegistry from "../tools/ToolRegistry"
+import { curveToolHandlers } from "../tools/toolCurve"
+import { lineToolHandlers } from "../tools/toolLine"
+import { selectToolHandlers } from "../tools/toolSelect"
+import { deleteSplineToolHandlers } from "../tools/toolDeleteSpline"
+import { nurbsToolHandlers } from "../tools/toolNurbs"
 
 /**
  * Set up the tool registry and register all tool handlers

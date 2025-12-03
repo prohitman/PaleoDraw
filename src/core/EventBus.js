@@ -1,5 +1,5 @@
-// src/utils/EventBus.js
-import EventEmitter from "./eventEmitter"
+// src/core/EventBus.js
+import EventEmitter from "./EventEmitter"
 
 /**
  * EventBus: Centralized event hub for the entire application

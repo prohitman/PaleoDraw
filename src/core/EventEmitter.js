@@ -1,4 +1,4 @@
-// src/utils/eventEmitter.js
+// src/core/EventEmitter.js
 /**
  * Simple EventEmitter for decoupled event publishing/subscription
  * Used by managers to notify Canvas and other components of state changes

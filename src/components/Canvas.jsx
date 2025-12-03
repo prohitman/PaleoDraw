@@ -11,35 +11,27 @@ import SVGObjectManager from "../managers/SVGObjectManager"
 import SelectionManager from "../managers/GroupSelectionManager"
 import { PointSelectionManager } from "../managers/GroupPointSelectionManager"
 import HistoryManager from "../managers/HistoryManager"
-import eventBus from "../utils/EventBus"
+import ProjectManager from "../managers/ProjectManager"
+import eventBus from "../core/EventBus"
 import { AutoHistoryPlugin } from "../plugins/AutoHistoryPlugin"
 import { setupHotkeys } from "../input/setupHotkeys"
-import { setupPointHandlers } from "../handlers/pointHandlers"
+import { setupPointHandlers } from "../handlers/points/pointHandlers"
 import {
   setupDragSelectionHandlers,
   setupMultiSelectionHotkeys,
-} from "../handlers/selectionHandlers"
-import { setupPointDragSelectionHandlers } from "../handlers/pointSelectionBoxHandlers"
+} from "../handlers/selection/selectionHandlers"
+import { setupPointDragSelectionHandlers } from "../handlers/points/pointSelectionBoxHandlers"
 import {
   setupToolHandlers,
   createCanvasClickHandler,
   activateToolInRegistry,
-} from "../handlers/setupToolHandlers"
+} from "../handlers/interactions/setupToolHandlers"
 import {
   setupCanvasInteractions,
   setupPanBehavior,
   setupGlobalPointerUp,
   setupBackgroundClickBehavior,
-} from "../handlers/setupCanvasInteractions"
-import {
-  createNewProject,
-  getProjectJSON,
-  saveProject as saveProjectFile,
-  saveAsJSON,
-  loadFromJSON,
-  loadProjectFromPath,
-  exportAsSVG,
-} from "../handlers/projectHandler"
+} from "../handlers/interactions/setupCanvasInteractions"
 import {
   drawGrid,
   updateGridLineThickness,
@@ -77,9 +69,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     lastY: 0,
   })
 
-  // Project state tracking
-  const currentProjectPathRef = useRef(null) // Current saved project file path
-  const isDirtyRef = useRef(false) // Has unsaved changes
+  // Project manager instance
+  const projectManager = useRef(null)
 
   const initialGridSize = 25
   const initialCanvasWidth = 1200
@@ -643,39 +634,18 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     autoHistoryPlugin.current.enable()
     console.log("[Canvas] AutoHistoryPlugin initialized and enabled")
 
-    // --- Dirty state tracking: Mark as dirty on any modification ---
-    const markAsDirty = () => {
-      if (!isDirtyRef.current) {
-        isDirtyRef.current = true
-        eventBus.emit("project:dirty-changed", { isDirty: true })
-      }
-    }
-
-    // Listen to all modification events
-    const dirtyEvents = [
-      "spline:created",
-      "spline:deleted",
-      "spline:modified",
-      "spline:moved",
-      "spline:transformed",
-      "svg:imported",
-      "svg:deleted",
-      "svg:modified",
-      "svg:moved",
-      "svg:transformed",
-      "point:added",
-      "point:removed",
-      "point:moved",
-      "point:modified",
-      "selection:deleted",
-      "selection:moved",
-      "points:deleted",
-      "points:moved",
-    ]
-
-    dirtyEvents.forEach((event) => {
-      eventBus.on(event, markAsDirty)
+    // Initialize ProjectManager for project lifecycle and state management
+    projectManager.current = new ProjectManager({
+      drawRef,
+      canvasSizeRef,
+      gridSizeRef,
+      gridRef,
+      fitToCanvas,
+      splineManager: splineManager.current,
+      svgObjectManager: svgObjectManager.current,
+      selectedRef,
     })
+    console.log("[Canvas] ProjectManager initialized")
 
     // cleanup
     return () => {
@@ -698,10 +668,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       eventBus.off("points:moved", handlePointsMoved)
       eventBus.off("points:deleted", handlePointsDeleted)
 
-      // Clean up dirty state listeners
-      dirtyEvents.forEach((event) => {
-        eventBus.off(event, markAsDirty)
-      })
+      // Clean up project manager
+      if (projectManager.current) {
+        projectManager.current.destroy()
+      }
 
       // Destroy transform API and clean up its listeners
       if (transformAPI?.destroy) {
@@ -974,9 +944,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       fitToCanvas()
     },
 
-    // --- Project operations delegated to projecthandler ---
+    // --- Project operations delegated to ProjectManager ---
     newProject: () => {
-      createNewProject(
+      if (!projectManager.current) return
+      projectManager.current.newProject(
         drawRef,
         canvasSizeRef,
         gridSizeRef,
@@ -986,53 +957,32 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         svgObjectManager.current,
         selectedRef
       )
-      // Clear project path and dirty state
-      currentProjectPathRef.current = null
-      isDirtyRef.current = false
-      eventBus.emit("project:dirty-changed", { isDirty: false })
-      eventBus.emit("project:path-changed", { path: null, name: null })
     },
 
-    getProjectJSON: () =>
-      getProjectJSON(
+    getProjectJSON: () => {
+      if (!projectManager.current) return null
+      return projectManager.current.getProjectJSON(
         drawRef,
         canvasSizeRef,
         gridSizeRef,
         splineManager.current,
         svgObjectManager.current
-      ),
+      )
+    },
 
     saveProject: async () => {
-      console.log(
-        "[Canvas.saveProject] currentProjectPathRef:",
-        currentProjectPathRef.current
-      )
-      const savedPath = await saveProjectFile(
-        currentProjectPathRef.current,
-        ref
-      )
-      if (savedPath) {
-        currentProjectPathRef.current = savedPath
-        isDirtyRef.current = false
-        const projectName = savedPath.split(/[/\\]/).pop().replace(".json", "")
-        eventBus.emit("project:dirty-changed", { isDirty: false })
-        eventBus.emit("project:path-changed", {
-          path: savedPath,
-          name: projectName,
-        })
-      }
-      return savedPath
+      if (!projectManager.current) return null
+      return await projectManager.current.save(ref)
     },
 
     saveAsJSON: async (filename = "project.json") => {
-      const savedPath = await saveAsJSON(filename, ref)
-      // Save As creates a copy without changing the current project
-      // Don't update currentProjectPathRef or emit events
-      return savedPath
+      if (!projectManager.current) return null
+      return await projectManager.current.saveAs(filename, ref)
     },
 
     loadFromJSON: async () => {
-      const loadedPath = await loadFromJSON(
+      if (!projectManager.current) return
+      await projectManager.current.load(
         drawRef,
         canvasSizeRef,
         gridSizeRef,
@@ -1042,25 +992,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         svgObjectManager.current,
         selectedRef
       )
-      if (loadedPath) {
-        currentProjectPathRef.current = loadedPath
-        const projectName = loadedPath.split(/[/\\]/).pop().replace(".json", "")
-        eventBus.emit("project:path-changed", {
-          path: loadedPath,
-          name: projectName,
-        })
-      } else {
-        // If no path (browser mode), clear project tracking
-        currentProjectPathRef.current = null
-        eventBus.emit("project:path-changed", { path: null, name: null })
-      }
-      isDirtyRef.current = false
-      eventBus.emit("project:dirty-changed", { isDirty: false })
     },
 
     loadProjectFromPath: async (path) => {
-      console.log("[Canvas.loadProjectFromPath] Loading from path:", path)
-      await loadProjectFromPath(
+      if (!projectManager.current) return
+      await projectManager.current.loadFromPath(
         path,
         drawRef,
         canvasSizeRef,
@@ -1071,37 +1007,26 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         svgObjectManager.current,
         selectedRef
       )
-      currentProjectPathRef.current = path
-      console.log(
-        "[Canvas.loadProjectFromPath] Set currentProjectPathRef to:",
-        path
-      )
-      isDirtyRef.current = false
-      const projectName = path.split(/[/\\]/).pop().replace(".json", "")
-      eventBus.emit("project:dirty-changed", { isDirty: false })
-      eventBus.emit("project:path-changed", { path, name: projectName })
     },
 
-    exportAsSVG: (filename = "project.svg") =>
-      exportAsSVG(
+    exportAsSVG: async (filename = "project.svg") => {
+      if (!projectManager.current) return null
+      return await projectManager.current.exportSVG(
         filename,
         drawRef,
         canvasSizeRef,
         splineManager.current,
         svgObjectManager.current
-      ),
+      )
+    },
 
     // Project state queries
-    getProjectInfo: () => ({
-      path: currentProjectPathRef.current,
-      name: currentProjectPathRef.current
-        ? currentProjectPathRef.current
-            .split(/[/\\]/)
-            .pop()
-            .replace(".json", "")
-        : null,
-      isDirty: isDirtyRef.current,
-    }),
+    getProjectInfo: () => {
+      if (!projectManager.current) {
+        return { path: null, name: null, isDirty: false }
+      }
+      return projectManager.current.getState()
+    },
 
     // Edit Menu Operations
     undo: () => {

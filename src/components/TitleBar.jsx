@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { Box, Typography } from "@mui/material"
-import eventBus from "../utils/EventBus"
+import eventBus from "../core/EventBus"
 
 const TitleBar = ({ isDarkMode }) => {
   const [projectName, setProjectName] = useState(null)

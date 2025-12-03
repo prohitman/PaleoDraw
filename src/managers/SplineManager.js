@@ -1,8 +1,8 @@
 // src/managers/SplineManager.js
-import eventBus from "../utils/EventBus"
+import eventBus from "../core/EventBus"
 import Spline from "../models/Spline"
 import { pointToSegmentDistance } from "../utils/geometry"
-import { setupPointHandlers } from "../handlers/pointHandlers"
+import { setupPointHandlers } from "../handlers/points/pointHandlers"
 import { selectionOptions } from "../utils/selectionConfig"
 
 /**

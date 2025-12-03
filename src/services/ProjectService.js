@@ -1,7 +1,13 @@
-// handlers/projectHandler.js
+// src/services/ProjectService.js
+/**
+ * Project file I/O operations
+ * Pure functions for saving, loading, and exporting projects
+ * @module services/ProjectService
+ */
 import { SVG } from "@svgdotjs/svg.js"
 import { drawGrid } from "../utils/svgHelpers"
 import { generateBSplinePath, generatePolylinePath } from "../utils/geometry"
+import { downloadBlob } from "./FileService"
 
 const GRID_BASE_THICKNESS = 0.5
 
@@ -132,12 +138,8 @@ export async function saveProject(currentPath, ref) {
     }
   } else {
     // Fallback to browser download
-    const blob = new Blob([jsonStr], { type: "application/json" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = currentPath?.split(/[/\\]/).pop() || "project.json"
-    a.click()
-    URL.revokeObjectURL(a.href)
+    const filename = currentPath?.split(/[/\\]/).pop() || "project.json"
+    downloadBlob(filename, jsonStr, "application/json")
     return null // Can't track path in browser mode
   }
 }
@@ -174,12 +176,7 @@ export async function saveAsJSON(filename, ref) {
     }
   } else {
     // Fallback to browser download
-    const blob = new Blob([jsonStr], { type: "application/json" })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = filename || "project.json"
-    a.click()
-    URL.revokeObjectURL(a.href)
+    downloadBlob(filename || "project.json", jsonStr, "application/json")
     return null // Can't track path in browser mode
   }
 }
@@ -491,14 +488,7 @@ export async function exportAsSVG(
     }
   } else {
     // Fallback to browser download
-    const blob = new Blob([svgContent], {
-      type: "image/svg+xml;charset=utf-8",
-    })
-    const a = document.createElement("a")
-    a.href = URL.createObjectURL(blob)
-    a.download = filename
-    a.click()
-    URL.revokeObjectURL(a.href)
+    downloadBlob(filename, svgContent, "image/svg+xml;charset=utf-8")
     return true
   }
 }

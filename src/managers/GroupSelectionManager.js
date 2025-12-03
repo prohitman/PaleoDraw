@@ -1,5 +1,5 @@
 // src/managers/SelectionManager.js
-import eventBus from "../utils/EventBus"
+import eventBus from "../core/EventBus"
 import { selectionOptions } from "../utils/selectionConfig"
 
 /**

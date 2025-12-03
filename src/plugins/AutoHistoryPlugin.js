@@ -1,5 +1,5 @@
 // src/plugins/AutoHistoryPlugin.js
-import eventBus from "../utils/EventBus"
+import eventBus from "../core/EventBus"
 
 /**
  * AutoHistoryPlugin: Automatically saves history when changes occur

@@ -1,7 +1,7 @@
-// src/utils/file.js
+// src/services/FileService.js
 /**
- * File I/O utilities for downloading and reading files
- * @module utils/file
+ * Generic file I/O utilities for downloading and reading files
+ * @module services/FileService
  */
 
 /**
