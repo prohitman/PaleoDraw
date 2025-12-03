@@ -1026,16 +1026,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     saveAsJSON: async (filename = "project.json") => {
       const savedPath = await saveAsJSON(filename, ref)
-      if (savedPath) {
-        currentProjectPathRef.current = savedPath
-        isDirtyRef.current = false
-        const projectName = savedPath.split(/[/\\]/).pop().replace(".json", "")
-        eventBus.emit("project:dirty-changed", { isDirty: false })
-        eventBus.emit("project:path-changed", {
-          path: savedPath,
-          name: projectName,
-        })
-      }
+      // Save As creates a copy without changing the current project
+      // Don't update currentProjectPathRef or emit events
       return savedPath
     },
 
@@ -1057,6 +1049,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
           path: loadedPath,
           name: projectName,
         })
+      } else {
+        // If no path (browser mode), clear project tracking
+        currentProjectPathRef.current = null
+        eventBus.emit("project:path-changed", { path: null, name: null })
       }
       isDirtyRef.current = false
       eventBus.emit("project:dirty-changed", { isDirty: false })

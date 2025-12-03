@@ -147,7 +147,11 @@ export default function ToolBar({
             onClick={() => handleAction(onSaveProject)}
           />
 
-          <MenuItem onClick={() => handleAction(onSaveAs)}>Save As...</MenuItem>
+          <MenuItemWithShortcut
+            label="Save As..."
+            shortcut="[Ctrl+Shift+S]"
+            onClick={() => handleAction(onSaveAs)}
+          />
           <Divider />
           <MenuItemWithShortcut
             label="Export SVG..."

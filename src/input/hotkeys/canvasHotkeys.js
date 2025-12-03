@@ -39,6 +39,16 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "Save project"
   )
 
+  // Save As (Ctrl+Shift+S)
+  hotkeysManager.register(
+    "ctrl+shift+s",
+    "global",
+    () => {
+      canvasRef?.current?.saveAsJSON?.()
+    },
+    "Save project as..."
+  )
+
   // Export as SVG (Ctrl+E)
   hotkeysManager.register(
     "ctrl+e",
