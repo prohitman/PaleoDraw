@@ -29,6 +29,28 @@ export default class SelectionManager {
     this.dragStart = null
     this.dragCurrent = null
     this.selectionBox = null // SVG rect element for visual feedback
+
+    // Overlay state
+    this.groupOverlay = null
+    this.overlayDragState = { dragging: false, lastX: 0, lastY: 0 }
+    this.draw = null
+    this.selectedToolRef = null
+
+    // Listen to tool changes from EventBus
+    eventBus.on("tool:changed", () => {
+      this.clearSelection()
+      this.updateOverlay()
+    })
+  }
+
+  /**
+   * Initialize overlay system with draw instance and tool ref
+   * @param {object} draw - SVG.js draw instance
+   * @param {object} selectedToolRef - Ref to current tool
+   */
+  initializeOverlay(draw, selectedToolRef) {
+    this.draw = draw
+    this.selectedToolRef = selectedToolRef
   }
 
   // ========== SELECTION QUERIES ==========
@@ -676,5 +698,121 @@ export default class SelectionManager {
       width: maxX - minX,
       height: maxY - minY,
     }
+  }
+
+  // ========== OVERLAY MANAGEMENT ==========
+
+  /**
+   * Create or update the multi-selection overlay rectangle
+   */
+  updateOverlay() {
+    if (!this.draw || !this.selectedToolRef) return
+
+    const count = this.getSelectionCount()
+    const inSelectTool = this.selectedToolRef.current === "select"
+    const bounds = this.getSelectionBounds()
+
+    const shouldShow = inSelectTool && bounds && count >= 2
+
+    if (!shouldShow) {
+      this.removeOverlay()
+      return
+    }
+
+    const { x, y, width, height } = bounds
+
+    if (!this.groupOverlay) {
+      this.groupOverlay = this.draw
+        .rect(width, height)
+        .move(x, y)
+        .addClass("group-selection-overlay")
+        .id("group-selection-overlay")
+
+      this.groupOverlay.on(
+        "pointerdown",
+        this.handleOverlayPointerDown.bind(this)
+      )
+    } else {
+      this.groupOverlay.size(width, height).move(x, y)
+    }
+
+    try {
+      this.groupOverlay.front()
+    } catch {
+      // ignore front errors
+    }
+  }
+
+  /**
+   * Remove the overlay if it exists
+   */
+  removeOverlay() {
+    if (this.groupOverlay) {
+      try {
+        this.groupOverlay.remove()
+      } catch {
+        // ignore removal errors
+      }
+      this.groupOverlay = null
+    }
+  }
+
+  /**
+   * Handle overlay pointerdown event
+   */
+  handleOverlayPointerDown(e) {
+    if (this.selectedToolRef.current !== "select" || e.button !== 0) return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const { x, y } = this.draw.point(e.clientX, e.clientY)
+    this.overlayDragState = {
+      dragging: true,
+      lastX: x,
+      lastY: y,
+    }
+
+    window.addEventListener(
+      "pointermove",
+      this.handleOverlayDragMove.bind(this)
+    )
+    window.addEventListener("pointerup", this.handleOverlayDragUp.bind(this), {
+      once: true,
+    })
+  }
+
+  /**
+   * Handle overlay drag movement
+   */
+  handleOverlayDragMove(e) {
+    if (!this.overlayDragState.dragging) return
+
+    const { x, y } = this.draw.point(e.clientX, e.clientY)
+
+    const dx = x - this.overlayDragState.lastX
+    const dy = y - this.overlayDragState.lastY
+    if (dx === 0 && dy === 0) return
+
+    this.overlayDragState.lastX = x
+    this.overlayDragState.lastY = y
+
+    // Hide overlay during drag
+    this.removeOverlay()
+    this.moveSelected(dx, dy)
+  }
+
+  /**
+   * Handle overlay drag end
+   */
+  handleOverlayDragUp() {
+    this.overlayDragState.dragging = false
+    window.removeEventListener(
+      "pointermove",
+      this.handleOverlayDragMove.bind(this)
+    )
+
+    // Restore overlay after drag ends
+    this.updateOverlay()
+    // AutoHistoryPlugin handles history save via selection:moved event
   }
 }

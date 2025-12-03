@@ -23,7 +23,6 @@ export default class SplineManager {
     selectedToolRef,
     isDraggingRef,
     historyManager = null,
-    linkedSvgManager = null,
   } = {}) {
     this.draw = draw
     this.splines = new Map() // id -> Spline
@@ -31,13 +30,15 @@ export default class SplineManager {
     this.selectedToolRef = selectedToolRef
     this.isDraggingRef = isDraggingRef
     this.historyManager = historyManager // HistoryManager instance for undo/redo
-    this.linkedSvgManager = linkedSvgManager // Reference to SVGObjectManager for unified history
 
     // Optional external reference set by Canvas for point multi-selection
     this.pointSelectionManager = null
 
     // Transform API (set up by setupSplineTransformations)
     this._transformAPI = null
+
+    // Listen to tool changes from EventBus
+    eventBus.on("tool:changed", (tool) => this.updateOnToolChange(tool))
   }
 
   // ========== SPLINE CRUD ==========
@@ -484,7 +485,7 @@ export default class SplineManager {
   // ========== TOOL STATE UPDATES ==========
 
   /**
-   * Called when the active tool changes
+   * Called when the active tool changes (via EventBus)
    * Handles visual state updates for tool switching
    */
   updateOnToolChange(tool) {
@@ -495,11 +496,8 @@ export default class SplineManager {
       tool !== "nurbs"
     ) {
       // Leaving point-edit tools: clear any multi-point selection state/colors
-      try {
-        this.pointSelectionManager?.clearSelection?.()
-      } catch {
-        // ignore point selection clearing errors
-      }
+      eventBus.emit("point-selection:clear-requested")
+
       // Hide points when not in an editing tool
       this.splines.forEach((spline) => {
         if (spline.selected) {

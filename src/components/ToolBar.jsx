@@ -147,7 +147,6 @@ export default function ToolBar({
             shortcut="[Ctrl+Shift+S]"
             onClick={() => handleAction(onSaveAs)}
           />
-          v
           <Divider />
           <MenuItemWithShortcut
             label="Import new SVG"

@@ -21,6 +21,18 @@ export class PointSelectionManager {
 
     // Cached bounds of current selection (compute lazily)
     this._cachedBounds = null
+
+    // Overlay state
+    this.pointGroupOverlay = null
+    this.overlayDragState = { dragging: false, lastX: 0, lastY: 0 }
+    this.draw = null
+    this.selectedToolRef = null
+
+    // Listen to EventBus for point selection clear requests
+    eventBus.on("point-selection:clear-requested", () => {
+      this.clearSelection()
+      this.updateOverlay()
+    })
   }
 
   /**
@@ -30,6 +42,16 @@ export class PointSelectionManager {
   initialize(splineManager) {
     this.splineManager = splineManager
     console.log("[PointSelectionManager] Initialized")
+  }
+
+  /**
+   * Initialize overlay system with draw instance and tool ref
+   * @param {object} draw - SVG.js draw instance
+   * @param {object} selectedToolRef - Ref to current tool
+   */
+  initializeOverlay(draw, selectedToolRef) {
+    this.draw = draw
+    this.selectedToolRef = selectedToolRef
   }
 
   /**
@@ -419,5 +441,146 @@ export class PointSelectionManager {
     this._cachedBounds = bounds
     console.log("[PointSelectionManager.getSelectionBounds] Computed", bounds)
     return bounds
+  }
+
+  // ========== OVERLAY MANAGEMENT ==========
+
+  /**
+   * Create or update multi-point selection overlay
+   */
+  updateOverlay() {
+    if (!this.draw || !this.selectedToolRef) return
+
+    const count = this.getSelectionCount()
+    const inEditTool = ["curve", "line", "straight", "nurbs"].includes(
+      this.selectedToolRef.current
+    )
+    const bounds = this.getSelectionBounds()
+    const shouldShow = inEditTool && bounds && count >= 2
+
+    console.log("[PointSelectionManager.updateOverlay]", {
+      count,
+      inEditTool,
+      hasBounds: !!bounds,
+      shouldShow,
+      bounds,
+    })
+
+    if (!shouldShow) {
+      this.removeOverlay()
+      return
+    }
+
+    const { x, y, width, height } = bounds
+
+    if (!this.pointGroupOverlay) {
+      this.pointGroupOverlay = this.draw
+        .rect(width, height)
+        .move(x, y)
+        .addClass("point-group-selection-overlay")
+        .id("point-group-selection-overlay")
+
+      console.log("[PointSelectionManager.updateOverlay] created overlay", {
+        width,
+        height,
+        x,
+        y,
+      })
+
+      this.pointGroupOverlay.on(
+        "pointerdown",
+        this.handleOverlayPointerDown.bind(this)
+      )
+    } else {
+      this.pointGroupOverlay.size(width, height).move(x, y)
+      console.log("[PointSelectionManager.updateOverlay] updated overlay", {
+        width,
+        height,
+        x,
+        y,
+      })
+    }
+
+    try {
+      this.pointGroupOverlay.front()
+    } catch {
+      /* ignore front errors */
+    }
+  }
+
+  /**
+   * Remove the overlay if it exists
+   */
+  removeOverlay() {
+    if (this.pointGroupOverlay) {
+      try {
+        this.pointGroupOverlay.remove()
+      } catch {
+        /* ignore removal errors */
+      }
+      this.pointGroupOverlay = null
+      console.log("[PointSelectionManager.removeOverlay] removed overlay")
+    }
+  }
+
+  /**
+   * Handle overlay pointerdown event
+   */
+  handleOverlayPointerDown(e) {
+    if (
+      !["curve", "line", "straight", "nurbs"].includes(
+        this.selectedToolRef.current
+      ) ||
+      e.button !== 0
+    )
+      return
+    e.stopPropagation()
+    e.preventDefault()
+
+    const { x, y } = this.draw.point(e.clientX, e.clientY)
+    this.overlayDragState = {
+      dragging: true,
+      lastX: x,
+      lastY: y,
+    }
+
+    window.addEventListener(
+      "pointermove",
+      this.handleOverlayDragMove.bind(this)
+    )
+    window.addEventListener("pointerup", this.handleOverlayDragUp.bind(this), {
+      once: true,
+    })
+  }
+
+  /**
+   * Handle overlay drag movement
+   */
+  handleOverlayDragMove(e) {
+    if (!this.overlayDragState.dragging) return
+
+    const { x, y } = this.draw.point(e.clientX, e.clientY)
+
+    const dx = x - this.overlayDragState.lastX
+    const dy = y - this.overlayDragState.lastY
+    if (dx === 0 && dy === 0) return
+
+    this.overlayDragState.lastX = x
+    this.overlayDragState.lastY = y
+
+    this.moveSelectedPoints(dx, dy)
+    this.updateOverlay()
+  }
+
+  /**
+   * Handle overlay drag end
+   */
+  handleOverlayDragUp() {
+    this.overlayDragState.dragging = false
+    window.removeEventListener(
+      "pointermove",
+      this.handleOverlayDragMove.bind(this)
+    )
+    // AutoHistoryPlugin handles history save via points:moved event
   }
 }

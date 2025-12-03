@@ -17,10 +17,12 @@ export default class SVGObjectManager {
     this.selectedObjectId = null
     this.selectedToolRef = selectedToolRef
     this.historyManager = historyManager // HistoryManager instance for undo/redo
-    this.linkedSplineManager = null // Reference to SplineManager for unified history
 
     this._transformAPI = null
     this.selectedRef = null // Currently selected SVG element (for internal tracking)
+
+    // Listen to tool changes from EventBus
+    eventBus.on("tool:changed", (tool) => this.updateOnToolChange(tool))
   }
 
   // ========== OBJECT CRUD ==========
@@ -452,7 +454,7 @@ export default class SVGObjectManager {
   // ========== TOOL STATE UPDATES ==========
 
   /**
-   * Called when the active tool changes
+   * Called when the active tool changes (via EventBus)
    * Clears selection when switching away from select tool
    */
   updateOnToolChange(tool) {

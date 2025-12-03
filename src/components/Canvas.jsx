@@ -43,35 +43,30 @@ import "@svgdotjs/svg.resize.js"
 import "@svgdotjs/svg.draggable.js"
 
 const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
-  const canvasRef = useRef(null)
-  const drawRef = useRef(null)
-  const gridRef = useRef(null)
-  const selectedToolRef = useRef(selectedTool || "select")
-  const svgObjectManager = useRef(null) // SVGObjectManager instance for imported SVG operations
-  const selectedRef = useRef(null) // currently selected imported SVG (not splines)
-  const splineManager = useRef(null) // SplineManager instance for all spline operations
-  const selectionManager = useRef(null) // SelectionManager for multi-selection
-  const pointSelectionManager = useRef(null) // PointSelectionManager for multi-point selection
-  // HistoryManager instance for undo/redo (persistent)
-  const historyManager = useRef(null)
-  const autoHistoryPlugin = useRef(null) // AutoHistoryPlugin for automatic history management
-  const clipboard = useRef(null) // Internal clipboard for copy/paste
-  const hotkeysManagerRef = useRef(null) // HotkeysManager instance for scope activation
-  const toolRegistryRef = useRef(null) // ToolRegistry instance for tool handler delegation
-  const isDraggingPoint = useRef(false)
-  const panZoomRef = useRef(null)
-  const groupOverlayRef = useRef(null) // Overlay rect for multi-selection
-  const overlayDragStateRef = useRef({ dragging: false, lastX: 0, lastY: 0 })
-  const pointGroupOverlayRef = useRef(null) // Overlay for multi-point selection (curve tool)
-  const pointOverlayDragStateRef = useRef({
-    dragging: false,
-    lastX: 0,
-    lastY: 0,
-  })
+  // ========== Core Refs ==========
+  const canvasRef = useRef(null) // Container DOM element
+  const drawRef = useRef(null) // SVG.js draw instance
+  const gridRef = useRef(null) // SVG.js grid group
+  const selectedToolRef = useRef(selectedTool || "select") // Current active tool
+  const selectedRef = useRef(null) // Currently selected imported SVG object
 
-  // Project manager instance
-  const projectManager = useRef(null)
+  // ========== Manager Refs ==========
+  const splineManager = useRef(null) // Manages all spline operations (CRUD, transformations)
+  const svgObjectManager = useRef(null) // Manages imported SVG objects
+  const selectionManager = useRef(null) // Manages multi-selection of splines/SVGs
+  const pointSelectionManager = useRef(null) // Manages multi-point selection within splines
+  const historyManager = useRef(null) // Manages undo/redo stack (persistent across renders)
+  const autoHistoryPlugin = useRef(null) // Automatic history capture on modifications
+  const projectManager = useRef(null) // Manages project lifecycle and state
 
+  // ========== Utility Refs ==========
+  const clipboard = useRef(null) // Internal clipboard for copy/paste operations
+  const hotkeysManagerRef = useRef(null) // Manages hotkey scopes (e.g., selection)
+  const toolRegistryRef = useRef(null) // Registry for tool-specific event handlers
+  const isDraggingPoint = useRef(false) // Tracks point drag state
+  const panZoomRef = useRef(null) // SVG.js pan/zoom plugin instance
+
+  // ========== Canvas Configuration ==========
   const initialGridSize = 25
   const initialCanvasWidth = 1200
   const initialCanvasHeight = 800
@@ -85,8 +80,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const panZoomOptionsRef = useRef({
     panning: true,
     pinchZoom: true,
-    wheelZoom: false,
-    panButton: 0,
+    wheelZoom: false, // Disabled (handled by custom wheel handler)
+    panButton: 0, // Left mouse button for panning
     oneFingerPan: false,
     zoomFactor: 0.1,
     zoomMin: 0.2,
@@ -96,231 +91,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
   const ZOOM_SMOOTHNESS = 0.05
   const GRID_BASE_THICKNESS = 0.5
 
-  // Handle overlay drag movement
-  const handleOverlayDragMove = (e) => {
-    const state = overlayDragStateRef.current
-    if (!state.dragging) return
-    const selMgr = selectionManager.current
-    const draw = drawRef.current
-    if (!selMgr || !draw) return
-
-    // Use SVG.js point() for robust coordinate conversion
-    const { x, y } = draw.point(e.clientX, e.clientY)
-
-    const dx = x - state.lastX
-    const dy = y - state.lastY
-    if (dx === 0 && dy === 0) return
-
-    state.lastX = x
-    state.lastY = y
-
-    // Hide overlay during drag
-    if (groupOverlayRef.current) {
-      try {
-        groupOverlayRef.current.remove()
-      } catch {
-        // ignore removal errors
-      }
-      groupOverlayRef.current = null
-    }
-
-    selMgr.moveSelected(dx, dy)
-    // Do NOT updateGroupOverlay during drag
-  }
-
-  // Finalize overlay drag, push history, and cleanup listeners
-  const handleOverlayDragUp = () => {
-    overlayDragStateRef.current.dragging = false
-    window.removeEventListener("pointermove", handleOverlayDragMove)
-
-    // Restore overlay after drag ends
-    updateGroupOverlay()
-    // AutoHistoryPlugin handles history save via selection:moved event
-  }
-
-  // ----- Point selection overlay drag handlers -----
-  const handlePointOverlayDragMove = (e) => {
-    const state = pointOverlayDragStateRef.current
-    if (!state.dragging) return
-    const mgr = pointSelectionManager.current
-    const draw = drawRef.current
-    if (!mgr || !draw) return
-
-    // Use SVG.js point() for robust coordinate conversion
-    const { x, y } = draw.point(e.clientX, e.clientY)
-
-    const dx = x - state.lastX
-    const dy = y - state.lastY
-    if (dx === 0 && dy === 0) return
-    state.lastX = x
-    state.lastY = y
-    mgr.moveSelectedPoints(dx, dy)
-    updatePointGroupOverlay()
-  }
-
-  const handlePointOverlayDragUp = () => {
-    pointOverlayDragStateRef.current.dragging = false
-    window.removeEventListener("pointermove", handlePointOverlayDragMove)
-    // AutoHistoryPlugin handles history save via points:moved event
-  }
-
-  // Create or update the multi-selection overlay rectangle
-  const updateGroupOverlay = () => {
-    const draw = drawRef.current
-    const selMgr = selectionManager.current
-    if (!draw || !selMgr) return
-
-    const count = selMgr.getSelectionCount?.() || 0
-    const inSelectTool = selectedToolRef.current === "select"
-    const bounds = selMgr.getSelectionBounds?.()
-
-    const shouldShow = inSelectTool && bounds && count >= 2
-
-    if (!shouldShow) {
-      if (groupOverlayRef.current) {
-        try {
-          groupOverlayRef.current.remove()
-        } catch {
-          // ignore front errors
-        }
-        groupOverlayRef.current = null
-      }
-      return
-    }
-
-    const { x, y, width, height } = bounds
-
-    if (!groupOverlayRef.current) {
-      const overlay = draw
-        .rect(width, height)
-        .move(x, y)
-        .addClass("group-selection-overlay")
-        .id("group-selection-overlay")
-
-      overlay.on("pointerdown", (e) => {
-        if (selectedToolRef.current !== "select" || e.button !== 0) return
-        e.stopPropagation()
-        e.preventDefault()
-        // Use SVG.js point() for robust coordinate conversion
-        const { x, y } = draw.point(e.clientX, e.clientY)
-        overlayDragStateRef.current = {
-          dragging: true,
-          lastX: x,
-          lastY: y,
-        }
-        window.addEventListener("pointermove", handleOverlayDragMove)
-        window.addEventListener("pointerup", handleOverlayDragUp, {
-          once: true,
-        })
-      })
-
-      groupOverlayRef.current = overlay
-    } else {
-      groupOverlayRef.current.size(width, height).move(x, y)
-    }
-
-    try {
-      groupOverlayRef.current.front()
-    } catch {
-      // ignore front errors
-    }
-  }
-
-  // Create or update multi-point selection overlay (curve tool)
-  const updatePointGroupOverlay = () => {
-    const draw = drawRef.current
-    const ptMgr = pointSelectionManager.current
-    if (!draw || !ptMgr) return
-
-    const count = ptMgr.getSelectionCount?.() || 0
-    // Show overlay in all point-editing tools: curve, line, straight, nurbs
-    const inEditTool =
-      selectedToolRef.current === "curve" ||
-      selectedToolRef.current === "line" ||
-      selectedToolRef.current === "straight" ||
-      selectedToolRef.current === "nurbs"
-    const bounds = ptMgr.getSelectionBounds?.()
-    const shouldShow = inEditTool && bounds && count >= 2
-
-    console.log("[Canvas.updatePointGroupOverlay]", {
-      count,
-      inEditTool,
-      hasBounds: !!bounds,
-      shouldShow,
-      bounds,
-    })
-
-    if (!shouldShow) {
-      if (pointGroupOverlayRef.current) {
-        try {
-          pointGroupOverlayRef.current.remove()
-        } catch {
-          /* ignore removal errors */
-        }
-        pointGroupOverlayRef.current = null
-        console.log("[Canvas.updatePointGroupOverlay] removed overlay")
-      }
-      return
-    }
-
-    const { x, y, width, height } = bounds
-
-    if (!pointGroupOverlayRef.current) {
-      const overlay = draw
-        .rect(width, height)
-        .move(x, y)
-        .addClass("point-group-selection-overlay")
-        .id("point-group-selection-overlay")
-      console.log("[Canvas.updatePointGroupOverlay] created overlay", {
-        width,
-        height,
-        x,
-        y,
-      })
-
-      overlay.on("pointerdown", (e) => {
-        // Allow group drag in all editing tools (curve, line, straight, nurbs)
-        if (
-          !["curve", "line", "straight", "nurbs"].includes(
-            selectedToolRef.current
-          ) ||
-          e.button !== 0
-        )
-          return
-        e.stopPropagation()
-        e.preventDefault()
-        // Use SVG.js point() for robust coordinate conversion
-        const { x, y } = draw.point(e.clientX, e.clientY)
-        pointOverlayDragStateRef.current = {
-          dragging: true,
-          lastX: x,
-          lastY: y,
-        }
-        window.addEventListener("pointermove", handlePointOverlayDragMove)
-        window.addEventListener("pointerup", handlePointOverlayDragUp, {
-          once: true,
-        })
-      })
-
-      pointGroupOverlayRef.current = overlay
-    } else {
-      pointGroupOverlayRef.current.size(width, height).move(x, y)
-      console.log("[Canvas.updatePointGroupOverlay] updated overlay", {
-        width,
-        height,
-        x,
-        y,
-      })
-    }
-
-    try {
-      pointGroupOverlayRef.current.front()
-    } catch {
-      /* ignore front errors */
-    }
-  }
-
-  // ---------- Initialize SVG draw, grid, pan/zoom, and main handlers ----------
+  // ========== Main Initialization (Runs Once on Mount) ==========
+  // Sets up: SVG canvas, grid, managers, event handlers, hotkeys, and cleanup
   useEffect(() => {
     const container = canvasRef.current
     if (!container) return
@@ -342,7 +114,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       .id("canvas-bg")
     bg.node.style.pointerEvents = "none"
 
-    // grid
+    // Initialize grid layer (protected from z-ordering operations)
     const grid = draw.group().id("canvas-grid")
     grid.attr("data-protected-layer", "true") // Protect from z-ordering operations
     gridRef.current = grid
@@ -351,7 +123,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       drawGrid(grid, canvasSizeRef.current, gSize)
     grid._drawGrid(gridSizeRef.current)
 
-    // pan/zoom
+    // Initialize pan/zoom (disabled when not in select tool)
     panZoomRef.current = draw.panZoom(panZoomOptionsRef.current)
     draw.on("panning", (e) => {
       if (selectedToolRef.current !== "select") {
@@ -359,28 +131,24 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       }
     })
 
-    // Initialize HistoryManager for undo/redo (only once) - MUST be before SplineManager
+    // ========== Manager Initialization ==========
+    // IMPORTANT: HistoryManager must be initialized before managers that depend on it
     if (!historyManager.current) {
       historyManager.current = new HistoryManager()
     }
 
-    // Initialize SplineManager for all spline operations
+    // Initialize core managers
     splineManager.current = new SplineManager({
       draw,
       selectedToolRef: selectedToolRef,
       isDraggingRef: isDraggingPoint,
-      historyManager: historyManager.current, // Pass the instance, not the ref
-      linkedSvgManager: null, // temporarily null, set after svgObjectManager init
+      historyManager: historyManager.current,
     })
 
     // Initialize SVGObjectManager for imported SVG objects
     svgObjectManager.current = new SVGObjectManager({
       selectedToolRef: selectedToolRef,
     })
-
-    // Link managers for unified history snapshots
-    splineManager.current.linkedSvgManager = svgObjectManager.current
-    svgObjectManager.current.linkedSplineManager = splineManager.current
 
     // Initialize SelectionManager for multi-selection
     selectionManager.current = new SelectionManager({
@@ -391,9 +159,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // Initialize PointSelectionManager for multi-point selection
     pointSelectionManager.current = new PointSelectionManager()
     pointSelectionManager.current.initialize(splineManager.current)
-    console.log("[Canvas] PointSelectionManager initialized")
-    // Attach to spline manager for handler access
+    pointSelectionManager.current.initializeOverlay(draw, selectedToolRef)
     splineManager.current.pointSelectionManager = pointSelectionManager.current
+
+    // Initialize overlay systems for visual feedback
+    selectionManager.current.initializeOverlay(draw, selectedToolRef)
 
     // Set HistoryManager for SVGObjectManager
     svgObjectManager.current.historyManager = historyManager.current
@@ -423,7 +193,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       historyManager.current
     )
 
-    // --- Initialize tool registry and handlers BEFORE click handler ---
+    // ========== Tool System Setup ==========
+    // Initialize tool registry and register all tool handlers
     toolRegistryRef.current = setupToolHandlers({
       manager: splineManager.current,
       svgObjectManager: svgObjectManager.current,
@@ -453,7 +224,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     container.addEventListener("click", unifiedCanvasClickHandler)
     container.addEventListener("contextmenu", (e) => e.preventDefault())
 
-    // Setup canvas interactions (zoom, pan)
+    // ========== Canvas Interactions Setup ==========
+    // Setup zoom, pan, cursor behavior, and selection
     const { handleWheel } = setupCanvasInteractions(
       container,
       drawRef,
@@ -462,7 +234,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       selectedToolRef
     )
 
-    // pan cursor behavior
     const {
       handleMouseDown,
       handleMouseUp,
@@ -492,7 +263,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager
     )
 
-    // Helper function to convert screen coordinates to viewport coordinates
+    // Viewport coordinate conversion helper (screen pixels → SVG viewport coordinates)
     const getViewportCoords = (e) => {
       const rect = container.getBoundingClientRect()
       const x = e.clientX - rect.left
@@ -537,7 +308,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     fitToCanvas()
 
-    // Initialize hotkey system
+    // ========== Hotkey System Setup ==========
     const hotkeySetup = setupHotkeys({
       canvasRef: ref,
       splineManager,
@@ -556,16 +327,16 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       },
     })
 
-    // Store hotkeys manager for scope activation
+    // Store hotkeys manager for dynamic scope activation
     hotkeysManagerRef.current = hotkeySetup.manager
 
-    // Activate initial tool
     activateToolInRegistry(
       toolRegistryRef.current,
       selectedToolRef.current || "select"
     )
 
-    // Set up listeners for selection scope activation/deactivation
+    // ========== EventBus Listeners Setup ==========
+    // Scope activation/deactivation based on selection state
     const handleSplineSelect = (spline) => {
       if (spline) {
         hotkeysManagerRef.current?.activateScope("selection")
@@ -575,7 +346,6 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     }
 
     const handleSVGSelect = (objectOrId) => {
-      // objectOrId could be SVG element or null
       if (objectOrId) {
         hotkeysManagerRef.current?.activateScope("selection")
       } else {
@@ -590,32 +360,29 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       } else {
         hotkeysManagerRef.current?.deactivateScope("selection")
       }
-      // Update overlay visibility/position when selection changes
-      updateGroupOverlay()
+      selectionManager.current?.updateOverlay()
     }
 
     const handleSelectionMoved = () => {
-      // Always recompute overlay bounds; spline path changes can shift bbox
-      updateGroupOverlay()
+      selectionManager.current?.updateOverlay()
     }
 
-    // Point selection events
+    // Overlay updates for point selection changes
     const handlePointSelectionChanged = () => {
-      updatePointGroupOverlay()
+      pointSelectionManager.current?.updateOverlay()
     }
     const handlePointsMoved = () => {
-      updatePointGroupOverlay()
+      pointSelectionManager.current?.updateOverlay()
     }
     const handlePointsDeleted = () => {
-      updatePointGroupOverlay()
+      pointSelectionManager.current?.updateOverlay()
     }
 
-    // When a new spline is created (including during paste), attach transformation handlers
     const handleSplineCreated = () => {
       transformAPI?.attachToAll?.()
     }
 
-    // Listen to EventBus instead of individual managers
+    // Register all EventBus listeners
     eventBus.on("spline:selected", handleSplineSelect)
     eventBus.on("spline:created", handleSplineCreated)
     eventBus.on("svg:selected", handleSVGSelect)
@@ -625,16 +392,16 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     eventBus.on("points:moved", handlePointsMoved)
     eventBus.on("points:deleted", handlePointsDeleted)
 
-    // Initialize AutoHistoryPlugin for automatic history management
+    // ========== Plugin Initialization ==========
+    // AutoHistoryPlugin automatically captures history on all modification events
     autoHistoryPlugin.current = new AutoHistoryPlugin(
       historyManager.current,
       splineManager.current,
       svgObjectManager.current
     )
     autoHistoryPlugin.current.enable()
-    console.log("[Canvas] AutoHistoryPlugin initialized and enabled")
 
-    // Initialize ProjectManager for project lifecycle and state management
+    // Initialize ProjectManager for project lifecycle (save/load/export)
     projectManager.current = new ProjectManager({
       drawRef,
       canvasSizeRef,
@@ -645,9 +412,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager: svgObjectManager.current,
       selectedRef,
     })
-    console.log("[Canvas] ProjectManager initialized")
 
-    // cleanup
+    // ========== Cleanup Function ==========
     return () => {
       container.removeEventListener("wheel", handleWheel)
       container.removeEventListener("mousedown", handleMouseDown)
@@ -682,18 +448,17 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       draw.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []) // run once on mount only
+  }, []) // Run once on mount only
 
-  // --- Ensure canvas/grid/overlays update on window resize/fullscreen ---
+  // ========== Window Resize/Fullscreen Handler ==========
+  // Preserves logical canvas size while updating viewport and grid
   useEffect(() => {
     const handleResizeOrFullscreen = () => {
-      // Preserve original logical canvas size (do NOT overwrite canvasSizeRef).
-      // Only refit zoom/pan and redraw grid to match new container dimensions.
       const container = canvasRef.current
       const draw = drawRef.current
       if (!container || !draw) return
 
-      // Ensure viewbox matches logical size
+      // Preserve logical canvas size (don't modify canvasSizeRef)
       const { width: logicalW, height: logicalH } = canvasSizeRef.current
       draw.viewbox(0, 0, logicalW, logicalH)
 
@@ -706,7 +471,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         drawGrid(gridRef.current, canvasSizeRef.current, gridSizeRef.current)
       }
 
-      // Re-fit zoom to container
+      // Refit zoom to new container dimensions
       if (typeof fitToCanvas === "function") {
         fitToCanvas()
       } else if (typeof fitToCanvasHelper === "function") {
@@ -719,10 +484,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
           updateGridLineThickness
         )
       }
-      // Update overlays
-      if (typeof updateGroupOverlay === "function") updateGroupOverlay()
-      if (typeof updatePointGroupOverlay === "function")
-        updatePointGroupOverlay()
+
+      // Update selection overlays to match new viewport
+      selectionManager.current?.updateOverlay()
+      pointSelectionManager.current?.updateOverlay()
     }
     window.addEventListener("resize", handleResizeOrFullscreen)
     window.addEventListener("fullscreenchange", handleResizeOrFullscreen)
@@ -733,7 +498,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // When tool switches away from curve, hide all spline points
+  // ========== Tool Change Effects ==========
+  // Hide spline points when leaving point-editing tools
   useEffect(() => {
     const manager = splineManager.current
     if (!manager) return
@@ -741,7 +507,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     const allSplines = manager.getAllSplines()
     if (allSplines.length === 0) return
 
-    // Only hide points when leaving all point-editing tools (curve, line, straight)
+    // Hide points when not in point-editing tools
     if (
       selectedToolRef.current !== "curve" &&
       selectedToolRef.current !== "line" &&
@@ -753,98 +519,26 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     }
   }, [selectedTool])
 
-  // Update tool registry when tool changes (fix: always activate correct tool)
+  // Update tool registry and activate correct tool
   useEffect(() => {
     if (!toolRegistryRef.current) return
     selectedToolRef.current = selectedTool
-    console.log("[Canvas] useEffect tool change, activating:", selectedTool)
     activateToolInRegistry(toolRegistryRef.current, selectedTool || "select")
-    console.log("[Canvas] Tool changed to:", selectedTool)
 
     // Cancel any active drag selection if leaving select tool
     if (selectedToolRef.current !== "select") {
       selectionManager.current?.cancelDragSelection?.()
     }
 
-    // Also remove any lingering drag selection rectangle if tool switched
-    selectionManager.current?.clearSelection?.()
-    updateGroupOverlay()
-    updatePointGroupOverlay()
-    // Intentionally exclude updateGroupOverlay from deps to avoid recreating on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Emit tool change event for managers to react
+    eventBus.emit("tool:changed", selectedTool || "select")
   }, [selectedTool])
 
-  // dblclick: finish current spline (escape is handled by hotkeys)
-  useEffect(() => {
-    const handleDblClick = () => {
-      if (selectedToolRef.current === "curve") {
-        splineManager.current?.finishActiveSpline()
-        // ensure transform selection cleared too
-        splineManager.current?.clearSelection?.()
-      }
-    }
-
-    window.addEventListener("dblclick", handleDblClick)
-    return () => {
-      window.removeEventListener("dblclick", handleDblClick)
-    }
-  }, [selectedTool])
-
-  // grid thickness helper
+  // ========== Helper Functions ==========
   const updateGridThickness = (zoom) =>
     updateGridLineThickness(gridRef.current, zoom)
 
-  // Shift key behavior: freeform unless Shift is held -> lock preserveAspectRatio when Shift
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Shift") {
-        // imported SVG selection
-        if (selectedRef.current) {
-          try {
-            selectedRef.current.resize({ preserveAspectRatio: true }, true)
-          } catch {
-            // ignore resize errors
-          }
-        }
-        // spline selection
-        const s = splineManager.current?.getSelected()
-        if (s && s.group) {
-          try {
-            s.group.resize({ preserveAspectRatio: true })
-          } catch {
-            // ignore resize errors
-          }
-        }
-      }
-    }
-    const handleKeyUp = (e) => {
-      if (e.key === "Shift") {
-        if (selectedRef.current) {
-          try {
-            selectedRef.current.resize({ preserveAspectRatio: false }, false)
-          } catch {
-            // ignore resize errors
-          }
-        }
-        const s = splineManager.current?.getSelected()
-        if (s && s.group) {
-          try {
-            s.group.resize({ preserveAspectRatio: false })
-          } catch {
-            // ignore resize errors
-          }
-        }
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    window.addEventListener("keyup", handleKeyUp)
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown)
-      window.removeEventListener("keyup", handleKeyUp)
-    }
-  }, [])
-
-  // toolbar zoom
+  // ========== Toolbar Zoom Handler ==========
   useEffect(() => {
     if (!zoomSignal || !drawRef.current) return
     const { type } = zoomSignal
@@ -855,31 +549,23 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     updateGridThickness(newZoom)
   }, [zoomSignal])
 
-  // --- Import arbitrary SVG (unchanged behavioral expectations) ---
-  // Helper to (re)initialize interactive behaviors (drag, resize, select) for an imported SVG.
-  // This is now used both on initial import and when SVG objects are reconstructed via undo/redo.
-  // REMOVED: initializeSvgInteractive - now handled by SVGObjectManager.initializeInteractive()
-
+  // ========== Import/Delete Handlers ==========
   const handleImportSVG = async () => {
-    // Delegate to SVGObjectManager for all import logic
     await svgObjectManager.current?.importFromFile(drawRef.current)
   }
 
-  // REMOVED: useEffect for reinitializing interactive handlers - now handled in SVGObjectManager
-
   const handleDeleteSelected = () => {
-    // Try to delete selected SVG object first
+    // Try deleting selected SVG object first
     const svgMgr = svgObjectManager.current
     const selectedSvgId = svgMgr?.getSelectedId?.()
 
     if (selectedSvgId) {
       svgMgr.deleteObject(selectedSvgId)
       selectedRef.current = null
-      // AutoHistoryPlugin handles history save via svg:deleted event
       return
     }
 
-    // Otherwise try deleting selected spline
+    // Try deleting selected spline
     const selectedSpline = splineManager.current?.getSelected()
     if (selectedSpline) {
       splineManager.current?.deleteSpline(selectedSpline.id)
@@ -887,7 +573,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       return
     }
 
-    // Fallback: delete by selectedRef (legacy)
+    // Legacy fallback for direct selectedRef
     if (selectedRef.current) {
       const target = selectedRef.current
       target.select(false)
@@ -897,7 +583,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     }
   }
 
-  // fit-to-canvas helper
+  // Fit canvas viewport to container dimensions
   const fitToCanvas = () => {
     fitToCanvasHelper(
       drawRef,
@@ -909,17 +595,15 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     )
   }
 
-  // -- Expose methods via ref --
+  // ========== Imperative Handle (Exposed Methods) ==========
   useImperativeHandle(ref, () => ({
     importSVG: handleImportSVG,
     deleteSelected: handleDeleteSelected,
 
-    updateCanvasOnToolChange: (tool) => {
-      splineManager.current?.updateOnToolChange(tool)
-      svgObjectManager.current?.updateOnToolChange(tool)
-      splineManager.current?.clearSelection()
-      svgObjectManager.current?.clearSelection()
-      selectedRef.current = null
+    // Tool state updates (deprecated - now handled by EventBus via selectedTool prop)
+    updateCanvasOnToolChange: () => {
+      // No-op: tool changes are now handled by the selectedTool prop change
+      // which triggers the useEffect that emits tool:changed event
     },
 
     setGridSize: (newSize) => {
@@ -1071,9 +755,8 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         )
         if (newSpline) {
           newSpline.loadFromJSON(data)
-          // Offset position using SplineManager method
           splineManager.current.offsetSplinePoints(newSpline.id, 20, 20)
-          // Regenerate ID to avoid conflicts
+          // Generate unique ID to avoid conflicts
           newSpline.id = `spline_${Date.now()}_${Math.random()
             .toString(36)
             .substr(2, 9)}`
@@ -1095,9 +778,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
             })
           }
 
-          // Attach transform handlers
           splineManager.current?._transformAPI?.attachToAll?.()
-          // AutoHistoryPlugin handles history save via spline:created event
         }
       } else if (type === "svg") {
         if (!drawRef.current || !data) return
@@ -1111,13 +792,9 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         }
 
         if (imported) {
-          // Offset the pasted object
           imported.dmove(20, 20)
-
-          // Add to manager (this will initialize interactive behavior)
           svgObjectManager.current?.addObject(imported)
         }
-        // AutoHistoryPlugin handles history save via svg:imported event
       }
     },
     cut: () => {
@@ -1143,11 +820,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       svgObjectManager.current?.sendBackward()
     },
 
-    // Expose history manager for hotkeys (private API)
+    // History manager reference (private API for hotkeys)
     _historyManager: historyManager.current,
   }))
 
-  // Attach history manager to ref for hotkeys access
+  // Attach history manager to ref for external access
   if (ref?.current) {
     ref.current._historyManager = historyManager.current
   }
