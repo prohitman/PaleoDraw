@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
-  DialogTitle,
-  DialogContent,
   Box,
   Typography,
   Button,
   List,
-  ListItem,
   ListItemText,
   ListItemButton,
   ListItemIcon,
-  Paper,
   Divider,
   IconButton,
 } from "@mui/material"
@@ -43,9 +39,7 @@ export default function WelcomeScreen({
     }
   }, [open])
 
-  const handleOpenRecent = (path) => {
-    onOpenRecent(path)
-  }
+  const handleOpenRecent = (path) => onOpenRecent(path)
 
   return (
     <Dialog
@@ -57,14 +51,16 @@ export default function WelcomeScreen({
       }}
       maxWidth="md"
       fullWidth
-      PaperProps={{
-        sx: {
-          bgcolor: "background.paper",
-          color: "text.primary",
-          minHeight: "500px",
-          display: "flex",
-          flexDirection: "row",
-          overflow: "hidden",
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: "background.paper",
+            color: "text.primary",
+            minHeight: "500px",
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+          },
         },
       }}
     >
@@ -225,13 +221,15 @@ export default function WelcomeScreen({
                 <ListItemText
                   primary={project.name}
                   secondary={project.path}
-                  primaryTypographyProps={{ color: "text.primary" }}
-                  secondaryTypographyProps={{
-                    color: "text.secondary",
-                    style: {
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                  slotProps={{
+                    primary: { color: "text.primary" },
+                    secondary: {
+                      color: "text.secondary",
+                      style: {
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      },
                     },
                   }}
                 />

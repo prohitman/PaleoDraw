@@ -69,14 +69,10 @@ export default function App() {
   }
 
   /** Save to current project file (or prompt for location if new) */
-  const handleSaveProject = async () => {
-    await canvasRef.current?.saveProject?.()
-  }
+  const handleSaveProject = async () => await canvasRef.current?.saveProject?.()
 
-  /** Save as .json file (always prompts for new location) */
-  const handleSaveAs = async () => {
-    await canvasRef.current?.saveAsJSON?.("project.json")
-  }
+  /** Save as .json file (always prompts for new location as it represents a project copy) */
+  const handleSaveAs = async () => await canvasRef.current?.saveAsJSON?.("project.json")
 
   /** Load a project from .json */
   const handleOpenProject = () => {
@@ -155,13 +151,11 @@ export default function App() {
             onExport={handleExport}
             isDarkMode={isDarkMode}
             onToggleTheme={toggleTheme}
-            // Edit Menu Props
             onUndo={handleUndo}
             onRedo={handleRedo}
             onCopy={handleCopy}
             onPaste={handlePaste}
             onCut={handleCut}
-            // Z-Order Props
             onBringToFront={handleBringToFront}
             onBringForward={handleBringForward}
             onSendToBack={handleSendToBack}

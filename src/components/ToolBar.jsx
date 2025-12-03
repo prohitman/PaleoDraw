@@ -247,7 +247,7 @@ export default function ToolBar({
           anchorEl={anchorEl}
           open={activeMenu === "view"}
           onClose={handleMenuClose}
-          PaperProps={{ sx: { width: 320, p: 1 } }}
+          slotProps={{ paper: { sx: { width: 320, p: 1 } } }}
         >
           <MenuItem onClick={() => handleAction(() => onZoom("in"))}>
             Zoom In
