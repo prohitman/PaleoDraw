@@ -29,46 +29,57 @@ export class AutoHistoryPlugin {
 
   /**
    * Register listeners for all events that should trigger history saves
+   * All saves are immediate (no debouncing) to ensure consistent undo/redo
    */
   registerListeners() {
     // Spline events
-    eventBus.on("spline:created", () => this.saveHistory())
-    eventBus.on("spline:deleted", () => this.saveHistory())
-    eventBus.on("spline:modified", () => this.saveHistory())
-    eventBus.on("spline:moved", () => this.saveHistory())
-    eventBus.on("spline:transformed", () => this.saveHistory())
+    eventBus.on("spline:created", () => this.saveHistory(true))
+    eventBus.on("spline:deleted", () => this.saveHistory(true))
+    eventBus.on("spline:modified", () => this.saveHistory(true))
+    eventBus.on("spline:moved", () => this.saveHistory(true))
+    eventBus.on("spline:transformed", () => this.saveHistory(true))
 
     // SVG Object events
-    eventBus.on("svg:imported", () => this.saveHistory())
-    eventBus.on("svg:deleted", () => this.saveHistory())
-    eventBus.on("svg:modified", () => this.saveHistory())
-    eventBus.on("svg:moved", () => this.saveHistory())
-    eventBus.on("svg:transformed", () => this.saveHistory())
+    eventBus.on("svg:imported", () => this.saveHistory(true))
+    eventBus.on("svg:deleted", () => this.saveHistory(true))
+    eventBus.on("svg:modified", () => this.saveHistory(true))
+    eventBus.on("svg:moved", () => this.saveHistory(true))
+    eventBus.on("svg:transformed", () => this.saveHistory(true))
 
     // Point events
-    eventBus.on("point:added", () => this.saveHistory())
-    eventBus.on("point:removed", () => this.saveHistory())
-    eventBus.on("point:moved", () => this.saveHistory())
-    eventBus.on("point:modified", () => this.saveHistory())
+    eventBus.on("point:added", () => this.saveHistory(true))
+    eventBus.on("point:removed", () => this.saveHistory(true))
+    eventBus.on("point:moved", () => this.saveHistory(true))
+    eventBus.on("point:modified", () => this.saveHistory(true))
 
     // Group operations
-    eventBus.on("selection:deleted", () => this.saveHistory())
-    eventBus.on("selection:moved", () => this.saveHistory())
-    eventBus.on("points:deleted", () => this.saveHistory())
-    eventBus.on("points:moved", () => this.saveHistory())
+    eventBus.on("selection:deleted", () => this.saveHistory(true))
+    eventBus.on("selection:moved", () => this.saveHistory(true))
+    eventBus.on("points:deleted", () => this.saveHistory(true))
+    eventBus.on("points:moved", () => this.saveHistory(true))
 
     console.log(
-      "[AutoHistoryPlugin] Registered listeners for all modification events"
+      "[AutoHistoryPlugin] Registered listeners for all modification events (immediate saves)"
     )
   }
 
   /**
    * Save history snapshot (with optional debouncing)
+   * @param {boolean} immediate - If true, skip debounce and save immediately
    */
-  saveHistory() {
+  saveHistory(immediate = false) {
     if (!this.enabled) return
 
-    if (this.debounceMs > 0) {
+    // Clear any pending debounced save when immediate save is requested
+    if (immediate && this.saveTimeout) {
+      clearTimeout(this.saveTimeout)
+      this.saveTimeout = null
+    }
+
+    if (immediate || this.debounceMs <= 0) {
+      // Immediate save
+      this.performSave()
+    } else {
       // Debounced save
       if (this.saveTimeout) {
         clearTimeout(this.saveTimeout)
@@ -76,9 +87,6 @@ export class AutoHistoryPlugin {
       this.saveTimeout = setTimeout(() => {
         this.performSave()
       }, this.debounceMs)
-    } else {
-      // Immediate save
-      this.performSave()
     }
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { ThemeProvider, CssBaseline } from "@mui/material"
 import Toolbar from "./components/ToolBar"
 import TitleBar from "./components/TitleBar"
@@ -23,17 +23,7 @@ export default function App() {
     }
   }, [isDarkMode])
 
-  const toggleTheme = () => {
-    setIsDarkMode((prev) => !prev)
-  }
-
-  const handleZoom = (type) => {
-    setZoomSignal({ type, timestamp: Date.now() })
-  }
-  const handleImportSVG = () => canvasRef.current.importSVG()
-  const handleDelete = () => {
-    canvasRef.current?.deleteSelected()
-  }
+  const toggleTheme = () => setIsDarkMode((prev) => !prev)
 
   // Edit Menu Handlers
   const handleUndo = () => canvasRef.current?.undo?.()
@@ -41,31 +31,30 @@ export default function App() {
   const handleCopy = () => canvasRef.current?.copy?.()
   const handlePaste = () => canvasRef.current?.paste?.()
   const handleCut = () => canvasRef.current?.cut?.()
-
-  // Z-Order Handlers
+  const handleDelete = () => canvasRef.current?.deleteSelected?.()
   const handleBringToFront = () => canvasRef.current?.bringToFront?.()
   const handleBringForward = () => canvasRef.current?.bringForward?.()
   const handleSendToBack = () => canvasRef.current?.sendToBack?.()
   const handleSendBackward = () => canvasRef.current?.sendBackward?.()
 
+  // Tool Menu Handler
   const selectTool = (tool) => {
     console.log("[App] selectTool called with:", tool)
     setSelectedTool(tool)
     setTimeout(() => {
       console.log("[App] selectedTool state after set:", tool)
-      canvasRef.current?.updateCanvasOnToolChange(tool)
+      canvasRef.current?.updateCanvasOnToolChange?.(tool)
     }, 0)
     console.log("Selected tool:", tool)
   }
 
-  const applyGridSize = (size) => {
-    canvasRef.current?.setGridSize(size)
-  }
+  // View Menu Handlers
+  /** Unique signal for zoom action, store timestamp to ensure re-render */
+  const handleZoom = (type) => setZoomSignal({ type, timestamp: Date.now() })
+  const applyGridSize = (size) => canvasRef.current?.setGridSize?.(size)
+  const applyCanvasSize = (w, h) => canvasRef.current?.resizeCanvas?.(w, h)
 
-  const applyCanvasSize = (w, h) => {
-    canvasRef.current?.resizeCanvas(w, h)
-  }
-
+  // File Menu Handlers
   /** Create a new blank project */
   const handleNewProject = () => {
     if (showWelcome) {
@@ -79,17 +68,14 @@ export default function App() {
     }
   }
 
-  /** Save to localStorage (optional quick-save) */
-  const handleSaveProject = () => {
-    const json = canvasRef.current?.getProjectJSON?.()
-    if (!json) return
-    localStorage.setItem("savedProject", json)
-    alert("Project saved locally (JSON)!")
+  /** Save to current project file (or prompt for location if new) */
+  const handleSaveProject = async () => {
+    await canvasRef.current?.saveProject?.()
   }
 
-  /** Save as .json file */
-  const handleSaveAs = () => {
-    canvasRef.current?.saveAsJSON?.("project.json")
+  /** Save as .json file (always prompts for new location) */
+  const handleSaveAs = async () => {
+    await canvasRef.current?.saveAsJSON?.("project.json")
   }
 
   /** Load a project from .json */
@@ -101,21 +87,13 @@ export default function App() {
     }, 100)
   }
 
+  const handleExport = () => canvasRef.current?.exportAsSVG?.("drawing.svg")
+  const handleImportSVG = () => canvasRef.current?.importSVG?.()
+
   const handleOpenRecent = (path) => {
     setShowWelcome(false)
-    // We need to access internal refs from Canvas, which is tricky via ref.
-    // But we exposed _restoreState. However, loadProjectFromPath needs raw refs.
-    // Ideally, we should move loadProjectFromPath INTO Canvas or expose a method on Canvas ref.
-    // Let's use the exposed method on Canvas ref if possible, or pass the refs if we had them.
-    // Since we don't have direct access to Canvas internal refs here, we should expose a method on Canvas.
-
-    // Actually, let's call a method on the canvas ref that delegates to the handler
+    console.log("[App] Opening recent project:", path)
     canvasRef.current?.loadProjectFromPath?.(path)
-  }
-
-  /** Export SVG (excluding grid/background) */
-  const handleExport = () => {
-    canvasRef.current?.exportAsSVG?.("drawing.svg")
   }
 
   return (

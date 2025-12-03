@@ -35,10 +35,7 @@ export default class HotkeysManager {
     const registryKey = `${key}@${scope}`
     this.registry.set(registryKey, { key, scope, handler, description })
 
-    // Bind to hotkeys-js using "all" scope so it always listens
-    // We'll do our own scope filtering in the handler
     hotkeys(key, "all", (event, hotkeyHandler) => {
-      // Check if scope is active
       if (!this.activeScopes.has(scope)) {
         console.log(
           `[HotkeysManager] Hotkey ${key} ignored - scope ${scope} not active. Active scopes:`,
@@ -47,7 +44,6 @@ export default class HotkeysManager {
         return
       }
 
-      // Filter out hotkeys when typing in inputs (unless it's a special key)
       const target = event.target || event.srcElement
       const tagName = target.tagName
       const isInput =

@@ -95,7 +95,7 @@ export const curveToolHandlers = {
         manager.pointSelectionManager.clearSelection()
       }
       manager.insertPointByProximity(selectedSpline.id, x, y)
-      manager.finishDrawing()
+      // DON'T call finishDrawing() - keep spline selected for continued editing
       e.stopPropagation()
       return
     }

@@ -34,6 +34,7 @@ import {
 import {
   createNewProject,
   getProjectJSON,
+  saveProject as saveProjectFile,
   saveAsJSON,
   loadFromJSON,
   loadProjectFromPath,
@@ -75,6 +76,10 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     lastX: 0,
     lastY: 0,
   })
+
+  // Project state tracking
+  const currentProjectPathRef = useRef(null) // Current saved project file path
+  const isDirtyRef = useRef(false) // Has unsaved changes
 
   const initialGridSize = 25
   const initialCanvasWidth = 1200
@@ -348,6 +353,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
 
     // grid
     const grid = draw.group().id("canvas-grid")
+    grid.attr("data-protected-layer", "true") // Protect from z-ordering operations
     gridRef.current = grid
 
     grid._drawGrid = (gSize = gridSizeRef.current) =>
@@ -637,6 +643,40 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     autoHistoryPlugin.current.enable()
     console.log("[Canvas] AutoHistoryPlugin initialized and enabled")
 
+    // --- Dirty state tracking: Mark as dirty on any modification ---
+    const markAsDirty = () => {
+      if (!isDirtyRef.current) {
+        isDirtyRef.current = true
+        eventBus.emit("project:dirty-changed", { isDirty: true })
+      }
+    }
+
+    // Listen to all modification events
+    const dirtyEvents = [
+      "spline:created",
+      "spline:deleted",
+      "spline:modified",
+      "spline:moved",
+      "spline:transformed",
+      "svg:imported",
+      "svg:deleted",
+      "svg:modified",
+      "svg:moved",
+      "svg:transformed",
+      "point:added",
+      "point:removed",
+      "point:moved",
+      "point:modified",
+      "selection:deleted",
+      "selection:moved",
+      "points:deleted",
+      "points:moved",
+    ]
+
+    dirtyEvents.forEach((event) => {
+      eventBus.on(event, markAsDirty)
+    })
+
     // cleanup
     return () => {
       container.removeEventListener("wheel", handleWheel)
@@ -657,6 +697,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       eventBus.off("point-selection:changed", handlePointSelectionChanged)
       eventBus.off("points:moved", handlePointsMoved)
       eventBus.off("points:deleted", handlePointsDeleted)
+
+      // Clean up dirty state listeners
+      dirtyEvents.forEach((event) => {
+        eventBus.off(event, markAsDirty)
+      })
 
       // Destroy transform API and clean up its listeners
       if (transformAPI?.destroy) {
@@ -930,7 +975,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
     },
 
     // --- Project operations delegated to projecthandler ---
-    newProject: () =>
+    newProject: () => {
       createNewProject(
         drawRef,
         canvasSizeRef,
@@ -940,7 +985,13 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current,
         svgObjectManager.current,
         selectedRef
-      ),
+      )
+      // Clear project path and dirty state
+      currentProjectPathRef.current = null
+      isDirtyRef.current = false
+      eventBus.emit("project:dirty-changed", { isDirty: false })
+      eventBus.emit("project:path-changed", { path: null, name: null })
+    },
 
     getProjectJSON: () =>
       getProjectJSON(
@@ -951,10 +1002,45 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         svgObjectManager.current
       ),
 
-    saveAsJSON: (filename = "project.json") => saveAsJSON(filename, ref),
+    saveProject: async () => {
+      console.log(
+        "[Canvas.saveProject] currentProjectPathRef:",
+        currentProjectPathRef.current
+      )
+      const savedPath = await saveProjectFile(
+        currentProjectPathRef.current,
+        ref
+      )
+      if (savedPath) {
+        currentProjectPathRef.current = savedPath
+        isDirtyRef.current = false
+        const projectName = savedPath.split(/[/\\]/).pop().replace(".json", "")
+        eventBus.emit("project:dirty-changed", { isDirty: false })
+        eventBus.emit("project:path-changed", {
+          path: savedPath,
+          name: projectName,
+        })
+      }
+      return savedPath
+    },
 
-    loadFromJSON: () =>
-      loadFromJSON(
+    saveAsJSON: async (filename = "project.json") => {
+      const savedPath = await saveAsJSON(filename, ref)
+      if (savedPath) {
+        currentProjectPathRef.current = savedPath
+        isDirtyRef.current = false
+        const projectName = savedPath.split(/[/\\]/).pop().replace(".json", "")
+        eventBus.emit("project:dirty-changed", { isDirty: false })
+        eventBus.emit("project:path-changed", {
+          path: savedPath,
+          name: projectName,
+        })
+      }
+      return savedPath
+    },
+
+    loadFromJSON: async () => {
+      const loadedPath = await loadFromJSON(
         drawRef,
         canvasSizeRef,
         gridSizeRef,
@@ -963,10 +1049,22 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current,
         svgObjectManager.current,
         selectedRef
-      ),
+      )
+      if (loadedPath) {
+        currentProjectPathRef.current = loadedPath
+        const projectName = loadedPath.split(/[/\\]/).pop().replace(".json", "")
+        eventBus.emit("project:path-changed", {
+          path: loadedPath,
+          name: projectName,
+        })
+      }
+      isDirtyRef.current = false
+      eventBus.emit("project:dirty-changed", { isDirty: false })
+    },
 
-    loadProjectFromPath: (path) =>
-      loadProjectFromPath(
+    loadProjectFromPath: async (path) => {
+      console.log("[Canvas.loadProjectFromPath] Loading from path:", path)
+      await loadProjectFromPath(
         path,
         drawRef,
         canvasSizeRef,
@@ -976,7 +1074,17 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current,
         svgObjectManager.current,
         selectedRef
-      ),
+      )
+      currentProjectPathRef.current = path
+      console.log(
+        "[Canvas.loadProjectFromPath] Set currentProjectPathRef to:",
+        path
+      )
+      isDirtyRef.current = false
+      const projectName = path.split(/[/\\]/).pop().replace(".json", "")
+      eventBus.emit("project:dirty-changed", { isDirty: false })
+      eventBus.emit("project:path-changed", { path, name: projectName })
+    },
 
     exportAsSVG: (filename = "project.svg") =>
       exportAsSVG(
@@ -986,6 +1094,18 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
         splineManager.current,
         svgObjectManager.current
       ),
+
+    // Project state queries
+    getProjectInfo: () => ({
+      path: currentProjectPathRef.current,
+      name: currentProjectPathRef.current
+        ? currentProjectPathRef.current
+            .split(/[/\\]/)
+            .pop()
+            .replace(".json", "")
+        : null,
+      isDirty: isDirtyRef.current,
+    }),
 
     // Edit Menu Operations
     undo: () => {

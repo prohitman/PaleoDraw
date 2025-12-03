@@ -41,6 +41,23 @@ export default class SVGObjectManager {
       console.warn("[SVGObjectManager] Failed to enable draggable on SVG", err)
     }
 
+    // Setup keyboard listener for Shift key to toggle aspect ratio
+    const updateResizeOptions = (e) => {
+      if (this.selectedRef === svgElement) {
+        svgElement.resize({
+          rotationPoint: true,
+          preserveAspectRatio: !e?.shiftKey, // Default true, false when Shift held
+        })
+      }
+    }
+
+    // Store listener reference for cleanup
+    svgElement._keyListener = updateResizeOptions
+
+    // Listen for Shift key changes
+    document.addEventListener("keydown", updateResizeOptions)
+    document.addEventListener("keyup", updateResizeOptions)
+
     // Drag start - clear selection UI temporarily
     svgElement.on("dragstart", () => {
       svgElement._isDragging = true
@@ -65,7 +82,10 @@ export default class SVGObjectManager {
           svgElement.resize(false)
           setTimeout(() => {
             svgElement.select(selectionOptions)
-            svgElement.resize({ rotationPoint: true })
+            svgElement.resize({
+              rotationPoint: true,
+              preserveAspectRatio: true,
+            })
             this.selectedRef = svgElement
           }, 0)
         } catch (err) {
@@ -121,8 +141,13 @@ export default class SVGObjectManager {
       }, 1)
     })
 
-    // Click - handle selection
+    // Click - handle selection (only in select mode)
     svgElement.on("click", (ev) => {
+      // Only allow selection when using select tool
+      if (this.selectedToolRef && this.selectedToolRef.current !== "select") {
+        console.log("[SVGObjectManager] Click ignored - not in select mode")
+        return
+      }
       ev.stopPropagation()
       this.selectObject(svgElement._objectId)
       this.selectedRef = this.getSelected()
@@ -192,6 +217,13 @@ export default class SVGObjectManager {
     if (!obj) {
       console.warn("[SVGObjectManager] Object not found:", objectId)
       return
+    }
+
+    // Cleanup keyboard listeners
+    if (obj._keyListener) {
+      document.removeEventListener("keydown", obj._keyListener)
+      document.removeEventListener("keyup", obj._keyListener)
+      delete obj._keyListener
     }
 
     try {
@@ -276,7 +308,11 @@ export default class SVGObjectManager {
     if (current) {
       try {
         current.select?.(selectionOptions)
-        current.resize?.({ rotationPoint: true })
+        // Preserve aspect ratio by default
+        current.resize?.({
+          rotationPoint: true,
+          preserveAspectRatio: true,
+        })
       } catch (err) {
         console.warn("[SVGObjectManager] Error selecting object:", err)
       }
@@ -387,26 +423,29 @@ export default class SVGObjectManager {
 
   /**
    * Move selected object to back
+   * Keeps it above background and grid
    */
   sendToBack() {
     const obj = this.getSelected()
     if (!obj) return
 
-    obj.back()
-
-    // Ensure it stays above bg/grid
-    // We need access to draw instance to find bg/grid, or just look at siblings
-    // Since we don't have direct ref to draw here easily (except via obj.parent()),
-    // we can use obj.parent().findOne(...)
+    // Find bg and grid elements via parent
     const parent = obj.parent()
     if (parent) {
       const bg = parent.findOne("#canvas-bg")
       const grid = parent.findOne("#canvas-grid")
+
+      // Move after grid (or bg if no grid) - do NOT use .back()
       if (grid) {
         obj.after(grid)
       } else if (bg) {
         obj.after(bg)
+      } else {
+        // Fallback only if no bg/grid found
+        obj.back()
       }
+    } else {
+      obj.back()
     }
   }
 

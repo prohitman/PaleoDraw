@@ -241,12 +241,9 @@ export default class SelectionManager {
           const selBox = obj.node.querySelector(".svg-select-box")
           if (selBox) selBox.remove()
         }
-        try {
-          obj?.resize?.(false)
-          obj?.select?.(false)
-        } catch {
-          // ignore
-        }
+
+        obj?.select?.(false)
+        obj?.resize?.(false)
       })
     }
 
@@ -571,45 +568,52 @@ export default class SelectionManager {
     // Move selected SVG objects
     this.selectedSvgObjects.forEach((objId) => {
       const obj = this.svgObjectManager?.getObject?.(objId)
-      if (
-        obj &&
-        typeof obj.x === "function" &&
-        typeof obj.y === "function" &&
-        typeof obj.move === "function"
-      ) {
-        // If the object has a transform, convert global delta to local
-        let tdx = dx,
-          tdy = dy
-        if (typeof obj.ctm === "function") {
-          const ctm = obj.ctm()
-          if (ctm && typeof ctm.inverse === "function") {
-            const inverse = ctm.inverse()
-            if (inverse && typeof inverse.transformPoint === "function") {
-              const local = inverse.transformPoint({ x: dx, y: dy })
-              tdx = local.x
-              tdy = local.y
+      if (obj) {
+        // Prepare local deltas (will adjust if transform present)
+        let tdx = dx
+        let tdy = dy
+        try {
+          // Convert global delta (dx,dy) into the object's local coordinate space
+          if (typeof obj.ctm === "function") {
+            try {
+              const ctm = obj.ctm()
+              if (ctm && typeof ctm.inverse === "function") {
+                const inv = ctm.inverse()
+                if (inv && typeof inv.transformPoint === "function") {
+                  const local = inv.transformPoint({ x: dx, y: dy })
+                  tdx = local.x
+                  tdy = local.y
+                } else {
+                  // Fallback manual inverse application if transformPoint not available
+                  // Using matrix components (a,b,c,d,e,f) of inverse as linear part
+                  if (inv && typeof inv.a === "number") {
+                    const lx = inv.a * dx + inv.c * dy
+                    const ly = inv.b * dx + inv.d * dy
+                    tdx = lx
+                    tdy = ly
+                  }
+                }
+              }
+            } catch {
+              // Ignore CTM conversion errors; keep raw dx/dy
             }
           }
-        }
-        if (typeof obj.dmove === "function") {
-          obj.dmove(tdx, tdy)
-        } else {
-          const currentX = obj.x() || 0
-          const currentY = obj.y() || 0
-          obj.move(currentX + tdx, currentY + tdy)
-        }
-
-        // If this object has an individual selection box active, hide/update it
-        // This prevents the "ghost" selection box issue during group drag
-        if (obj.node && obj.node.querySelector(".svg-select-box")) {
-          try {
-            // Temporarily disable selection box during move
-            // It will be re-enabled if needed when selection is refreshed or drag ends
-            obj.select(false)
-            obj.resize(false)
-          } catch {
-            // ignore
+          if (typeof obj.dmove === "function") {
+            obj.dmove(tdx, tdy)
+          } else {
+            const currentX = obj.x?.() || obj.bbox?.().x || 0
+            const currentY = obj.y?.() || obj.bbox?.().y || 0
+            obj.move(currentX + tdx, currentY + tdy)
           }
+          // Remove lingering selection box after nudge
+          if (obj.node) {
+            const selBox = obj.node.querySelector(".svg-select-box")
+            if (selBox) selBox.remove()
+          }
+          obj.select?.(false)
+          obj.resize?.(false)
+        } catch (moveErr) {
+          console.warn("[Hotkeys] Failed to move SVG object", moveErr)
         }
       }
     })

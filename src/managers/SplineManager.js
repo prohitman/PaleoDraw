@@ -465,19 +465,19 @@ export default class SplineManager {
     const spline = this.getSelected()
     if (!spline || !spline.group) return
 
-    // Move to back first (which puts it at index 0)
-    spline.group.back()
-
-    // Then move forward past bg and grid
-    // Assuming bg is 0 and grid is 1 (or similar)
-    // Safer: find bg and grid and move after them
+    // Find bg and grid elements
     const bg = this.draw.findOne("#canvas-bg")
     const grid = this.draw.findOne("#canvas-grid")
 
+    // Move after grid (or bg if no grid) to ensure it stays above them
+    // Do NOT use .back() as it can break z-order
     if (grid) {
       spline.group.after(grid)
     } else if (bg) {
       spline.group.after(bg)
+    } else {
+      // Fallback: move to back if no bg/grid found
+      spline.group.back()
     }
   }
 
@@ -526,6 +526,12 @@ export default class SplineManager {
     if (this.selectedSplineId) {
       const current = this.splines.get(this.selectedSplineId)
       if (current) {
+        // Cleanup keyboard listeners
+        if (current._keyListener) {
+          document.removeEventListener("keydown", current._keyListener)
+          document.removeEventListener("keyup", current._keyListener)
+          delete current._keyListener
+        }
         current.setSelected(false)
       }
       this.selectedSplineId = null
@@ -878,9 +884,29 @@ export default class SplineManager {
       const el = spline.group
       // Only show selection box in select mode
       el.select(selectionOptions)
-      el.resize({ rotationPoint: true })
+      // Preserve aspect ratio by default
+      el.resize({
+        rotationPoint: true,
+        preserveAspectRatio: true,
+      })
       el.draggable()
       console.log("[transformAPI.selectSpline] Selection box attached")
+
+      // Setup keyboard listener for Shift key to toggle aspect ratio
+      const updateResizeOptions = (e) => {
+        if (this.selectedSplineId === spline.id) {
+          el.resize({
+            rotationPoint: true,
+            preserveAspectRatio: !e?.shiftKey,
+          })
+        }
+      }
+
+      // Store listener reference for cleanup
+      spline._keyListener = updateResizeOptions
+      document.addEventListener("keydown", updateResizeOptions)
+      document.addEventListener("keyup", updateResizeOptions)
+
       el.off(".splineTransform")
 
       // ===== DRAG HANDLERS =====

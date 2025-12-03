@@ -34,7 +34,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "ctrl+s",
     "global",
     () => {
-      canvasRef?.current?.saveAsJSON?.()
+      canvasRef?.current?.saveProject?.()
     },
     "Save project"
   )

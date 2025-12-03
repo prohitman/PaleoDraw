@@ -79,20 +79,107 @@ export function getProjectJSON(
   return JSON.stringify(project, null, 2)
 }
 
-export function saveAsJSON(filename, ref) {
+/**
+ * Save the current project to a file using IPC bridge (Electron) or browser download (fallback)
+ * @param {string} currentPath - Current project file path (if already saved)
+ * @param {object} ref - Canvas ref containing getProjectJSON method
+ * @returns {Promise<string|null>} - Returns the saved file path or null if cancelled
+ */
+export async function saveProject(currentPath, ref) {
   const jsonStr = ref.current?.getProjectJSON?.()
-  if (!jsonStr) return
-  const blob = new Blob([jsonStr], { type: "application/json" })
-  const a = document.createElement("a")
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(a.href)
+  if (!jsonStr) return null
+
+  console.log("[saveProject] currentPath:", currentPath)
+
+  // Use IPC bridge if available (Electron)
+  if (window.api?.saveProjectFile) {
+    try {
+      // If currentPath exists, save directly without dialog
+      if (currentPath && window.api.saveProjectFileDirect) {
+        console.log("[saveProject] Saving directly to:", currentPath)
+        const result = await window.api.saveProjectFileDirect(
+          currentPath,
+          jsonStr
+        )
+        if (result.success) {
+          console.log("[saveProject] Direct save successful")
+          addToRecentProjects(result.filePath)
+          return result.filePath
+        }
+      } else {
+        // No current path - show save dialog for new project
+        console.log("[saveProject] No current path, showing dialog")
+        const defaultPath = "project.json"
+        const result = await window.api.saveProjectFile(defaultPath, jsonStr)
+
+        if (result.canceled || !result.filePath) {
+          return null
+        }
+
+        if (result.success) {
+          addToRecentProjects(result.filePath)
+          return result.filePath
+        }
+      }
+    } catch (err) {
+      console.error("Failed to save project:", err)
+      alert("Failed to save project: " + err.message)
+      return null
+    }
+  } else {
+    // Fallback to browser download
+    const blob = new Blob([jsonStr], { type: "application/json" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = currentPath?.split(/[/\\]/).pop() || "project.json"
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return null // Can't track path in browser mode
+  }
+}
+/**
+ * Save as JSON (always prompts for new location)
+ * This is "Save As" functionality - always shows dialog
+ */
+export async function saveAsJSON(filename, ref) {
+  const jsonStr = ref.current?.getProjectJSON?.()
+  if (!jsonStr) return null
+
+  // Use IPC bridge if available (Electron)
+  if (window.api?.saveProjectFile) {
+    try {
+      const defaultPath = filename || "project.json"
+      const result = await window.api.saveProjectFile(defaultPath, jsonStr)
+
+      if (result.canceled || !result.filePath) {
+        return null
+      }
+
+      if (result.success) {
+        addToRecentProjects(result.filePath)
+        return result.filePath
+      }
+    } catch (err) {
+      console.error("Failed to save project:", err)
+      alert("Failed to save project: " + err.message)
+      return null
+    }
+  } else {
+    // Fallback to browser download
+    const blob = new Blob([jsonStr], { type: "application/json" })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename || "project.json"
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return null // Can't track path in browser mode
+  }
 }
 
 /**
  * Load a project JSON file and reconstruct the canvas.
  * Uses SplineManager to handle spline reconstruction with proper handlers attached.
+ * @returns {Promise<string|null>} - Returns the loaded file path or null if cancelled
  */
 export async function loadFromJSON(
   drawRef,
@@ -104,76 +191,85 @@ export async function loadFromJSON(
   svgObjectManager,
   selectedRef
 ) {
-  if (!drawRef.current) return
+  if (!drawRef.current) return null
 
-  const input = document.createElement("input")
-  input.type = "file"
-  input.accept = ".json"
-  input.onchange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-
-    // If in Electron, save path to recent projects
-    if (file.path) {
-      addToRecentProjects(file.path)
-    }
-
-    const text = await file.text()
-    let data
-
-    try {
-      data = JSON.parse(text)
-    } catch {
-      console.error("Invalid JSON project file")
-      return
-    }
-
-    const draw = drawRef.current
-    draw.clear()
-
-    // Restore canvas size if present
-    if (data.canvas) {
-      canvasSizeRef.current = data.canvas
-      draw.size(data.canvas.width, data.canvas.height)
-      draw.viewbox(0, 0, data.canvas.width, data.canvas.height)
-    }
-
-    // Background + grid
-    const bg = draw
-      .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
-      .addClass("canvas-bg-rect")
-      .id("canvas-bg")
-    bg.node.style.pointerEvents = "none"
-
-    const grid = draw.group().id("canvas-grid")
-    gridRef.current = grid
-    grid._drawGrid = (gSize = data.gridSize || gridSizeRef.current) =>
-      drawGrid(grid, canvasSizeRef.current, gSize)
-    grid._drawGrid(data.gridSize || gridSizeRef.current)
-    gridSizeRef.current = data.gridSize || gridSizeRef.current
-    fitToCanvas()
-
-    // Restore splines using SplineManager
-    if (Array.isArray(data.splines)) {
-      splineManager.loadState(data.splines)
-      // Ensure all splines are deselected and points hidden on import
-      splineManager.clearSelection()
-      splineManager.getAllSplines().forEach((spline) => {
-        spline.setSelected(false)
-      })
-    }
-
-    // Restore imported SVGs using SVGObjectManager
-    if (Array.isArray(data.importedSVGs)) {
-      if (svgObjectManager?.loadState) {
-        svgObjectManager.loadState(data.importedSVGs, draw)
+  return new Promise((resolve) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".json"
+    input.onchange = async (e) => {
+      const file = e.target.files[0]
+      if (!file) {
+        resolve(null)
+        return
       }
+
+      const filePath = file.path || null // Electron provides file.path
+
+      // If in Electron, save path to recent projects
+      if (filePath) {
+        addToRecentProjects(filePath)
+      }
+
+      const text = await file.text()
+      let data
+
+      try {
+        data = JSON.parse(text)
+      } catch {
+        console.error("Invalid JSON project file")
+        resolve(null)
+        return
+      }
+
+      const draw = drawRef.current
+      draw.clear()
+
+      // Restore canvas size if present
+      if (data.canvas) {
+        canvasSizeRef.current = data.canvas
+        draw.size(data.canvas.width, data.canvas.height)
+        draw.viewbox(0, 0, data.canvas.width, data.canvas.height)
+      }
+
+      // Background + grid
+      const bg = draw
+        .rect(canvasSizeRef.current.width, canvasSizeRef.current.height)
+        .addClass("canvas-bg-rect")
+        .id("canvas-bg")
+      bg.node.style.pointerEvents = "none"
+
+      const grid = draw.group().id("canvas-grid")
+      gridRef.current = grid
+      grid._drawGrid = (gSize = data.gridSize || gridSizeRef.current) =>
+        drawGrid(grid, canvasSizeRef.current, gSize)
+      grid._drawGrid(data.gridSize || gridSizeRef.current)
+      gridSizeRef.current = data.gridSize || gridSizeRef.current
+      fitToCanvas()
+
+      // Restore splines using SplineManager
+      if (Array.isArray(data.splines)) {
+        splineManager.loadState(data.splines)
+        // Ensure all splines are deselected and points hidden on import
+        splineManager.clearSelection()
+        splineManager.getAllSplines().forEach((spline) => {
+          spline.setSelected(false)
+        })
+      }
+
+      // Restore imported SVGs using SVGObjectManager
+      if (Array.isArray(data.importedSVGs)) {
+        if (svgObjectManager?.loadState) {
+          svgObjectManager.loadState(data.importedSVGs, draw)
+        }
+      }
+
+      selectedRef.current = null
+      resolve(filePath)
     }
 
-    selectedRef.current = null
-  }
-
-  input.click()
+    input.click()
+  })
 }
 
 /**
@@ -296,8 +392,9 @@ function addToRecentProjects(path) {
  * @param {object} svgObjects
  * @param {SplineManager} splineManager
  * @param {boolean} includePoints - optional; default false. If true, include point circles.
+ * @returns {Promise<boolean>} - Returns true if export succeeded, false otherwise
  */
-export function exportAsSVG(
+export async function exportAsSVG(
   filename,
   drawRef,
   canvasSizeRef,
@@ -306,7 +403,7 @@ export function exportAsSVG(
   includePoints = false
 ) {
   const draw = drawRef.current
-  if (!draw) return
+  if (!draw) return false
 
   // create offscreen temp document sized to canvas
   const temp = SVG()
@@ -369,12 +466,31 @@ export function exportAsSVG(
   const svgContent = temp.svg()
   temp.remove()
 
-  const blob = new Blob([svgContent], {
-    type: "image/svg+xml;charset=utf-8",
-  })
-  const a = document.createElement("a")
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(a.href)
+  // Use IPC bridge if available (Electron)
+  if (window.api?.exportSVGFile) {
+    try {
+      const result = await window.api.exportSVGFile(filename, svgContent)
+
+      if (result.canceled || !result.filePath) {
+        return false
+      }
+
+      return result.success
+    } catch (err) {
+      console.error("Failed to export SVG:", err)
+      alert("Failed to export SVG: " + err.message)
+      return false
+    }
+  } else {
+    // Fallback to browser download
+    const blob = new Blob([svgContent], {
+      type: "image/svg+xml;charset=utf-8",
+    })
+    const a = document.createElement("a")
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(a.href)
+    return true
+  }
 }

@@ -1,7 +1,11 @@
-import React, { useEffect } from "react"
+import React, { useEffect, useState } from "react"
 import { Box, Typography } from "@mui/material"
+import eventBus from "../utils/EventBus"
 
 const TitleBar = ({ isDarkMode }) => {
+  const [projectName, setProjectName] = useState(null)
+  const [isDirty, setIsDirty] = useState(false)
+
   const bgColor = isDarkMode ? "#181818" : "#f5f5f5"
   const textColor = isDarkMode ? "#ffffff" : "#000000"
   const borderColor = isDarkMode ? "#333" : "#e0e0e0"
@@ -15,6 +19,30 @@ const TitleBar = ({ isDarkMode }) => {
       })
     }
   }, [isDarkMode, bgColor, textColor])
+
+  // Listen to project state changes
+  useEffect(() => {
+    const handlePathChanged = ({ name }) => {
+      setProjectName(name)
+    }
+
+    const handleDirtyChanged = ({ isDirty: dirty }) => {
+      setIsDirty(dirty)
+    }
+
+    eventBus.on("project:path-changed", handlePathChanged)
+    eventBus.on("project:dirty-changed", handleDirtyChanged)
+
+    return () => {
+      eventBus.off("project:path-changed", handlePathChanged)
+      eventBus.off("project:dirty-changed", handleDirtyChanged)
+    }
+  }, [])
+
+  // Build title text
+  const titleText = projectName
+    ? `${projectName}${isDirty ? " *" : ""} - PaleoDraw`
+    : "PaleoDraw"
 
   return (
     <Box
@@ -39,9 +67,9 @@ const TitleBar = ({ isDarkMode }) => {
       />
       <Typography
         variant="caption"
-        sx={{ fontWeight: "bold", fontFamily: "Inter, sans-serif" }}
+        sx={{ fontWeight: "bold", fontFamily: "Avenir" }}
       >
-        PaleoDraw
+        {titleText}
       </Typography>
     </Box>
   )
