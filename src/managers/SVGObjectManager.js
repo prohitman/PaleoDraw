@@ -543,7 +543,15 @@ export default class SVGObjectManager {
    * @returns {object[]}
    */
   getState() {
+    console.log("[SVGObjectManager.getState] Called", {
+      objectsMapSize: this.objects.size,
+      objectIds: Array.from(this.objects.keys()),
+    })
     const allObjects = this.getAllObjects()
+    console.log(
+      "[SVGObjectManager.getState] allObjects length:",
+      allObjects.length
+    )
 
     // Sort by DOM order if possible
     if (allObjects.length > 0 && allObjects[0].parent()) {
@@ -558,9 +566,14 @@ export default class SVGObjectManager {
       }
     }
 
-    return allObjects.map((obj) => {
+    const serialized = allObjects.map((obj) => {
       return this.serializeObject(obj)
     })
+
+    console.log("[SVGObjectManager.getState] Returning", {
+      serializedCount: serialized.length,
+    })
+    return serialized
   }
 
   /**

@@ -429,6 +429,11 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       eventBus.off("points:moved", handlePointsMoved)
       eventBus.off("points:deleted", handlePointsDeleted)
 
+      // Clean up AutoHistoryPlugin listeners
+      if (autoHistoryPlugin.current) {
+        autoHistoryPlugin.current.cleanup()
+      }
+
       // Clean up project manager
       if (projectManager.current) {
         projectManager.current.destroy()

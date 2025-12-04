@@ -25,7 +25,7 @@ import EventEmitter from "./EventEmitter"
 class EventBus extends EventEmitter {
   constructor() {
     super()
-    this.debug = false // Set to true for verbose logging
+    this.debug = true // TEMPORARY: Enable to debug duplicate listeners
   }
 
   /**

@@ -626,10 +626,10 @@ export default class SplineManager {
     this.splines.clear()
     this.selectedSplineId = null
 
-    // Restore splines from state, skip splines with <2 points
+    // Restore splines from state, skip splines with no points (malformed data only)
     if (splineDataArray && Array.isArray(splineDataArray)) {
       splineDataArray.forEach((splineData) => {
-        if (!splineData.points || splineData.points.length < 2) return
+        if (!splineData.points || splineData.points.length < 1) return
         try {
           const spline = new Spline({ draw: this.draw, id: splineData.id })
           spline.loadFromJSON(splineData)

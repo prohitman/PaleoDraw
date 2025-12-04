@@ -19,6 +19,8 @@ export default class HistoryManager {
     console.log("[HistoryManager] pushState BEFORE", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
+      splineCount: splineData?.length || 0,
+      svgCount: svgData?.length || 0,
     })
     // Prepare deep copies
     const splinesCopy = JSON.parse(JSON.stringify(splineData))
@@ -33,6 +35,12 @@ export default class HistoryManager {
       console.log("[HistoryManager] Skipping pushState (duplicate state)")
       return
     }
+
+    console.log("[HistoryManager] pushState DATA", {
+      splines: splinesCopy,
+      svgs: svgsCopy,
+      snapshotLength: snapshotString.length,
+    })
 
     const state = {
       timestamp: Date.now(),
