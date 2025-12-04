@@ -10,9 +10,11 @@ import {
   ListItemText,
   ListItemIcon,
   IconButton,
+  Tooltip,
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
 import DescriptionIcon from "@mui/icons-material/Description"
+import FolderOpenIcon from "@mui/icons-material/FolderOpen"
 
 export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
   const [recentProjects, setRecentProjects] = useState([])
@@ -34,6 +36,16 @@ export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
   const handleProjectClick = (path) => {
     onOpenRecent(path)
     onClose()
+  }
+
+  const handleShowInExplorer = async (event, path) => {
+    // Stop propagation to prevent triggering the list item click
+    event.stopPropagation()
+    try {
+      await window.api.showFileInExplorer(path)
+    } catch (error) {
+      console.error("Failed to show file in explorer:", error)
+    }
   }
 
   return (
@@ -128,6 +140,18 @@ export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
                     primary: { color: "text.primary" },
                   }}
                 />
+                <Tooltip title="Show in folder" placement="left">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleShowInExplorer(e, project.path)}
+                    sx={{
+                      ml: 1,
+                      "&:hover": { bgcolor: "action.selected" },
+                    }}
+                  >
+                    <FolderOpenIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </ListItemButton>
             ))}
           </List>

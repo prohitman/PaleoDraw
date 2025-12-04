@@ -10,6 +10,7 @@ import {
   ListItemIcon,
   Divider,
   IconButton,
+  Tooltip,
 } from "@mui/material"
 import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder"
 import FolderOpenIcon from "@mui/icons-material/FolderOpen"
@@ -40,6 +41,16 @@ export default function WelcomeScreen({
   }, [open])
 
   const handleOpenRecent = (path) => onOpenRecent(path)
+
+  const handleShowInExplorer = async (event, path) => {
+    // Stop propagation to prevent triggering the list item click
+    event.stopPropagation()
+    try {
+      await window.api.showFileInExplorer(path)
+    } catch (error) {
+      console.error("Failed to show file in explorer:", error)
+    }
+  }
 
   return (
     <Dialog
@@ -233,9 +244,23 @@ export default function WelcomeScreen({
                     },
                   }}
                 />
-                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                <Typography
+                  variant="caption"
+                  sx={{ color: "text.secondary", mr: 1 }}
+                >
                   {new Date(project.lastOpened).toLocaleDateString()}
                 </Typography>
+                <Tooltip title="Show in folder" placement="left">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleShowInExplorer(e, project.path)}
+                    sx={{
+                      "&:hover": { bgcolor: "action.selected" },
+                    }}
+                  >
+                    <FolderOpenIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </ListItemButton>
             ))}
           </List>
