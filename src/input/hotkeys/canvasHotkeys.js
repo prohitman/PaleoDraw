@@ -125,7 +125,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "Select all (not yet implemented)"
   )
 
-  // Escape - finish drawing spline
+  // Escape - hierarchical deselection
   hotkeysManager.register(
     "escape",
     "global",
@@ -135,21 +135,29 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       const pointSelectionManager = context.pointSelectionManager?.current
       const groupSelectionManager = context.groupSelectionManager?.current
 
-      splineManager?.finishDrawing?.()
-      svgObjectManager?.finishDrawing?.()
-
-      // Cancel any active drag selection
+      // Cancel any active drag selection first
       groupSelectionManager?.cancelDragSelection?.()
 
-      // Clear all selections: splines, SVG objects, points, and groups
-      splineManager?.clearSelection?.()
-      svgObjectManager?.clearSelection?.()
-      pointSelectionManager?.clearSelection?.()
-      groupSelectionManager?.clearSelection?.()
-
-      console.log("[canvasHotkeys] Finish drawing and cleared all selections")
+      // Hierarchical deselection:
+      // 1. If points are selected, clear point selection but keep spline selected
+      // 2. If no points selected, finish drawing and clear spline/SVG selection
+      const hasPointSelection = pointSelectionManager?.hasSelection?.()
+      
+      if (hasPointSelection) {
+        // Just clear point selections, don't finish drawing or deselect spline
+        pointSelectionManager?.clearSelection?.()
+        console.log("[canvasHotkeys] Cleared point selection, spline remains selected")
+      } else {
+        // No points selected, finish drawing and clear everything
+        splineManager?.finishDrawing?.()
+        svgObjectManager?.finishDrawing?.()
+        splineManager?.clearSelection?.()
+        svgObjectManager?.clearSelection?.()
+        groupSelectionManager?.clearSelection?.()
+        console.log("[canvasHotkeys] Cleared all selections")
+      }
     },
-    "Finish drawing spline"
+    "Deselect points or spline"
   )
 
   // Tool switching hotkeys
