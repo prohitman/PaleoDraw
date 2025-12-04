@@ -74,7 +74,8 @@ export default function App() {
   const handleSaveProject = async () => await canvasRef.current?.saveProject?.()
 
   /** Save as .json file (always prompts for new location as it represents a project copy) */
-  const handleSaveAs = async () => await canvasRef.current?.saveAsJSON?.("project.json")
+  const handleSaveAs = async () =>
+    await canvasRef.current?.saveAsJSON?.("project.json")
 
   /** Load a project from .json */
   const handleOpenProject = () => {
@@ -98,7 +99,11 @@ export default function App() {
   const handleShowRecentProjects = () => {
     // Warn user if opening from menu (not from welcome screen)
     if (!showWelcome) {
-      if (confirm("Opening a recent project will replace your current work. Any unsaved changes will be lost. Continue?")) {
+      if (
+        confirm(
+          "Opening a recent project will replace your current work. Any unsaved changes will be lost. Continue?"
+        )
+      ) {
         setShowRecentProjects(true)
       }
     } else {

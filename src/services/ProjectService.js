@@ -11,6 +11,68 @@ import { downloadBlob } from "./FileService"
 
 const GRID_BASE_THICKNESS = 0.5
 
+/**
+ * Validate that a parsed JSON object is a valid PaleoDraw project
+ * @param {object} data - The parsed JSON data
+ * @returns {object} { valid: boolean, error?: string }
+ */
+function validateProjectData(data) {
+  // Must be an object
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { valid: false, error: "Project file must be a JSON object" }
+  }
+
+  // Check for required structure - at least one of these should exist
+  const hasSplines = Array.isArray(data.splines)
+  const hasSvgs = Array.isArray(data.svgs)
+  const hasCanvas = data.canvas && typeof data.canvas === "object"
+  const hasGridSize = typeof data.gridSize === "number"
+
+  // If none of the expected properties exist, it's likely not a PaleoDraw project
+  if (!hasSplines && !hasSvgs && !hasCanvas && !hasGridSize) {
+    return {
+      valid: false,
+      error: "File does not appear to be a valid PaleoDraw project",
+    }
+  }
+
+  // Validate splines structure if present
+  if (data.splines !== undefined) {
+    if (!Array.isArray(data.splines)) {
+      return { valid: false, error: "Invalid splines data format" }
+    }
+    // Check first spline has required structure
+    if (data.splines.length > 0) {
+      const firstSpline = data.splines[0]
+      if (
+        !firstSpline.id ||
+        !Array.isArray(firstSpline.points) ||
+        !firstSpline.type
+      ) {
+        return { valid: false, error: "Invalid spline data structure" }
+      }
+    }
+  }
+
+  // Validate SVGs structure if present
+  if (data.svgs !== undefined && !Array.isArray(data.svgs)) {
+    return { valid: false, error: "Invalid SVG objects data format" }
+  }
+
+  // Validate canvas structure if present
+  if (data.canvas !== undefined) {
+    if (
+      typeof data.canvas !== "object" ||
+      typeof data.canvas.width !== "number" ||
+      typeof data.canvas.height !== "number"
+    ) {
+      return { valid: false, error: "Invalid canvas data format" }
+    }
+  }
+
+  return { valid: true }
+}
+
 export function createNewProject(
   drawRef,
   canvasSizeRef,
@@ -221,8 +283,20 @@ export async function loadFromJSON(
 
       try {
         data = JSON.parse(text)
-      } catch {
-        console.error("Invalid JSON project file")
+      } catch (err) {
+        console.error("Invalid JSON project file:", err)
+        alert("Error: The selected file is not a valid JSON file.")
+        resolve(null)
+        return
+      }
+
+      // Validate project structure
+      const validation = validateProjectData(data)
+      if (!validation.valid) {
+        console.error("Invalid project file:", validation.error)
+        alert(
+          `Error: ${validation.error}\n\nThis file cannot be opened as a PaleoDraw project.`
+        )
         resolve(null)
         return
       }
@@ -301,8 +375,19 @@ export async function loadProjectFromPath(
     let data
     try {
       data = JSON.parse(text)
-    } catch {
-      console.error("Invalid JSON project file")
+    } catch (err) {
+      console.error("Invalid JSON project file:", err)
+      alert(`Error: The file "${path}" is not a valid JSON file.`)
+      return
+    }
+
+    // Validate project structure
+    const validation = validateProjectData(data)
+    if (!validation.valid) {
+      console.error("Invalid project file:", validation.error)
+      alert(
+        `Error: ${validation.error}\n\nThe file "${path}" cannot be opened as a PaleoDraw project.`
+      )
       return
     }
 
