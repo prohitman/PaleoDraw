@@ -404,7 +404,31 @@ export default class SplineManager {
     if (!this.selectedSplineId) return
 
     const current = this.splines.get(this.selectedSplineId)
-    current?.setSelected(false)
+
+    if (current) {
+      current.setSelected(false)
+
+      // Clean up SVG.js selection box and resize handlers
+      try {
+        if (current.group) {
+          current.group.select(false)
+          current.group.resize(false)
+          current.group.draggable(false)
+        }
+      } catch (err) {
+        console.warn(
+          "[SplineManager.clearSelection] Error cleaning up handlers:",
+          err
+        )
+      }
+
+      // Clean up keyboard listener if it exists
+      if (current._keyListener) {
+        document.removeEventListener("keydown", current._keyListener)
+        document.removeEventListener("keyup", current._keyListener)
+        delete current._keyListener
+      }
+    }
 
     this.selectedSplineId = null
     eventBus.emit("spline:selected", { spline: null })
@@ -749,8 +773,19 @@ export default class SplineManager {
       try {
         if (spline.group && typeof spline.group.select === "function") {
           spline.group.select(false)
+          spline.group.resize(false)
+          spline.group.draggable(false)
+
+          // Remove any lingering selection box DOM elements
           const selBox = spline.group.node.querySelector(".svg-select-box")
           if (selBox) selBox.remove()
+        }
+
+        // Clean up keyboard listeners
+        if (spline._keyListener) {
+          document.removeEventListener("keydown", spline._keyListener)
+          document.removeEventListener("keyup", spline._keyListener)
+          delete spline._keyListener
         }
       } catch (error) {
         console.warn(
@@ -795,15 +830,26 @@ export default class SplineManager {
     let selectedSpline = null
 
     const clearSelection = () => {
+      console.log(
+        "[transformAPI.clearSelection] Called, selectedSpline:",
+        selectedSpline?.id || "null"
+      )
       if (!selectedSpline) return
 
       try {
         const el = selectedSpline.group
+        console.log(
+          "[transformAPI.clearSelection] Cleaning up spline:",
+          selectedSpline.id
+        )
         selectedSpline.setSelected(false)
 
         try {
           if (el) {
             // Fully remove selection box and transform handlers
+            console.log(
+              "[transformAPI.clearSelection] Removing handlers from group"
+            )
             el.select(false)
             el.resize(false)
             el.draggable(false)
@@ -811,9 +857,22 @@ export default class SplineManager {
         } catch (e) {
           console.warn("[splineManager] clearSelection toggle error:", e)
         }
+
+        // Clean up keyboard listener
+        if (selectedSpline._keyListener) {
+          console.log(
+            "[transformAPI.clearSelection] Removing keyboard listener"
+          )
+          document.removeEventListener("keydown", selectedSpline._keyListener)
+          document.removeEventListener("keyup", selectedSpline._keyListener)
+          delete selectedSpline._keyListener
+        }
       } catch (err) {
         console.warn("[splineManager] clearSelection error:", err)
       } finally {
+        console.log(
+          "[transformAPI.clearSelection] Setting selectedSpline to null"
+        )
         selectedSpline = null
       }
     }
@@ -1018,6 +1077,14 @@ export default class SplineManager {
           const isRotateOp = hasSignificantAngle
           const isDone = /up|end|cancel/i.test(userEventType)
 
+          console.log("[splineManager.resize] Event details:", {
+            userEventType,
+            isDone,
+            isRotateOp,
+            resizeActive: spline._resizeIsActive,
+            rotateActive: spline._rotateIsActive,
+          })
+
           const box = detail.box || null
 
           // ----- ROTATE START -----
@@ -1054,6 +1121,61 @@ export default class SplineManager {
             spline._resizeIsActive = true
             spline._resizePointsScaled = false
 
+            return
+          }
+
+          // ----- END ----- (Check BEFORE move to prevent early return)
+          if (isDone) {
+            console.log(
+              "[splineManager.resize] END detected, processing cleanup"
+            )
+            if (spline._resizeIsActive) {
+              console.log("[splineManager.resize] Ending resize operation")
+              spline._resizeIsActive = false
+              // Emit transform event for AutoHistoryPlugin
+              eventBus.emit("spline:transformed", {
+                splineId: spline.id,
+                type: "resize",
+              })
+              console.log(
+                "[splineManager.resize] spline:transformed event emitted"
+              )
+              // Re-show selection box after resize completes
+              // First remove old selection box to prevent ghost boxes
+              console.log("[splineManager.resize] Removing old selection box")
+              el.select(false)
+              // Then create new selection box with updated bounds
+              console.log("[splineManager.resize] Creating new selection box")
+              el.select(selectionOptions)
+              console.log("[splineManager.resize] Selection box re-shown")
+            }
+            if (spline._rotateIsActive) {
+              console.log("[splineManager.resize] Ending rotate operation")
+              spline._rotateIsActive = false
+              // Emit transform event for AutoHistoryPlugin
+              eventBus.emit("spline:transformed", {
+                splineId: spline.id,
+                type: "rotate",
+              })
+              console.log(
+                "[splineManager.resize] spline:transformed event emitted (rotate)"
+              )
+              // Re-show selection box after rotation completes
+              console.log(
+                "[splineManager.resize] Removing old selection box (rotate)"
+              )
+              el.select(false)
+              console.log(
+                "[splineManager.resize] Creating new selection box (rotate)"
+              )
+              el.select(selectionOptions)
+              console.log(
+                "[splineManager.resize] Selection box re-shown (rotate)"
+              )
+            }
+            console.log(
+              "[splineManager.resize] END processing complete, returning"
+            )
             return
           }
 
@@ -1099,31 +1221,6 @@ export default class SplineManager {
 
             spline.plot()
             isDraggingRef.current = true
-            return
-          }
-
-          // ----- END -----
-          if (isDone) {
-            if (spline._resizeIsActive) {
-              spline._resizeIsActive = false
-              // Emit transform event for AutoHistoryPlugin
-              eventBus.emit("spline:transformed", {
-                splineId: spline.id,
-                type: "resize",
-              })
-              // Re-show selection box after resize completes
-              setTimeout(() => {
-                el.select(selectionOptions)
-              }, 0)
-            }
-            if (spline._rotateIsActive) {
-              spline._rotateIsActive = false
-              // Emit transform event for AutoHistoryPlugin
-              eventBus.emit("spline:transformed", {
-                splineId: spline.id,
-                type: "rotate",
-              })
-            }
             return
           }
         } catch (error) {
