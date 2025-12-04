@@ -33,6 +33,7 @@ export default function ToolBar({
   onExport,
   isDarkMode,
   onToggleTheme,
+  onShowHelp,
   onUndo,
   onRedo,
   onCopy,
@@ -424,7 +425,7 @@ export default function ToolBar({
           </Tooltip>
 
           <Tooltip title="Help / Documentation">
-            <IconButton color="inherit">
+            <IconButton color="inherit" onClick={onShowHelp}>
               <HelpOutlineIcon />
             </IconButton>
           </Tooltip>

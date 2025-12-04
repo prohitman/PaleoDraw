@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaleoDraw Help</title>
+    <link rel="stylesheet" href="help-styles.css">
+</head>
+<body>
+    <div class="help-container">
+        <nav class="help-nav">
+            <div class="nav-header">
+                <img src="../logo.png" alt="PaleoDraw" class="nav-logo">
+                <h2>Help & Documentation</h2>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#getting-started" class="nav-link active">Getting Started</a></li>
+                <li><a href="#interface" class="nav-link">Interface Overview</a></li>
+                <li><a href="#tools" class="nav-link">Drawing Tools</a></li>
+                <li><a href="#hotkeys" class="nav-link">Keyboard Shortcuts</a></li>
+                <li><a href="#projects" class="nav-link">Project Management</a></li>
+                <li><a href="#faq" class="nav-link">FAQ</a></li>
+                <li><a href="#about" class="nav-link">About</a></li>
+            </ul>
+        </nav>
+
+        <main class="help-content">
+            <section id="getting-started" class="help-section active">
+                <h1>Getting Started with PaleoDraw</h1>
+                <p>Welcome to PaleoDraw, a specialized vector drawing application designed for creating precise paleontological illustrations and scientific diagrams.</p>
+                
+                <h2>Quick Start</h2>
+                <ol>
+                    <li><strong>Create a New Project:</strong> Click File → New Project or press <kbd>Ctrl+N</kbd></li>
+                    <li><strong>Select a Tool:</strong> Choose from the Tools menu or use keyboard shortcuts</li>
+                    <li><strong>Start Drawing:</strong> Click on the canvas to place control points and create splines</li>
+                    <li><strong>Save Your Work:</strong> Press <kbd>Ctrl+S</kbd> to save your project</li>
+                </ol>
+
+                <h2>First Steps</h2>
+                <p>When you first open PaleoDraw, you'll see a blank canvas with a grid. The grid helps you align your drawings precisely. You can adjust the grid size from the View menu.</p>
+                
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> Start with the Curve tool (press <kbd>C</kbd>) to create smooth, natural-looking lines perfect for paleontological outlines.
+                </div>
+            </section>
+
+            <section id="interface" class="help-section">
+                <h1>Interface Overview</h1>
+                
+                <h2>Main Components</h2>
+                <ul>
+                    <li><strong>Title Bar:</strong> Displays the application name and window controls</li>
+                    <li><strong>Menu Bar:</strong> Access to File, Edit, View, and Tools menus</li>
+                    <li><strong>Canvas:</strong> Main drawing area with gridlines for precision</li>
+                    <li><strong>Theme Toggle:</strong> Switch between light and dark modes</li>
+                    <li><strong>Help Button:</strong> Opens this documentation (you're here!)</li>
+                </ul>
+
+                <h2>Canvas Navigation</h2>
+                <ul>
+                    <li><strong>Pan:</strong> Hold <kbd>Space</kbd> and drag, or use middle mouse button</li>
+                    <li><strong>Zoom:</strong> Scroll wheel, or View menu options</li>
+                    <li><strong>Fit to Canvas:</strong> View → Fit to Canvas to reset view</li>
+                </ul>
+
+                <h2>Grid Settings</h2>
+                <p>The grid can be customized from the View menu. Adjust grid spacing to match your needs - smaller grids for detailed work, larger grids for overview sketches.</p>
+            </section>
+
+            <section id="tools" class="help-section">
+                <h1>Drawing Tools</h1>
+
+                <h2>Select Tool <kbd>T</kbd></h2>
+                <p>The default tool for selecting and manipulating existing objects.</p>
+                <ul>
+                    <li>Click on a spline to select it</li>
+                    <li>Drag to move selected objects</li>
+                    <li>Use resize handles to scale objects</li>
+                    <li>Rotate using the rotation handle</li>
+                </ul>
+
+                <h2>Curve Tool (B-Spline) <kbd>C</kbd></h2>
+                <p>Creates smooth, flowing curves ideal for organic shapes.</p>
+                <ul>
+                    <li>Click to place control points</li>
+                    <li>The curve automatically smooths between points</li>
+                    <li>Press <kbd>R</kbd> to reverse point direction (add to beginning vs end)</li>
+                    <li>Press <kbd>Escape</kbd> to finish drawing</li>
+                </ul>
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> Use fewer points for smoother curves. You can always add more points later by selecting the spline and clicking on the curve.
+                </div>
+
+                <h2>Line Tool <kbd>L</kbd></h2>
+                <p>Creates straight line segments between points.</p>
+                <ul>
+                    <li>Click to place points</li>
+                    <li>Lines connect sequentially</li>
+                    <li>Great for angular shapes and technical diagrams</li>
+                </ul>
+
+                <h2>Straight Tool (Nurbs) <kbd>N</kbd></h2>
+                <p>Creates NURBS curves for precise mathematical curves.</p>
+                <ul>
+                    <li>Similar to B-Spline but with different interpolation</li>
+                    <li>Useful for technical precision</li>
+                </ul>
+
+                <h2>Import SVG <kbd>I</kbd></h2>
+                <p>Import existing SVG files into your project.</p>
+                <ul>
+                    <li>Select File → Import SVG or press <kbd>I</kbd></li>
+                    <li>Choose an SVG file from your computer</li>
+                    <li>Imported objects can be moved, resized, and rotated</li>
+                </ul>
+
+                <h2>Delete Spline <kbd>P</kbd></h2>
+                <p>Quick tool for removing splines.</p>
+                <ul>
+                    <li>Activate the tool with <kbd>P</kbd></li>
+                    <li>Click on any spline to delete it</li>
+                </ul>
+            </section>
+
+            <section id="hotkeys" class="help-section">
+                <h1>Keyboard Shortcuts</h1>
+
+                <h2>File Operations</h2>
+                <table class="hotkey-table">
+                    <tr>
+                        <td><kbd>Ctrl+N</kbd></td>
+                        <td>New Project</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+O</kbd></td>
+                        <td>Open Project</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+Shift+O</kbd></td>
+                        <td>Open Recent Project</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+S</kbd></td>
+                        <td>Save Project</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+Shift+S</kbd></td>
+                        <td>Save As...</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+E</kbd></td>
+                        <td>Export as SVG</td>
+                    </tr>
+                </table>
+
+                <h2>Edit Operations</h2>
+                <table class="hotkey-table">
+                    <tr>
+                        <td><kbd>Ctrl+Z</kbd></td>
+                        <td>Undo</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+Y</kbd></td>
+                        <td>Redo</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+C</kbd></td>
+                        <td>Copy</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+V</kbd></td>
+                        <td>Paste</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+X</kbd></td>
+                        <td>Cut</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Del</kbd></td>
+                        <td>Delete Selected</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>R</kbd></td>
+                        <td>Reverse Point Direction (while drawing)</td>
+                    </tr>
+                </table>
+
+                <h2>Tool Selection</h2>
+                <table class="hotkey-table">
+                    <tr>
+                        <td><kbd>T</kbd></td>
+                        <td>Select Tool</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>C</kbd></td>
+                        <td>Curve Tool (B-Spline)</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>L</kbd></td>
+                        <td>Line Tool</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>N</kbd></td>
+                        <td>Straight Tool (NURBS)</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>I</kbd></td>
+                        <td>Import SVG</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>P</kbd></td>
+                        <td>Delete Spline Tool</td>
+                    </tr>
+                </table>
+
+                <h2>Object Manipulation</h2>
+                <table class="hotkey-table">
+                    <tr>
+                        <td><kbd>Ctrl+F</kbd></td>
+                        <td>Bring Forward</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+Shift+F</kbd></td>
+                        <td>Bring to Front</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+B</kbd></td>
+                        <td>Send Backward</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Ctrl+Shift+B</kbd></td>
+                        <td>Send to Back</td>
+                    </tr>
+                </table>
+
+                <h2>Navigation</h2>
+                <table class="hotkey-table">
+                    <tr>
+                        <td><kbd>Escape</kbd></td>
+                        <td>Deselect / Finish Drawing</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Space+Drag</kbd></td>
+                        <td>Pan Canvas</td>
+                    </tr>
+                    <tr>
+                        <td><kbd>Scroll Wheel</kbd></td>
+                        <td>Zoom In/Out</td>
+                    </tr>
+                </table>
+            </section>
+
+            <section id="projects" class="help-section">
+                <h1>Project Management</h1>
+
+                <h2>Creating Projects</h2>
+                <p>Start a new project from File → New Project or <kbd>Ctrl+N</kbd>. This creates a blank canvas ready for drawing.</p>
+
+                <h2>Saving Projects</h2>
+                <p>PaleoDraw saves projects as JSON files (.json) that contain all your splines, imported SVG objects, and canvas settings.</p>
+                <ul>
+                    <li><strong>Save:</strong> <kbd>Ctrl+S</kbd> - Saves to current file location</li>
+                    <li><strong>Save As:</strong> <kbd>Ctrl+Shift+S</kbd> - Choose a new location/name</li>
+                </ul>
+
+                <h2>Opening Projects</h2>
+                <p>Open existing projects in several ways:</p>
+                <ul>
+                    <li><strong>File → Open Project</strong> (<kbd>Ctrl+O</kbd>) - Browse for a .json file</li>
+                    <li><strong>File → Open Recent</strong> (<kbd>Ctrl+Shift+O</kbd>) - Quick access to recently opened projects</li>
+                    <li><strong>Welcome Screen:</strong> Shows recent projects when you start the app</li>
+                </ul>
+
+                <div class="tip-box">
+                    <strong>💡 Tip:</strong> Use the folder icon in recent projects to open the file location in your file explorer.
+                </div>
+
+                <h2>Exporting</h2>
+                <p>Export your finished work as an SVG file (<kbd>Ctrl+E</kbd>) that can be opened in other vector graphics applications like Inkscape, Adobe Illustrator, or used in publications.</p>
+
+                <h2>Importing SVG</h2>
+                <p>Import existing SVG files to incorporate them into your project. Imported objects can be positioned, scaled, and rotated like any other object.</p>
+            </section>
+
+            <section id="faq" class="help-section">
+                <h1>Frequently Asked Questions</h1>
+
+                <h2>How do I add more points to an existing spline?</h2>
+                <p>Select the spline with the Select Tool (<kbd>T</kbd>), then click directly on the curve where you want to add a point. A new control point will be created at that location.</p>
+
+                <h2>How do I delete a single point?</h2>
+                <p>Select the spline, then click on the point you want to delete and press <kbd>Del</kbd>. You can also select multiple points by holding <kbd>Ctrl</kbd> and clicking each point.</p>
+
+                <h2>Can I change the color or stroke of splines?</h2>
+                <p>Currently, PaleoDraw focuses on creating clean vector paths. For styling, export your work as SVG and use a dedicated illustration program like Inkscape or Adobe Illustrator.</p>
+
+                <h2>What's the difference between the curve tools?</h2>
+                <ul>
+                    <li><strong>Curve (B-Spline):</strong> Creates smooth, organic curves ideal for natural shapes</li>
+                    <li><strong>Line:</strong> Creates straight segments between points</li>
+                    <li><strong>Straight (NURBS):</strong> Creates mathematically precise curves with different interpolation</li>
+                </ul>
+
+                <h2>How do I reverse the direction while drawing a spline?</h2>
+                <p>While actively drawing a spline, press <kbd>R</kbd> to toggle between adding points to the end or beginning of the spline. This is useful when you realize you need to extend the spline in the opposite direction.</p>
+
+                <h2>My grid is too small/large. How do I change it?</h2>
+                <p>Go to View menu and use the grid size input to set a custom value. Smaller values create finer grids, larger values create more spacious grids.</p>
+
+                <h2>Can I work without the grid?</h2>
+                <p>Yes! The grid is purely visual and doesn't affect your drawing. You can adjust canvas settings in the View menu.</p>
+
+                <h2>Where are my projects saved?</h2>
+                <p>Projects are saved wherever you choose when using Save As. The application also keeps track of recently opened projects for quick access.</p>
+
+                <h2>Can I undo mistakes?</h2>
+                <p>Yes! Press <kbd>Ctrl+Z</kbd> to undo actions, and <kbd>Ctrl+Y</kbd> to redo. PaleoDraw maintains a history of your recent changes.</p>
+            </section>
+
+            <section id="about" class="help-section">
+                <h1>About PaleoDraw</h1>
+                
+                <h2>Version Information</h2>
+                <p>PaleoDraw is a specialized vector drawing application designed for creating precise paleontological illustrations and scientific diagrams.</p>
+
+                <h2>Features</h2>
+                <ul>
+                    <li>Multiple spline types (B-Spline, Line, NURBS)</li>
+                    <li>SVG import and export</li>
+                    <li>Precise control point manipulation</li>
+                    <li>Grid-based alignment</li>
+                    <li>Undo/Redo history</li>
+                    <li>Dark and light themes</li>
+                    <li>Project management with recent files</li>
+                    <li>Keyboard-driven workflow</li>
+                </ul>
+
+                <h2>Technology</h2>
+                <p>Built with modern web technologies:</p>
+                <ul>
+                    <li>Electron - Cross-platform desktop framework</li>
+                    <li>React - User interface</li>
+                    <li>SVG.js - Vector graphics manipulation</li>
+                    <li>Material-UI - Interface components</li>
+                </ul>
+
+                <h2>Support</h2>
+                <p>For issues, questions, or feature requests, please visit the project repository or contact support.</p>
+
+                <h2>License</h2>
+                <p>PaleoDraw is open source software. See the LICENSE file in the project repository for details.</p>
+            </section>
+        </main>
+    </div>
+
+    <script src="help-script.js"></script>
+</body>
+</html>

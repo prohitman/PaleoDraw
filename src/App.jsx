@@ -5,6 +5,7 @@ import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import RecentProjectsDialog from "./components/RecentProjectsDialog"
+import HelpDialog from "./components/HelpDialog"
 import eventBus from "./core/EventBus"
 import "./styles/theme.css"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
@@ -16,6 +17,7 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState("select")
   const [showWelcome, setShowWelcome] = useState(true)
   const [showRecentProjects, setShowRecentProjects] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
 
   // State tracking for menu item enabled/disabled states
@@ -195,6 +197,12 @@ export default function App() {
           onOpenRecent={handleOpenRecent}
         />
 
+        <HelpDialog
+          open={showHelp}
+          onClose={() => setShowHelp(false)}
+          isDarkMode={isDarkMode}
+        />
+
         {/* Main Content */}
         <div
           style={{
@@ -222,6 +230,7 @@ export default function App() {
             onExport={handleExport}
             isDarkMode={isDarkMode}
             onToggleTheme={toggleTheme}
+            onShowHelp={() => setShowHelp(true)}
             onUndo={handleUndo}
             onRedo={handleRedo}
             onCopy={handleCopy}
