@@ -1,0 +1,24 @@
+{
+  "templates": [
+    {
+      "name": "T-Rex Skull",
+      "file": "/templates/t-rex-skull.json"
+    },
+    {
+      "name": "Triceratops Outline",
+      "file": "/templates/triceratops-outline.json"
+    },
+    {
+      "name": "Vertebra Template",
+      "file": "/templates/vertebra-template.json"
+    },
+    {
+      "name": "Fossil Footprint",
+      "file": "/templates/fossil-footprint.json"
+    },
+    {
+      "name": "Mammoth Skeleton",
+      "file": "/templates/mammoth-skeleton.json"
+    }
+  ]
+}

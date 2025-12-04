@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "savedAt": "2024-12-04T00:00:00.000Z"
+  },
+  "canvas": {
+    "width": 800,
+    "height": 600
+  },
+  "gridSize": 20,
+  "splines": [
+    {
+      "id": "spline_trex_001",
+      "type": "bspline",
+      "points": [
+        { "x": 150, "y": 200, "isSharp": false },
+        { "x": 180, "y": 180, "isSharp": false },
+        { "x": 220, "y": 170, "isSharp": true },
+        { "x": 260, "y": 175, "isSharp": false },
+        { "x": 300, "y": 190, "isSharp": false },
+        { "x": 330, "y": 220, "isSharp": true },
+        { "x": 340, "y": 260, "isSharp": false }
+      ]
+    },
+    {
+      "id": "spline_trex_002",
+      "type": "bspline",
+      "points": [
+        { "x": 340, "y": 260, "isSharp": false },
+        { "x": 350, "y": 300, "isSharp": false },
+        { "x": 340, "y": 340, "isSharp": false },
+        { "x": 310, "y": 370, "isSharp": true },
+        { "x": 270, "y": 380, "isSharp": false },
+        { "x": 230, "y": 375, "isSharp": false },
+        { "x": 200, "y": 350, "isSharp": true }
+      ]
+    }
+  ],
+  "importedSVGs": []
+}

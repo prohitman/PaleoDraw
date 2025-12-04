@@ -14,6 +14,7 @@ import {
 } from "@mui/material"
 import CreateNewFolderIcon from "@mui/icons-material/CreateNewFolder"
 import FolderOpenIcon from "@mui/icons-material/FolderOpen"
+import GridViewIcon from "@mui/icons-material/GridView"
 import HistoryIcon from "@mui/icons-material/History"
 import CloseIcon from "@mui/icons-material/Close"
 import DescriptionIcon from "@mui/icons-material/Description"
@@ -22,6 +23,7 @@ export default function WelcomeScreen({
   open,
   onClose,
   onNewProject,
+  onBrowseTemplates,
   onOpenProject,
   onOpenRecent,
 }) {
@@ -146,6 +148,32 @@ export default function WelcomeScreen({
             </Typography>
             <Typography variant="caption" sx={{ color: "text.secondary" }}>
               Create a blank canvas
+            </Typography>
+          </Box>
+        </Button>
+
+        <Button
+          variant="contained"
+          color="inherit"
+          startIcon={<GridViewIcon sx={{ fontSize: 40 }} />}
+          onClick={onBrowseTemplates}
+          sx={{
+            justifyContent: "flex-start",
+            mb: 2,
+            py: 2,
+            bgcolor: "action.hover",
+            "&:hover": { bgcolor: "action.selected" },
+            textTransform: "none",
+            boxShadow: "none",
+            zIndex: 1,
+          }}
+        >
+          <Box sx={{ textAlign: "left", ml: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+              Browse Templates
+            </Typography>
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Start from a preset
             </Typography>
           </Box>
         </Button>

@@ -1,0 +1,67 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "savedAt": "2024-12-04T00:00:00.000Z"
+  },
+  "canvas": {
+    "width": 600,
+    "height": 700
+  },
+  "gridSize": 20,
+  "splines": [
+    {
+      "id": "spline_foot_outline",
+      "type": "bspline",
+      "points": [
+        { "x": 300, "y": 500, "isSharp": true },
+        { "x": 280, "y": 480, "isSharp": false },
+        { "x": 250, "y": 440, "isSharp": false },
+        { "x": 230, "y": 380, "isSharp": false },
+        { "x": 240, "y": 320, "isSharp": true },
+        { "x": 270, "y": 280, "isSharp": false },
+        { "x": 320, "y": 260, "isSharp": false },
+        { "x": 370, "y": 280, "isSharp": false },
+        { "x": 400, "y": 320, "isSharp": true },
+        { "x": 410, "y": 380, "isSharp": false },
+        { "x": 390, "y": 440, "isSharp": false },
+        { "x": 360, "y": 480, "isSharp": false },
+        { "x": 340, "y": 500, "isSharp": true },
+        { "x": 300, "y": 500, "isSharp": true }
+      ]
+    },
+    {
+      "id": "spline_toe_1",
+      "type": "bspline",
+      "points": [
+        { "x": 260, "y": 280, "isSharp": false },
+        { "x": 240, "y": 250, "isSharp": false },
+        { "x": 230, "y": 210, "isSharp": true },
+        { "x": 245, "y": 180, "isSharp": false },
+        { "x": 270, "y": 200, "isSharp": false }
+      ]
+    },
+    {
+      "id": "spline_toe_2",
+      "type": "bspline",
+      "points": [
+        { "x": 300, "y": 260, "isSharp": false },
+        { "x": 295, "y": 220, "isSharp": false },
+        { "x": 300, "y": 170, "isSharp": true },
+        { "x": 310, "y": 200, "isSharp": false },
+        { "x": 315, "y": 240, "isSharp": false }
+      ]
+    },
+    {
+      "id": "spline_toe_3",
+      "type": "bspline",
+      "points": [
+        { "x": 340, "y": 270, "isSharp": false },
+        { "x": 350, "y": 230, "isSharp": false },
+        { "x": 365, "y": 190, "isSharp": true },
+        { "x": 380, "y": 210, "isSharp": false },
+        { "x": 375, "y": 250, "isSharp": false }
+      ]
+    }
+  ],
+  "importedSVGs": []
+}

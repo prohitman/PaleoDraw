@@ -708,6 +708,22 @@ const Canvas = forwardRef(
         )
       },
 
+      loadTemplateData: (templateData) => {
+        if (!projectManager.current) return
+        // Load template data but don't set project path (treat as new project)
+        projectManager.current.loadTemplate(
+          templateData,
+          drawRef,
+          canvasSizeRef,
+          gridSizeRef,
+          gridRef,
+          fitToCanvas,
+          splineManager.current,
+          svgObjectManager.current,
+          selectedRef
+        )
+      },
+
       exportAsSVG: async (filename = "project.svg") => {
         if (!projectManager.current) return null
         return await projectManager.current.exportSVG(

@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "savedAt": "2024-12-04T00:00:00.000Z"
+  },
+  "canvas": {
+    "width": 1200,
+    "height": 600
+  },
+  "gridSize": 20,
+  "splines": [
+    {
+      "id": "spline_mammoth_spine",
+      "type": "bspline",
+      "points": [
+        { "x": 200, "y": 250, "isSharp": false },
+        { "x": 300, "y": 220, "isSharp": false },
+        { "x": 450, "y": 200, "isSharp": false },
+        { "x": 600, "y": 190, "isSharp": false },
+        { "x": 750, "y": 200, "isSharp": false },
+        { "x": 900, "y": 230, "isSharp": false },
+        { "x": 1000, "y": 270, "isSharp": false }
+      ]
+    },
+    {
+      "id": "spline_mammoth_ribs",
+      "type": "bspline",
+      "points": [
+        { "x": 400, "y": 200, "isSharp": true },
+        { "x": 380, "y": 280, "isSharp": false },
+        { "x": 400, "y": 350, "isSharp": false },
+        { "x": 450, "y": 370, "isSharp": false },
+        { "x": 500, "y": 350, "isSharp": false },
+        { "x": 520, "y": 280, "isSharp": false },
+        { "x": 500, "y": 200, "isSharp": true }
+      ]
+    },
+    {
+      "id": "spline_mammoth_tusk",
+      "type": "bspline",
+      "points": [
+        { "x": 180, "y": 280, "isSharp": false },
+        { "x": 140, "y": 300, "isSharp": false },
+        { "x": 100, "y": 340, "isSharp": false },
+        { "x": 80, "y": 400, "isSharp": false },
+        { "x": 90, "y": 460, "isSharp": true }
+      ]
+    }
+  ],
+  "importedSVGs": []
+}

@@ -1,0 +1,45 @@
+{
+  "metadata": {
+    "version": "2.0",
+    "savedAt": "2024-12-04T00:00:00.000Z"
+  },
+  "canvas": {
+    "width": 600,
+    "height": 600
+  },
+  "gridSize": 20,
+  "splines": [
+    {
+      "id": "spline_vert_001",
+      "type": "bspline",
+      "points": [
+        { "x": 300, "y": 150, "isSharp": false },
+        { "x": 280, "y": 170, "isSharp": false },
+        { "x": 260, "y": 200, "isSharp": false },
+        { "x": 250, "y": 240, "isSharp": true },
+        { "x": 260, "y": 280, "isSharp": false },
+        { "x": 280, "y": 310, "isSharp": false },
+        { "x": 300, "y": 330, "isSharp": false },
+        { "x": 320, "y": 310, "isSharp": false },
+        { "x": 340, "y": 280, "isSharp": false },
+        { "x": 350, "y": 240, "isSharp": true },
+        { "x": 340, "y": 200, "isSharp": false },
+        { "x": 320, "y": 170, "isSharp": false },
+        { "x": 300, "y": 150, "isSharp": false }
+      ]
+    },
+    {
+      "id": "spline_vert_002",
+      "type": "polyline",
+      "points": [
+        { "x": 280, "y": 330, "isSharp": true },
+        { "x": 260, "y": 380, "isSharp": true },
+        { "x": 280, "y": 420, "isSharp": true },
+        { "x": 320, "y": 420, "isSharp": true },
+        { "x": 340, "y": 380, "isSharp": true },
+        { "x": 320, "y": 330, "isSharp": true }
+      ]
+    }
+  ],
+  "importedSVGs": []
+}

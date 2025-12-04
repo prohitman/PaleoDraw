@@ -1,5 +1,6 @@
 // managers/ProjectManager.js
 import eventBus from "../core/EventBus"
+import { drawGrid } from "../utils/svgHelpers"
 import {
   createNewProject,
   getProjectJSON,
@@ -283,6 +284,68 @@ export default class ProjectManager {
 
     this.setProjectPath(path)
     this.markClean()
+  }
+
+  /**
+   * Load template data (like loadFromPath but without setting project path)
+   * Treats the loaded template as a new unsaved project
+   * @param {object} templateData - Template JSON data
+   */
+  loadTemplate(templateData) {
+    console.log("[ProjectManager] Loading template data")
+
+    // Use the same restoration logic as loadProjectFromPath
+    const draw = this.drawRef.current
+    if (!draw) return
+
+    draw.clear()
+
+    // Restore canvas size if present
+    if (templateData.canvas) {
+      this.canvasSizeRef.current = templateData.canvas
+      draw.size(templateData.canvas.width, templateData.canvas.height)
+      draw.viewbox(0, 0, templateData.canvas.width, templateData.canvas.height)
+    }
+
+    // Background + grid
+    const bg = draw
+      .rect(this.canvasSizeRef.current.width, this.canvasSizeRef.current.height)
+      .addClass("canvas-bg-rect")
+      .id("canvas-bg")
+    bg.node.style.pointerEvents = "none"
+
+    const grid = draw.group().id("canvas-grid")
+    this.gridRef.current = grid
+    grid._drawGrid = (
+      gSize = templateData.gridSize || this.gridSizeRef.current
+    ) => drawGrid(grid, this.canvasSizeRef.current, gSize)
+    grid._drawGrid(templateData.gridSize || this.gridSizeRef.current)
+    this.gridSizeRef.current = templateData.gridSize || this.gridSizeRef.current
+    this.fitToCanvas()
+
+    // Restore splines using SplineManager
+    if (Array.isArray(templateData.splines)) {
+      this.splineManager.loadState(templateData.splines)
+      // Ensure all splines are deselected
+      this.splineManager.clearSelection()
+      this.splineManager.getAllSplines().forEach((spline) => {
+        spline.setSelected(false)
+      })
+    }
+
+    // Restore imported SVGs using SVGObjectManager
+    if (Array.isArray(templateData.importedSVGs)) {
+      if (this.svgObjectManager?.loadState) {
+        this.svgObjectManager.loadState(templateData.importedSVGs, draw)
+      }
+    }
+
+    this.selectedRef.current = null
+
+    // Clear project path (treat as new unsaved project)
+    this.clearProject()
+    // Mark as dirty so user knows to save
+    this.markDirty()
   }
 
   /**

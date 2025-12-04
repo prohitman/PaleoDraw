@@ -5,6 +5,7 @@ import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import RecentProjectsDialog from "./components/RecentProjectsDialog"
+import TemplatesDialog from "./components/TemplatesDialog"
 import HelpDialog from "./components/HelpDialog"
 import eventBus from "./core/EventBus"
 import "./styles/theme.css"
@@ -17,6 +18,7 @@ export default function App() {
   const [selectedTool, setSelectedTool] = useState("select")
   const [showWelcome, setShowWelcome] = useState(true)
   const [showRecentProjects, setShowRecentProjects] = useState(false)
+  const [showTemplates, setShowTemplates] = useState(false)
   const [showHelp, setShowHelp] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
 
@@ -158,6 +160,19 @@ export default function App() {
     }
   }
 
+  const handleBrowseTemplates = () => {
+    setShowTemplates(true)
+  }
+
+  const handleLoadTemplate = (templateData) => {
+    setShowWelcome(false)
+    setShowTemplates(false)
+    // Load template into canvas without setting project path
+    setTimeout(() => {
+      canvasRef.current?.loadTemplateData?.(templateData)
+    }, 100)
+  }
+
   return (
     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
       <CssBaseline />
@@ -187,6 +202,7 @@ export default function App() {
           open={showWelcome}
           onClose={() => setShowWelcome(false)}
           onNewProject={handleNewProject}
+          onBrowseTemplates={handleBrowseTemplates}
           onOpenProject={handleOpenProject}
           onOpenRecent={handleOpenRecent}
         />
@@ -195,6 +211,12 @@ export default function App() {
           open={showRecentProjects}
           onClose={() => setShowRecentProjects(false)}
           onOpenRecent={handleOpenRecent}
+        />
+
+        <TemplatesDialog
+          open={showTemplates}
+          onClose={() => setShowTemplates(false)}
+          onLoadTemplate={handleLoadTemplate}
         />
 
         <HelpDialog
