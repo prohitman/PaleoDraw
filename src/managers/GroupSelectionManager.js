@@ -4,39 +4,41 @@ import { selectionOptions } from "../utils/selectionConfig"
 
 /**
  * SelectionManager: Manages multi-selection of splines and SVG objects
- * Supports:
- * - Drag-to-select (right-click drag creates selection box)
- * - Shift-click to add/remove from selection
- * - Group operations (delete, move, rotate, resize)
+ *
+ * Features:
+ * - Drag-to-select: Right-click drag creates selection box
+ * - Shift-click: Add/remove items from selection (toggle)
+ * - Group operations: Delete, move in canvas coordinate space
+ * - Overlay: Visual rectangle for dragging multiple selected items
+ * - Coordinate System: All operations use canvas coordinate space
+ *
  * Emits events via EventBus:
- *  - selection:changed
- *  - drag-selection:start
- *  - drag-selection:move
- *  - drag-selection:end
- *  - selection:moved
+ *  - selection:changed: When selection state changes
+ *  - drag-selection:start/move/end: During box selection
+ *  - selection:moved: When selected items are moved
  */
 export default class SelectionManager {
   constructor({ splineManager, svgObjectManager }) {
     this.splineManager = splineManager
     this.svgObjectManager = svgObjectManager
 
-    // Selection state
-    this.selectedSplines = new Set() // Set of spline IDs
-    this.selectedSvgObjects = new Set() // Set of SVG object IDs
+    // Selection state: Sets of IDs for selected items
+    this.selectedSplines = new Set()
+    this.selectedSvgObjects = new Set()
 
-    // Drag selection state
+    // Drag selection state: For right-click box selection
     this.isDragging = false
-    this.dragStart = null
-    this.dragCurrent = null
-    this.selectionBox = null // SVG rect element for visual feedback
+    this.dragStart = null // { x, y } start position
+    this.dragCurrent = null // { x, y } current position
+    this.selectionBox = null // SVG rect element for visual selection box
 
-    // Overlay state
-    this.groupOverlay = null
+    // Overlay state: For group selection rectangle and dragging
+    this.groupOverlay = null // SVG rect element for multi-selection overlay
     this.overlayDragState = { dragging: false, lastX: 0, lastY: 0 }
-    this.draw = null
-    this.selectedToolRef = null
+    this.draw = null // SVG.js draw instance
+    this.selectedToolRef = null // Reference to current tool
 
-    // Listen to tool changes from EventBus
+    // Clear selection when tool changes to prevent stale selections
     eventBus.on("tool:changed", () => {
       this.clearSelection()
       this.updateOverlay()
@@ -44,9 +46,9 @@ export default class SelectionManager {
   }
 
   /**
-   * Initialize overlay system with draw instance and tool ref
-   * @param {object} draw - SVG.js draw instance
-   * @param {object} selectedToolRef - Ref to current tool
+   * Initialize overlay system - must be called before overlay can be used
+   * @param {object} draw - SVG.js draw instance for creating overlay elements
+   * @param {object} selectedToolRef - React ref to current active tool name
    */
   initializeOverlay(draw, selectedToolRef) {
     this.draw = draw
@@ -118,9 +120,9 @@ export default class SelectionManager {
   // ========== SINGLE SELECTION ==========
 
   /**
-   * Select a single spline (clears other selections unless shift is held)
-   * @param {string} splineId
-   * @param {boolean} additive - If true, adds to selection instead of replacing
+   * Select a single spline
+   * @param {string} splineId - ID of spline to select
+   * @param {boolean} additive - If true, toggles selection; if false, clears others first
    */
   selectSpline(splineId, additive = false) {
     if (!additive) {
@@ -148,9 +150,9 @@ export default class SelectionManager {
   }
 
   /**
-   * Select a single SVG object (clears other selections unless shift is held)
-   * @param {string} svgObjectId
-   * @param {boolean} additive - If true, adds to selection instead of replacing
+   * Select a single SVG object
+   * @param {string} svgObjectId - ID of SVG object to select
+   * @param {boolean} additive - If true, toggles selection; if false, clears others first
    */
   selectSvgObject(svgObjectId, additive = false) {
     if (!additive) {
@@ -160,28 +162,26 @@ export default class SelectionManager {
     if (this.selectedSvgObjects.has(svgObjectId)) {
       if (additive) {
         this.selectedSvgObjects.delete(svgObjectId)
-        // Deselect visual state
         const obj = this.svgObjectManager?.getObject?.(svgObjectId)
         if (obj) {
-          try {
-            obj.select?.(false)
-            obj.resize?.(false)
-          } catch {
-            // ignore
+          // Re-enable individual draggable when removing from group selection
+          if (typeof obj.draggable === "function") {
+            obj.draggable(true)
           }
+          obj.select?.(false)
+          obj.resize?.(false)
         }
       }
     } else {
       this.selectedSvgObjects.add(svgObjectId)
-      // Select visual state
       const obj = this.svgObjectManager?.getObject?.(svgObjectId)
       if (obj) {
-        try {
-          obj.select?.(selectionOptions)
-          obj.resize?.({ rotationPoint: true })
-        } catch {
-          // ignore
+        // Disable individual draggable to prevent conflict with group selection drag
+        if (typeof obj.draggable === "function") {
+          obj.draggable(false)
         }
+        obj.select?.(selectionOptions)
+        obj.resize?.({ rotationPoint: true })
       }
     }
 
@@ -194,9 +194,9 @@ export default class SelectionManager {
   // ========== MULTI-SELECTION ==========
 
   /**
-   * Select multiple splines at once
-   * @param {string[]} splineIds
-   * @param {boolean} additive
+   * Select multiple splines at once (from box selection)
+   * @param {string[]} splineIds - Array of spline IDs to select
+   * @param {boolean} additive - If true, adds to existing selection; if false, replaces
    */
   selectSplines(splineIds, additive = false) {
     if (!additive) {
@@ -228,9 +228,9 @@ export default class SelectionManager {
   }
 
   /**
-   * Select multiple SVG objects at once
-   * @param {string[]} svgObjectIds
-   * @param {boolean} additive
+   * Select multiple SVG objects at once (from box selection)
+   * @param {string[]} svgObjectIds - Array of SVG object IDs to select
+   * @param {boolean} additive - If true, adds to existing selection; if false, replaces
    */
   selectSvgObjects(svgObjectIds, additive = false) {
     if (!additive) {
@@ -242,6 +242,11 @@ export default class SelectionManager {
 
     svgObjectIds.forEach((id) => {
       this.selectedSvgObjects.add(id)
+      // Disable individual draggable to prevent conflict with group selection drag
+      const obj = this.svgObjectManager?.getObject?.(id)
+      if (obj && typeof obj.draggable === "function") {
+        obj.draggable(false)
+      }
     })
 
     // Only show selection box if single object is selected
@@ -286,7 +291,7 @@ export default class SelectionManager {
   // ========== CLEAR SELECTION ==========
 
   /**
-   * Clear all selections
+   * Clear all selections - deselects items, removes overlays, re-enables draggable
    */
   clearSelection() {
     // Deselect all splines
@@ -295,29 +300,29 @@ export default class SelectionManager {
       if (spline) spline.setSelected(false)
     })
 
-    // Deselect all SVG objects and remove overlays
+    // Deselect all SVG objects, re-enable draggable, and remove overlays
     this.selectedSvgObjects.forEach((id) => {
       const obj = this.svgObjectManager?.getObject?.(id)
       if (obj) {
+        // Re-enable individual draggable
+        if (typeof obj.draggable === "function") {
+          obj.draggable(true)
+        }
         // Remove lingering selection box overlays
         if (obj.node) {
           const selBox = obj.node.querySelector(".svg-select-box")
           if (selBox) selBox.remove()
         }
-        try {
-          obj.select?.(false)
-          obj.resize?.(false)
-        } catch {
-          // ignore
-        }
+        obj.select?.(false)
+        obj.resize?.(false)
       }
     })
 
     this.selectedSplines.clear()
     this.selectedSvgObjects.clear()
 
-    // If a drag selection box is still lingering (edge case), remove it
-    if (this.selectionBox && !this.isDragging) {
+    // Remove any lingering drag selection box (even if dragging)
+    if (this.selectionBox) {
       try {
         this.selectionBox.remove()
       } catch {
@@ -325,6 +330,11 @@ export default class SelectionManager {
       }
       this.selectionBox = null
     }
+
+    // Reset drag state
+    this.isDragging = false
+    this.dragStart = null
+    this.dragCurrent = null
 
     eventBus.emit("selection:changed", {
       splines: [],
@@ -338,10 +348,10 @@ export default class SelectionManager {
   // ========== DRAG SELECTION ==========
 
   /**
-   * Start drag selection (right-click drag)
-   * @param {number} x - Starting x coordinate
-   * @param {number} y - Starting y coordinate
-   * @param {object} drawInstance - SVG.js draw instance for creating selection box
+   * Start drag selection box (right-click drag)
+   * @param {number} x - Starting x coordinate in canvas space
+   * @param {number} y - Starting y coordinate in canvas space
+   * @param {object} drawInstance - SVG.js draw instance for creating visual selection box
    */
   startDragSelection(x, y, drawInstance) {
     this.isDragging = true
@@ -363,9 +373,9 @@ export default class SelectionManager {
   }
 
   /**
-   * Update drag selection as mouse moves
-   * @param {number} x - Current x coordinate
-   * @param {number} y - Current y coordinate
+   * Update drag selection box as mouse moves
+   * @param {number} x - Current x coordinate in canvas space
+   * @param {number} y - Current y coordinate in canvas space
    */
   updateDragSelection(x, y) {
     if (!this.isDragging) return
@@ -391,10 +401,10 @@ export default class SelectionManager {
   }
 
   /**
-   * End drag selection and select all items within the box
-   * @param {number} x - Final x coordinate
-   * @param {number} y - Final y coordinate
-   * @param {boolean} additive - If true, adds to existing selection
+   * End drag selection - selects all items intersecting the box
+   * @param {number} x - Final x coordinate in canvas space
+   * @param {number} y - Final y coordinate in canvas space
+   * @param {boolean} additive - If true, adds to existing selection; if false, replaces
    */
   endDragSelection(x, y, additive = false) {
     if (!this.isDragging) return
@@ -476,14 +486,13 @@ export default class SelectionManager {
   }
 
   /**
-   * Check if a spline is within bounds
-   * @param {Spline} spline
-   * @param {object} bounds
-   * @returns {boolean}
+   * Check if a spline intersects with selection bounds
+   * @param {Spline} spline - Spline instance to check
+   * @param {object} bounds - {minX, maxX, minY, maxY} selection bounds
+   * @returns {boolean} True if spline's bbox or any point intersects bounds
    */
   isSplineInBounds(spline, bounds) {
-    // Check if any point is within bounds
-    // OR if the entire bounding box is within bounds
+    // Check if bounding box intersects OR if any individual point is within bounds
     const bbox = spline.group?.bbox?.()
 
     if (bbox) {
@@ -538,7 +547,7 @@ export default class SelectionManager {
   // ========== GROUP OPERATIONS ==========
 
   /**
-   * Delete all selected items
+   * Delete all selected items (splines and SVG objects) then clear selection
    */
   deleteSelected() {
     // Delete selected splines
@@ -556,16 +565,16 @@ export default class SelectionManager {
   }
 
   /**
-   * Move all selected items by delta
-   * @param {number} dx - Delta x
-   * @param {number} dy - Delta y
+   * Move all selected items by delta in canvas coordinate space
+   * @param {number} dx - Delta x in canvas coordinates
+   * @param {number} dy - Delta y in canvas coordinates
    */
   moveSelected(dx, dy) {
     console.log(
       `[SelectionManager.moveSelected] Moving ${this.selectedSplines.size} splines and ${this.selectedSvgObjects.size} objects by dx:${dx}, dy:${dy}`
     )
 
-    // Move selected splines
+    // Move selected splines (canvas coordinates)
     this.selectedSplines.forEach((id) => {
       const spline = this.splineManager.getSpline(id)
       if (spline) {
@@ -578,79 +587,23 @@ export default class SelectionManager {
       }
     })
 
-    // Remove lingering selection boxes before move
-    this.selectedSvgObjects.forEach((objId) => {
-      const obj = this.svgObjectManager?.getObject?.(objId)
-      if (obj && obj.node) {
-        const selBox = obj.node.querySelector(".svg-select-box")
-        if (selBox) selBox.remove()
-      }
-    })
-
-    // Move selected SVG objects
+    // Move selected SVG objects by applying translation
     this.selectedSvgObjects.forEach((objId) => {
       const obj = this.svgObjectManager?.getObject?.(objId)
       if (obj) {
-        // Prepare local deltas (will adjust if transform present)
-        let tdx = dx
-        let tdy = dy
-        try {
-          // Convert global delta (dx,dy) into the object's local coordinate space
-          if (typeof obj.ctm === "function") {
-            try {
-              const ctm = obj.ctm()
-              if (ctm && typeof ctm.inverse === "function") {
-                const inv = ctm.inverse()
-                if (inv && typeof inv.transformPoint === "function") {
-                  const local = inv.transformPoint({ x: dx, y: dy })
-                  tdx = local.x
-                  tdy = local.y
-                } else {
-                  // Fallback manual inverse application if transformPoint not available
-                  // Using matrix components (a,b,c,d,e,f) of inverse as linear part
-                  if (inv && typeof inv.a === "number") {
-                    const lx = inv.a * dx + inv.c * dy
-                    const ly = inv.b * dx + inv.d * dy
-                    tdx = lx
-                    tdy = ly
-                  }
-                }
-              }
-            } catch {
-              // Ignore CTM conversion errors; keep raw dx/dy
-            }
-          }
-          if (typeof obj.dmove === "function") {
-            obj.dmove(tdx, tdy)
-          } else {
-            const currentX = obj.x?.() || obj.bbox?.().x || 0
-            const currentY = obj.y?.() || obj.bbox?.().y || 0
-            obj.move(currentX + tdx, currentY + tdy)
-          }
-          // Remove lingering selection box after nudge
-          if (obj.node) {
-            const selBox = obj.node.querySelector(".svg-select-box")
-            if (selBox) selBox.remove()
-          }
-          obj.select?.(false)
-          obj.resize?.(false)
-        } catch (moveErr) {
-          console.warn("[Hotkeys] Failed to move SVG object", moveErr)
-        }
+        // Apply translation using translate() method which works in canvas space
+        obj.translate(dx, dy)
       }
     })
 
-    // Do NOT reapply selection overlays after every move step.
-    // Overlays should only be re-applied after drag ends (in mouseup/dragend handler).
-    // This prevents overlay artifacts during group drag.
-
+    // Emit event for history tracking and other listeners
     eventBus.emit("selection:moved", { dx, dy })
     console.log("[SelectionManager.moveSelected] Move complete")
   }
 
   /**
-   * Get bounding box of all selected items
-   * @returns {object|null} - {x, y, width, height}
+   * Get bounding box of all selected items in canvas coordinate space
+   * @returns {object|null} - {x, y, width, height} in canvas coordinates
    */
   getSelectionBounds() {
     if (!this.hasSelection()) return null
@@ -660,7 +613,7 @@ export default class SelectionManager {
     let maxX = -Infinity
     let maxY = -Infinity
 
-    // Include selected splines
+    // Include selected splines (already in canvas coordinates)
     this.selectedSplines.forEach((id) => {
       const spline = this.splineManager.getSpline(id)
       if (spline && spline.group) {
@@ -672,20 +625,18 @@ export default class SelectionManager {
       }
     })
 
-    // Include selected SVG objects
+    // Include selected SVG objects using rbox() for canvas-space coordinates
     this.selectedSvgObjects.forEach((id) => {
       const obj = this.svgObjectManager?.getObject?.(id)
       if (obj) {
-        try {
-          const bbox = obj.bbox?.()
-          if (bbox) {
-            minX = Math.min(minX, bbox.x)
-            minY = Math.min(minY, bbox.y)
-            maxX = Math.max(maxX, bbox.x + bbox.width)
-            maxY = Math.max(maxY, bbox.y + bbox.height)
-          }
-        } catch {
-          // ignore
+        // Get bounding box in canvas coordinate space
+        // rbox() returns position relative to the SVG canvas, accounting for transforms
+        const rbox = obj.rbox?.(this.draw)
+        if (rbox) {
+          minX = Math.min(minX, rbox.x)
+          minY = Math.min(minY, rbox.y)
+          maxX = Math.max(maxX, rbox.x + rbox.width)
+          maxY = Math.max(maxY, rbox.y + rbox.height)
         }
       }
     })
@@ -704,6 +655,7 @@ export default class SelectionManager {
 
   /**
    * Create or update the multi-selection overlay rectangle
+   * Only shows when in select tool with 2+ items selected
    */
   updateOverlay() {
     if (!this.draw || !this.selectedToolRef) return
@@ -744,7 +696,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Remove the overlay if it exists
+   * Remove the group selection overlay from canvas
    */
   removeOverlay() {
     if (this.groupOverlay) {
@@ -758,7 +710,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Handle overlay pointerdown event
+   * Handle overlay pointerdown event - initiates group drag
    */
   handleOverlayPointerDown(e) {
     if (this.selectedToolRef.current !== "select" || e.button !== 0) return
@@ -782,7 +734,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Handle overlay drag movement
+   * Handle overlay drag movement - moves selected items and updates overlay position
    */
   handleOverlayDragMove(e) {
     if (!this.overlayDragState.dragging) return
@@ -796,13 +748,15 @@ export default class SelectionManager {
     this.overlayDragState.lastX = x
     this.overlayDragState.lastY = y
 
-    // Hide overlay during drag
-    this.removeOverlay()
+    // Move selected items
     this.moveSelected(dx, dy)
+
+    // Update overlay to reflect new position (provides visual feedback during drag)
+    this.updateOverlay()
   }
 
   /**
-   * Handle overlay drag end
+   * Handle overlay drag end - cleanup listeners and finalize overlay position
    */
   handleOverlayDragUp() {
     this.overlayDragState.dragging = false
@@ -811,7 +765,7 @@ export default class SelectionManager {
       this.handleOverlayDragMove.bind(this)
     )
 
-    // Restore overlay after drag ends
+    // Final overlay update to ensure correct position
     this.updateOverlay()
     // AutoHistoryPlugin handles history save via selection:moved event
   }
