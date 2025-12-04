@@ -29,6 +29,16 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "Open project"
   )
 
+  // Open Recent (Ctrl+Shift+O)
+  hotkeysManager.register(
+    "ctrl+shift+o",
+    "global",
+    () => {
+      context.onShowRecentProjects?.()
+    },
+    "Open recent project"
+  )
+
   // Save project (Ctrl+S)
   hotkeysManager.register(
     "ctrl+s",

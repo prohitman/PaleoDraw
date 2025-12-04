@@ -4,6 +4,7 @@ import Toolbar from "./components/ToolBar"
 import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
+import RecentProjectsDialog from "./components/RecentProjectsDialog"
 import "./styles/theme.css"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 import packageJson from "../package.json"
@@ -13,6 +14,7 @@ export default function App() {
   const [zoomSignal, setZoomSignal] = useState(null)
   const [selectedTool, setSelectedTool] = useState("select")
   const [showWelcome, setShowWelcome] = useState(true)
+  const [showRecentProjects, setShowRecentProjects] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
 
   useEffect(() => {
@@ -88,8 +90,20 @@ export default function App() {
 
   const handleOpenRecent = (path) => {
     setShowWelcome(false)
+    setShowRecentProjects(false)
     console.log("[App] Opening recent project:", path)
     canvasRef.current?.loadProjectFromPath?.(path)
+  }
+
+  const handleShowRecentProjects = () => {
+    // Warn user if opening from menu (not from welcome screen)
+    if (!showWelcome) {
+      if (confirm("Opening a recent project will replace your current work. Any unsaved changes will be lost. Continue?")) {
+        setShowRecentProjects(true)
+      }
+    } else {
+      setShowRecentProjects(true)
+    }
   }
 
   return (
@@ -125,6 +139,12 @@ export default function App() {
           onOpenRecent={handleOpenRecent}
         />
 
+        <RecentProjectsDialog
+          open={showRecentProjects}
+          onClose={() => setShowRecentProjects(false)}
+          onOpenRecent={handleOpenRecent}
+        />
+
         {/* Main Content */}
         <div
           style={{
@@ -146,6 +166,7 @@ export default function App() {
             onApplyCanvasSize={applyCanvasSize}
             onNewProject={handleNewProject}
             onOpenProject={handleOpenProject}
+            onOpenRecent={handleShowRecentProjects}
             onSaveProject={handleSaveProject}
             onSaveAs={handleSaveAs}
             onExport={handleExport}
@@ -165,6 +186,7 @@ export default function App() {
             ref={canvasRef}
             zoomSignal={zoomSignal}
             selectedTool={selectedTool}
+            onShowRecentProjects={handleShowRecentProjects}
           />
 
           {/* Version Overlay */}

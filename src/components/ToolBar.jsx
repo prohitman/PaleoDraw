@@ -27,6 +27,7 @@ export default function ToolBar({
   onApplyCanvasSize,
   onNewProject,
   onOpenProject,
+  onOpenRecent,
   onSaveProject,
   onSaveAs,
   onExport,
@@ -137,6 +138,12 @@ export default function ToolBar({
             shortcut="[Ctrl+O]"
             onClick={() => handleAction(onOpenProject)}
           />
+          <MenuItemWithShortcut
+            label="Open Recent..."
+            shortcut="[Ctrl+Shift+O]"
+            onClick={() => handleAction(onOpenRecent)}
+          />
+          <Divider />
           <MenuItemWithShortcut
             label="Save Project"
             shortcut="[Ctrl+S]"

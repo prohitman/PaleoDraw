@@ -37,7 +37,7 @@ import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
 import "@svgdotjs/svg.draggable.js"
 
-const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
+const Canvas = forwardRef(({ zoomSignal, selectedTool, onShowRecentProjects }, ref) => {
   // ========== Core Refs ==========
   const canvasRef = useRef(null) // Container DOM element
   const drawRef = useRef(null) // SVG.js draw instance
@@ -320,6 +320,7 @@ const Canvas = forwardRef(({ zoomSignal, selectedTool }, ref) => {
       onImportSVG: () => {
         ref.current?.importSVG?.()
       },
+      onShowRecentProjects,
     })
 
     // Store hotkeys manager for dynamic scope activation
