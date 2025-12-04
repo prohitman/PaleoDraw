@@ -142,11 +142,13 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       // 1. If points are selected, clear point selection but keep spline selected
       // 2. If no points selected, finish drawing and clear spline/SVG selection
       const hasPointSelection = pointSelectionManager?.hasSelection?.()
-      
+
       if (hasPointSelection) {
         // Just clear point selections, don't finish drawing or deselect spline
         pointSelectionManager?.clearSelection?.()
-        console.log("[canvasHotkeys] Cleared point selection, spline remains selected")
+        console.log(
+          "[canvasHotkeys] Cleared point selection, spline remains selected"
+        )
       } else {
         // No points selected, finish drawing and clear everything
         splineManager?.finishDrawing?.()
