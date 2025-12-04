@@ -43,6 +43,15 @@ export default function ToolBar({
   onSendToBack,
   onSendBackward,
   onTogglePointDirection,
+  // Disabled states
+  canUndo = true,
+  canRedo = true,
+  canCopy = true,
+  canPaste = true,
+  canCut = true,
+  canDelete = true,
+  canReorder = true,
+  canTogglePointDirection = true,
 }) {
   // State for menus
   const [anchorElement, setAnchorElement] = useState(null)
@@ -78,9 +87,16 @@ export default function ToolBar({
     />
   )
 
-  function MenuItemWithShortcut({ label, shortcut, onClick, color, tooltip }) {
+  function MenuItemWithShortcut({
+    label,
+    shortcut,
+    onClick,
+    color,
+    tooltip,
+    disabled = false,
+  }) {
     const item = (
-      <MenuItem onClick={onClick} sx={{ color }}>
+      <MenuItem onClick={onClick} sx={{ color }} disabled={disabled}>
         <Box
           sx={{
             display: "flex",
@@ -186,27 +202,32 @@ export default function ToolBar({
             label="Undo"
             shortcut="[Ctrl+Z]"
             onClick={() => handleAction(onUndo)}
+            disabled={!canUndo}
           />
           <MenuItemWithShortcut
             label="Redo"
             shortcut="[Ctrl+Y]"
             onClick={() => handleAction(onRedo)}
+            disabled={!canRedo}
           />
           <Divider />
           <MenuItemWithShortcut
             label="Copy"
             shortcut="[Ctrl+C]"
             onClick={() => handleAction(onCopy)}
+            disabled={!canCopy}
           />
           <MenuItemWithShortcut
             label="Paste"
             shortcut="[Ctrl+V]"
             onClick={() => handleAction(onPaste)}
+            disabled={!canPaste}
           />
           <MenuItemWithShortcut
             label="Cut"
             shortcut="[Ctrl+X]"
             onClick={() => handleAction(onCut)}
+            disabled={!canCut}
           />
           <Divider />
           <MenuItemWithShortcut
@@ -214,27 +235,32 @@ export default function ToolBar({
             shortcut="[R]"
             onClick={() => handleAction(onTogglePointDirection)}
             tooltip="Switch between adding points to end or beginning of spline"
+            disabled={!canTogglePointDirection}
           />
           <Divider />
           <MenuItemWithShortcut
             label="Send to Back"
             shortcut="[Ctrl+Shift+B]"
             onClick={() => handleAction(onSendToBack)}
+            disabled={!canReorder}
           />
           <MenuItemWithShortcut
             label="Back One Step"
             shortcut="[Ctrl+B]"
             onClick={() => handleAction(onSendBackward)}
+            disabled={!canReorder}
           />
           <MenuItemWithShortcut
             label="Send to Front"
             shortcut="[Ctrl+Shift+F]"
             onClick={() => handleAction(onBringToFront)}
+            disabled={!canReorder}
           />
           <MenuItemWithShortcut
             label="Front One Step"
             shortcut="[Ctrl+F]"
             onClick={() => handleAction(onBringForward)}
+            disabled={!canReorder}
           />
           <Divider />
           <MenuItemWithShortcut
@@ -242,6 +268,7 @@ export default function ToolBar({
             shortcut="[Del]"
             onClick={() => handleAction(onDelete)}
             color="error.main"
+            disabled={!canDelete}
           />
         </Menu>
 

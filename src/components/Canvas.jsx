@@ -411,6 +411,18 @@ const Canvas = forwardRef(
         selectedRef,
       })
 
+      // ========== Emit Initial States ==========
+      // Emit initial state for toolbar to reflect starting conditions
+      eventBus.emit("app:historyChanged", {
+        canUndo: false,
+        canRedo: false,
+      })
+      eventBus.emit("app:selectionChanged", {
+        hasSelection: false,
+        hasSplineSelection: false,
+      })
+      eventBus.emit("app:clipboardChanged", { hasClipboard: false })
+
       // ========== Cleanup Function ==========
       return () => {
         container.removeEventListener("wheel", handleWheel)
@@ -736,6 +748,7 @@ const Canvas = forwardRef(
             data: selectedSpline.toJSON(),
           }
           console.log("[Canvas] Copied spline to clipboard")
+          eventBus.emit("app:clipboardChanged", { hasClipboard: true })
         } else if (selectedSvg) {
           // Serialize the SVG object with all its transformation data
           clipboard.current = {
@@ -743,6 +756,7 @@ const Canvas = forwardRef(
             data: svgObjectManager.current?.serializeObject(selectedSvg),
           }
           console.log("[Canvas] Copied SVG to clipboard")
+          eventBus.emit("app:clipboardChanged", { hasClipboard: true })
         }
       },
 

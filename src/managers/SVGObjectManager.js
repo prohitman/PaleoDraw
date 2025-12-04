@@ -349,6 +349,7 @@ export default class SVGObjectManager {
       }
 
       eventBus.emit("svg:selected", { svg: current, id: objectId })
+      this.emitSelectionState()
     }
 
     if (isAlreadySelected) {
@@ -378,6 +379,19 @@ export default class SVGObjectManager {
 
     this.selectedObjectId = null
     eventBus.emit("svg:selected", { svg: null, id: null })
+    this.emitSelectionState()
+  }
+
+  /**
+   * Emit selection state to EventBus
+   * @private
+   */
+  emitSelectionState() {
+    const hasSvgSelection = this.selectedObjectId !== null
+    eventBus.emit("app:selectionChanged", {
+      hasSelection: hasSvgSelection,
+      hasSplineSelection: false,
+    })
   }
 
   /**

@@ -5,6 +5,7 @@ import TitleBar from "./components/TitleBar"
 import Canvas from "./components/Canvas"
 import WelcomeScreen from "./components/WelcomeScreen"
 import RecentProjectsDialog from "./components/RecentProjectsDialog"
+import eventBus from "./core/EventBus"
 import "./styles/theme.css"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 import packageJson from "../package.json"
@@ -17,6 +18,15 @@ export default function App() {
   const [showRecentProjects, setShowRecentProjects] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
 
+  // State tracking for menu item enabled/disabled states
+  const [toolbarState, setToolbarState] = useState({
+    hasSelection: false,
+    hasClipboard: false,
+    canUndo: false,
+    canRedo: false,
+    hasSplineSelection: false,
+  })
+
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add("dark")
@@ -24,6 +34,39 @@ export default function App() {
       document.documentElement.classList.remove("dark")
     }
   }, [isDarkMode])
+
+  // Listen to EventBus for state changes
+  useEffect(() => {
+    const handleSelectionChange = (data) => {
+      setToolbarState((prev) => ({
+        ...prev,
+        hasSelection: data.hasSelection || false,
+        hasSplineSelection: data.hasSplineSelection || false,
+      }))
+    }
+
+    const handleClipboardChange = (data) => {
+      setToolbarState((prev) => ({ ...prev, hasClipboard: data.hasClipboard }))
+    }
+
+    const handleHistoryChange = (data) => {
+      setToolbarState((prev) => ({
+        ...prev,
+        canUndo: data.canUndo || false,
+        canRedo: data.canRedo || false,
+      }))
+    }
+
+    eventBus.on("app:selectionChanged", handleSelectionChange)
+    eventBus.on("app:clipboardChanged", handleClipboardChange)
+    eventBus.on("app:historyChanged", handleHistoryChange)
+
+    return () => {
+      eventBus.off("app:selectionChanged", handleSelectionChange)
+      eventBus.off("app:clipboardChanged", handleClipboardChange)
+      eventBus.off("app:historyChanged", handleHistoryChange)
+    }
+  }, [])
 
   const toggleTheme = () => setIsDarkMode((prev) => !prev)
 
@@ -189,6 +232,15 @@ export default function App() {
             onSendToBack={handleSendToBack}
             onSendBackward={handleSendBackward}
             onTogglePointDirection={handleTogglePointDirection}
+            // Disabled states
+            canUndo={toolbarState.canUndo}
+            canRedo={toolbarState.canRedo}
+            canCopy={toolbarState.hasSelection}
+            canPaste={toolbarState.hasClipboard}
+            canCut={toolbarState.hasSelection}
+            canDelete={toolbarState.hasSelection}
+            canReorder={toolbarState.hasSelection}
+            canTogglePointDirection={toolbarState.hasSplineSelection}
           />
           <Canvas
             ref={canvasRef}

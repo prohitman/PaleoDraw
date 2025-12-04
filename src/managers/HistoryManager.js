@@ -1,3 +1,5 @@
+import eventBus from "../core/EventBus"
+
 /**
  * HistoryManager: Manages undo/redo history for the application
  * Pure state management - no events needed (none were being listened to)
@@ -61,6 +63,18 @@ export default class HistoryManager {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
+    this.emitHistoryState()
+  }
+
+  /**
+   * Emit current history state to EventBus
+   * @private
+   */
+  emitHistoryState() {
+    eventBus.emit("app:historyChanged", {
+      canUndo: this.canUndo(),
+      canRedo: this.canRedo(),
+    })
   }
 
   /**
@@ -92,6 +106,7 @@ export default class HistoryManager {
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
     })
+    this.emitHistoryState()
     return state
   }
 
@@ -115,6 +130,7 @@ export default class HistoryManager {
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
     })
+    this.emitHistoryState()
     return state
   }
 
@@ -141,6 +157,7 @@ export default class HistoryManager {
     this.history = []
     this.currentIndex = -1
     console.log("[HistoryManager] History cleared")
+    this.emitHistoryState()
   }
 
   /**

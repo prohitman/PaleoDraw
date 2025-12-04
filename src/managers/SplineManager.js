@@ -127,8 +127,8 @@ export default class SplineManager {
     if (this.selectedSplineId === splineId) {
       this.selectedSplineId = null
       eventBus.emit("spline:selected", { spline: null })
+      this.emitSelectionState()
     }
-
     eventBus.emit("spline:deleted", { splineId })
   }
 
@@ -394,6 +394,7 @@ export default class SplineManager {
       eventBus.emit("spline:selected", { spline: current })
     }
 
+    this.emitSelectionState()
     console.log("[SplineManager.selectSpline] Complete")
   }
 
@@ -432,6 +433,7 @@ export default class SplineManager {
 
     this.selectedSplineId = null
     eventBus.emit("spline:selected", { spline: null })
+    this.emitSelectionState()
   }
 
   /**
@@ -440,6 +442,18 @@ export default class SplineManager {
    */
   getSelected() {
     return this.splines.get(this.selectedSplineId) || null
+  }
+
+  /**
+   * Emit selection state to EventBus
+   * @private
+   */
+  emitSelectionState() {
+    const hasSplineSelection = this.selectedSplineId !== null
+    eventBus.emit("app:selectionChanged", {
+      hasSelection: hasSplineSelection,
+      hasSplineSelection: hasSplineSelection,
+    })
   }
 
   /**
