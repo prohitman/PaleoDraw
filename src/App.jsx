@@ -38,6 +38,8 @@ export default function App() {
   const handleBringForward = () => canvasRef.current?.bringForward?.()
   const handleSendToBack = () => canvasRef.current?.sendToBack?.()
   const handleSendBackward = () => canvasRef.current?.sendBackward?.()
+  const handleTogglePointDirection = () =>
+    canvasRef.current?.togglePointDirection?.()
 
   // Tool Menu Handler
   const selectTool = (tool) => {
@@ -186,6 +188,7 @@ export default function App() {
             onBringForward={handleBringForward}
             onSendToBack={handleSendToBack}
             onSendBackward={handleSendBackward}
+            onTogglePointDirection={handleTogglePointDirection}
           />
           <Canvas
             ref={canvasRef}

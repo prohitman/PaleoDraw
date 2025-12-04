@@ -442,6 +442,26 @@ export default class SplineManager {
     return this.splines.get(this.selectedSplineId) || null
   }
 
+  /**
+   * Toggle point addition direction for currently selected spline
+   * Switches between adding points to the end or beginning of the spline
+   */
+  togglePointDirection() {
+    const spline = this.getSelected()
+    if (spline) {
+      spline.addToEnd = !spline.addToEnd
+      console.log(
+        `[SplineManager] Point direction toggled to: ${
+          spline.addToEnd ? "end" : "beginning"
+        }`
+      )
+      eventBus.emit("app:showToast", {
+        message: `Adding points to ${spline.addToEnd ? "end" : "beginning"}`,
+        severity: "info",
+      })
+    }
+  }
+
   // ========== Z-ORDER OPERATIONS ==========
 
   /**

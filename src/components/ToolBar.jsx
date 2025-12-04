@@ -42,6 +42,7 @@ export default function ToolBar({
   onBringForward,
   onSendToBack,
   onSendBackward,
+  onTogglePointDirection,
 }) {
   // State for menus
   const [anchorElement, setAnchorElement] = useState(null)
@@ -206,6 +207,13 @@ export default function ToolBar({
             label="Cut"
             shortcut="[Ctrl+X]"
             onClick={() => handleAction(onCut)}
+          />
+          <Divider />
+          <MenuItemWithShortcut
+            label="Reverse Point Direction"
+            shortcut="[R]"
+            onClick={() => handleAction(onTogglePointDirection)}
+            tooltip="Switch between adding points to end or beginning of spline"
           />
           <Divider />
           <MenuItemWithShortcut

@@ -172,6 +172,17 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "Deselect points or spline"
   )
 
+  // Reverse point direction (R)
+  hotkeysManager.register(
+    "r",
+    "global",
+    () => {
+      const splineManager = context.splineManager?.current
+      splineManager?.togglePointDirection?.()
+    },
+    "Reverse point addition direction"
+  )
+
   // Tool switching hotkeys
   const { selectedToolRef, onToolChange } = context
 

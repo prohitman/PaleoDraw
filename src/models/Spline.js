@@ -20,6 +20,8 @@ export default class Spline {
     this.selected = false
     // Spline type: 'bspline' (default) or 'polyline'
     this.type = type
+    // Direction flag: true = add points at end (default), false = add at beginning
+    this.addToEnd = true
 
     this._draw = draw
     console.log("[Spline.constructor] Creating SVG group")
@@ -56,7 +58,7 @@ export default class Spline {
   }
 
   /**
-   * Add a point to the end of the spline
+   * Add a point to the spline (at end or beginning based on addToEnd flag)
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
    * @param {boolean} withCircle - Whether to create a visual circle for the point
@@ -70,6 +72,7 @@ export default class Spline {
       y,
       withCircle,
       isSharp,
+      addToEnd: this.addToEnd,
       groupExists: !!this.group,
     })
     let circle = null
@@ -97,9 +100,18 @@ export default class Spline {
       }
     }
     const point = { x, y, circle, isSharp }
-    this.points.push(point)
+
+    // Add point to beginning or end based on direction flag
+    if (this.addToEnd) {
+      this.points.push(point)
+    } else {
+      this.points.unshift(point)
+    }
+
     console.log(
-      "[Spline.addPoint] Point added, total points:",
+      "[Spline.addPoint] Point added to",
+      this.addToEnd ? "end" : "beginning",
+      ", total points:",
       this.points.length
     )
     return point

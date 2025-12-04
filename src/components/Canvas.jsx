@@ -857,6 +857,9 @@ const Canvas = forwardRef(
         splineManager.current?.sendBackward()
         svgObjectManager.current?.sendBackward()
       },
+      togglePointDirection: () => {
+        splineManager.current?.togglePointDirection()
+      },
 
       // History manager reference (private API for hotkeys)
       _historyManager: historyManager.current,
