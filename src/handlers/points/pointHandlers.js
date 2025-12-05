@@ -5,6 +5,7 @@
  */
 
 import { findNearestSnapPoint } from "../../utils/snapping"
+import eventBus from "../../core/EventBus"
 
 export function setupPointHandlers(
   circle,
@@ -206,6 +207,8 @@ export function setupPointHandlers(
       selectedTool?.current === "nurbs"
     ) {
       console.log("[pointHandlers] Dragged point saved to history")
+      // Emit event so AutoHistoryPlugin saves to history
+      eventBus.emit("point:moved")
     }
     delete pointSelectionManager?._dragStartPoints
   })
