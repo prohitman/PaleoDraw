@@ -4,6 +4,8 @@
  * Handles dragging, deletion (right-click), and visual feedback
  */
 
+import { findNearestSnapPoint } from "../../utils/snapping"
+
 export function setupPointHandlers(
   circle,
   spline,
@@ -49,6 +51,10 @@ export function setupPointHandlers(
       return
     isDraggingRef.current = true
 
+    // Initialize snap visual feedback and snap target
+    circle._snapIndicator = null
+    circle._snapTarget = null
+
     // If multi-point selection active and this point is selected, snapshot all selected points
     if (pointSelectionManager?.hasSelection?.()) {
       const pointIndex = spline.points.findIndex((p) => p.circle === circle)
@@ -67,7 +73,7 @@ export function setupPointHandlers(
     }
   })
 
-  circle.on("dragmove.curveTool", () => {
+  circle.on("dragmove.curveTool", (e) => {
     if (
       selectedTool?.current !== "curve" &&
       selectedTool?.current !== "line" &&
@@ -76,13 +82,61 @@ export function setupPointHandlers(
     )
       return
 
-    const cx = circle.cx()
-    const cy = circle.cy()
+    let cx = circle.cx()
+    let cy = circle.cy()
     const point = spline.points.find((p) => p.circle === circle)
 
     if (point) {
+      // Check for Ctrl key to enable snapping
+      if (e?.detail?.event?.ctrlKey) {
+        const snapTarget = findNearestSnapPoint(cx, cy, splineManager, point)
+
+        if (snapTarget) {
+          // Store snap target for dragend
+          circle._snapTarget = snapTarget
+
+          // Update visual position for preview
+          cx = snapTarget.x
+          cy = snapTarget.y
+
+          // Show visual feedback
+          if (!circle._snapIndicator) {
+            // Create snap indicator (glow circle on target)
+            const draw = splineManager.draw
+            circle._snapIndicator = draw
+              .circle(12)
+              .center(snapTarget.x, snapTarget.y)
+              .fill("none")
+              .stroke({ color: "#00ff00", width: 2, opacity: 0.8 })
+              .addClass("snap-indicator")
+          } else {
+            // Update existing indicator position
+            circle._snapIndicator.center(snapTarget.x, snapTarget.y)
+          }
+
+          // CRITICAL: Force the circle to the snap position immediately
+          // This must happen during dragmove to override SVG.js positioning
+          circle.move(cx - 3, cy - 3) // circle radius is 3, so move accounts for that
+        } else {
+          // No snap target
+          circle._snapTarget = null
+          // Remove indicator
+          if (circle._snapIndicator) {
+            circle._snapIndicator.remove()
+            circle._snapIndicator = null
+          }
+        }
+      } else {
+        // Ctrl not pressed, remove snap indicator
+        if (circle._snapIndicator) {
+          circle._snapIndicator.remove()
+          circle._snapIndicator = null
+        }
+      }
+
       point.x = cx
       point.y = cy
+
       // If multi-selection drag, move all other selected points by same delta
       if (pointSelectionManager?._dragStartPoints) {
         const pointIndex = spline.points.findIndex((p) => p.circle === circle)
@@ -125,6 +179,25 @@ export function setupPointHandlers(
       isCurveTool: selectedTool?.current === "curve",
     })
     isDraggingRef.current = false
+
+    // Apply snap target if it exists
+    if (circle._snapTarget) {
+      const point = spline.points.find((p) => p.circle === circle)
+      if (point) {
+        point.x = circle._snapTarget.x
+        point.y = circle._snapTarget.y
+        circle.center(circle._snapTarget.x, circle._snapTarget.y)
+        spline.plot()
+      }
+      circle._snapTarget = null
+    }
+
+    // Remove snap indicator if it exists
+    if (circle._snapIndicator) {
+      circle._snapIndicator.remove()
+      circle._snapIndicator = null
+    }
+
     // Batch: Save history only at drag end
     if (
       selectedTool?.current === "curve" ||
