@@ -206,11 +206,33 @@ export function setupPointHandlers(
       selectedTool?.current === "straight" ||
       selectedTool?.current === "nurbs"
     ) {
-      console.log("[pointHandlers] Dragged point saved to history")
-      // Emit event so AutoHistoryPlugin saves to history
-      eventBus.emit("point:moved")
+      // Only emit the event if this is a multi-point drag AND we have the snapshot
+      // This ensures only the primary dragged circle emits the event once
+      const isMultiPointDrag = !!pointSelectionManager?._dragStartPoints
+
+      if (isMultiPointDrag) {
+        // Check if this is the primary circle being dragged (the one with the snapshot)
+        const pointIndex = spline.points.findIndex((p) => p.circle === circle)
+        const key = `${spline.id}_${pointIndex}`
+        const isPRIMARY =
+          pointSelectionManager._dragStartPoints[key] !== undefined
+
+        if (isPRIMARY) {
+          console.log(
+            "[pointHandlers] Multi-point drag completed, saving to history (once)"
+          )
+          eventBus.emit("point:moved")
+          delete pointSelectionManager._dragStartPoints
+        }
+      } else {
+        // Single point drag - emit normally
+        console.log("[pointHandlers] Single point drag saved to history")
+        eventBus.emit("point:moved")
+      }
+    } else {
+      // Clean up snapshot even if not saving (wrong tool)
+      delete pointSelectionManager?._dragStartPoints
     }
-    delete pointSelectionManager?._dragStartPoints
   })
 
   // Handle point deletion via right-click

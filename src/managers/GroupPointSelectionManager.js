@@ -290,7 +290,7 @@ export class PointSelectionManager {
       if (spline) spline.plot()
     })
 
-    eventBus.emit("points:moved", { dx, dy, count: this.selectedPoints.size })
+    // Don't emit event here - only emit once at dragend
     console.log(
       `[PointSelectionManager] Moved ${this.selectedPoints.size} points across ${affectedSplines.size} splines`
     )
@@ -581,6 +581,12 @@ export class PointSelectionManager {
       "pointermove",
       this.handleOverlayDragMove.bind(this)
     )
-    // AutoHistoryPlugin handles history save via points:moved event
+    // Emit points:moved event ONCE at dragend for history save
+    if (this.hasSelection()) {
+      eventBus.emit("points:moved", { count: this.selectedPoints.size })
+      console.log(
+        "[PointSelectionManager] Multi-point drag completed, emitting points:moved event"
+      )
+    }
   }
 }
