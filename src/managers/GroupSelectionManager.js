@@ -596,8 +596,7 @@ export default class SelectionManager {
       }
     })
 
-    // Emit event for history tracking and other listeners
-    eventBus.emit("selection:moved", { dx, dy })
+    // Don't emit event here - only emit once at dragend
     console.log("[SelectionManager.moveSelected] Move complete")
   }
 
@@ -767,6 +766,16 @@ export default class SelectionManager {
 
     // Final overlay update to ensure correct position
     this.updateOverlay()
-    // AutoHistoryPlugin handles history save via selection:moved event
+
+    // Emit selection:moved event ONCE at dragend for history save
+    if (this.hasSelection()) {
+      eventBus.emit("selection:moved", {
+        splineCount: this.selectedSplines.size,
+        svgCount: this.selectedSvgObjects.size,
+      })
+      console.log(
+        "[SelectionManager] Group drag completed, emitting selection:moved event"
+      )
+    }
   }
 }

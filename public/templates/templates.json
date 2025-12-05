@@ -19,6 +19,10 @@
     {
       "name": "Mammoth Skeleton",
       "file": "/templates/mammoth-skeleton.json"
+    },
+    {
+      "name": "Spinosaurus",
+      "file": "/templates/spinosaurus.json"
     }
   ]
 }
