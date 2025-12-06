@@ -47,6 +47,14 @@ body, html, #root {
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+/* Drag-and-drop visual feedback */
+.canvas-container.drag-over {
+  background-color: rgba(0, 123, 255, 0.05);
+  outline: 2px dashed var(--selection-color);
+  outline-offset: -4px;
 } 
 
 .grid-overlay {

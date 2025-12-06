@@ -488,25 +488,27 @@ export default class SelectionManager {
   /**
    * Check if a spline intersects with selection bounds
    * @param {Spline} spline - Spline instance to check
-   * @param {object} bounds - {minX, maxX, minY, maxY} selection bounds
+   * @param {object} bounds - {minX, maxX, minY, maxY} selection bounds in canvas coordinates
    * @returns {boolean} True if spline's bbox or any point intersects bounds
    */
   isSplineInBounds(spline, bounds) {
-    // Check if bounding box intersects OR if any individual point is within bounds
-    const bbox = spline.group?.bbox?.()
+    // Use rbox() to get bounding box in canvas coordinates (after transforms)
+    // This ensures correct detection even after drag/resize/rotate operations
+    const rbox = spline.group?.rbox?.()
 
-    if (bbox) {
+    if (rbox) {
       // Check if bounding box intersects with selection bounds
       const bboxIntersects =
-        bbox.x < bounds.maxX &&
-        bbox.x + bbox.width > bounds.minX &&
-        bbox.y < bounds.maxY &&
-        bbox.y + bbox.height > bounds.minY
+        rbox.x < bounds.maxX &&
+        rbox.x + rbox.width > bounds.minX &&
+        rbox.y < bounds.maxY &&
+        rbox.y + rbox.height > bounds.minY
 
       return bboxIntersects
     }
 
     // Fallback: check if any point is within bounds
+    // Points are in canvas coordinates, so this should still work
     return spline.points.some(
       (pt) =>
         pt.x >= bounds.minX &&
@@ -518,7 +520,7 @@ export default class SelectionManager {
 
   /**
    * Find SVG objects within selection bounds
-   * @param {object} bounds - {minX, maxX, minY, maxY}
+   * @param {object} bounds - {minX, maxX, minY, maxY} in canvas coordinates
    * @returns {string[]} - Array of SVG object IDs
    */
   findSvgObjectsInBounds(bounds) {
@@ -527,18 +529,26 @@ export default class SelectionManager {
     const allObjects = this.svgObjectManager.getAllObjects?.() || []
     allObjects.forEach((obj) => {
       try {
-        const bbox = obj.bbox?.()
-        if (!bbox) return
+        // Use rbox() instead of bbox() to get bounding box in canvas coordinates
+        // bbox() returns local coords (before transforms), rbox() returns after transforms
+        const rbox = obj.rbox?.()
+        if (!rbox) return
+
+        // Check intersection with selection bounds
         const intersects =
-          bbox.x < bounds.maxX &&
-          bbox.x + bbox.width > bounds.minX &&
-          bbox.y < bounds.maxY &&
-          bbox.y + bbox.height > bounds.minY
+          rbox.x < bounds.maxX &&
+          rbox.x + rbox.width > bounds.minX &&
+          rbox.y < bounds.maxY &&
+          rbox.y + rbox.height > bounds.minY
+
         if (intersects) {
           objectsInBounds.push(obj._objectId)
         }
-      } catch {
-        // ignore
+      } catch (err) {
+        console.warn(
+          "[SelectionManager] Error checking SVG object bounds:",
+          err
+        )
       }
     })
     return objectsInBounds

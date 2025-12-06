@@ -27,6 +27,7 @@ import {
   setupGlobalPointerUp,
   setupBackgroundClickBehavior,
 } from "../handlers/interactions/setupCanvasInteractions"
+import { setupDragDropHandlers } from "../handlers/interactions/dragDropHandlers"
 import {
   drawGrid,
   updateGridLineThickness,
@@ -250,6 +251,13 @@ const Canvas = forwardRef(
       container.addEventListener("mouseleave", handleMouseLeave)
       container.addEventListener("mousemove", handleMouseMove)
 
+      // ========== Drag-and-Drop SVG Import Setup ==========
+      const dragDropCleanup = setupDragDropHandlers(
+        container,
+        draw,
+        svgObjectManager.current
+      )
+
       // Setup background click behavior (deselect on empty click)
       const { handleBackgroundClick } = setupBackgroundClickBehavior(
         container,
@@ -433,6 +441,9 @@ const Canvas = forwardRef(
         container.removeEventListener("click", handleBackgroundClick)
         container.removeEventListener("click", unifiedCanvasClickHandler)
         window.removeEventListener("pointerup", handleGlobalPointerUp)
+
+        // Clean up drag-drop handlers
+        dragDropCleanup.cleanup()
 
         // Clean up EventBus listeners
         eventBus.off("spline:selected", handleSplineSelect)

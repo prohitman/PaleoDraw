@@ -1,0 +1,13 @@
+tail vert
+tail spine
+leg bone
+spine vert
+
+bary:
+arm bones (claw, arm bone)
+missing skull parts?
+belly rib
+
+collar bones
+skull bones
+some leg bones
