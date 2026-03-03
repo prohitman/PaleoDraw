@@ -2,6 +2,7 @@
 /**
  * Selection handlers for right-click drag and shift-click multi-selection
  */
+import logger from "../../utils/logger.js"
 
 /**
  * Setup drag selection handlers on the canvas
@@ -14,7 +15,7 @@ export function setupDragSelectionHandlers(
   draw,
   selectionManager,
   selectedToolRef,
-  getViewportCoords
+  getViewportCoords,
 ) {
   let isDraggingSelection = false
   let dragButton = null
@@ -49,7 +50,7 @@ export function setupDragSelectionHandlers(
 
       selectionManager.startDragSelection(x, y, draw)
 
-      console.log("[selectionHandlers] Starting drag selection at", { x, y })
+      logger.debug("[selectionHandlers] Starting drag selection at", { x, y })
     }
   })
 
@@ -72,10 +73,10 @@ export function setupDragSelectionHandlers(
     if (!cancelled) {
       const additive = e.shiftKey
       selectionManager.endDragSelection(x, y, additive)
-      console.log("[selectionHandlers] Ended drag selection")
+      logger.debug("[selectionHandlers] Ended drag selection")
     } else {
       selectionManager.cancelDragSelection()
-      console.log("[selectionHandlers] Cancelled drag selection")
+      logger.debug("[selectionHandlers] Cancelled drag selection")
     }
     isDraggingSelection = false
     dragButton = null
@@ -136,11 +137,11 @@ export function setupDragSelectionHandlers(
  */
 export function handleSplineClick(splineId, shiftKey, selectionManager) {
   selectionManager.selectSpline(splineId, shiftKey)
-  console.log(
+  logger.debug(
     "[selectionHandlers] Spline clicked:",
     splineId,
     "shift:",
-    shiftKey
+    shiftKey,
   )
 }
 
@@ -152,11 +153,11 @@ export function handleSplineClick(splineId, shiftKey, selectionManager) {
  */
 export function handleSvgObjectClick(svgObjectId, shiftKey, selectionManager) {
   selectionManager.selectSvgObject(svgObjectId, shiftKey)
-  console.log(
+  logger.debug(
     "[selectionHandlers] SVG object clicked:",
     svgObjectId,
     "shift:",
-    shiftKey
+    shiftKey,
   )
 }
 
@@ -178,7 +179,7 @@ export function setupMultiSelectionHotkeys(selectionManager) {
         .map((s) => s.id)
       selectionManager.selectSplines(allSplineIds, false)
 
-      console.log("[selectionHandlers] Selected all splines")
+      logger.debug("[selectionHandlers] Selected all splines")
     }
   })
 }

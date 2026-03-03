@@ -3,6 +3,7 @@
  * Delete spline tool handlers: Deleting splines
  * Triggered when user selects the "delete_spline" tool
  */
+import logger from "../../utils/logger.js"
 
 export const deleteSplineToolHandlers = {
   /**
@@ -13,7 +14,7 @@ export const deleteSplineToolHandlers = {
   click: (e, context) => {
     const { manager, svgObjectManager, historyManager } = context
 
-    console.log("[deleteSplineToolHandlers.click] Delete spline tool click")
+    logger.debug("[deleteSplineToolHandlers.click] Delete spline tool click")
 
     // Check if clicking on a spline path/circle
     if (e.target.tagName === "path" || e.target.tagName === "circle") {
@@ -24,9 +25,9 @@ export const deleteSplineToolHandlers = {
           .find((s) => s.group && s.group.node === splineGroup)
 
         if (targetSpline) {
-          console.log(
+          logger.debug(
             "[deleteSplineToolHandlers] Deleting spline by direct click:",
-            targetSpline.id
+            targetSpline.id,
           )
           manager.deleteSpline(targetSpline.id)
 
@@ -43,22 +44,22 @@ export const deleteSplineToolHandlers = {
       const clickX = x
       const clickY = y
 
-      console.log(
-        "[deleteSplineToolHandlers] Proximity search for nearest spline"
+      logger.debug(
+        "[deleteSplineToolHandlers] Proximity search for nearest spline",
       )
 
       // Use manager's helper method if available
       const nearestSpline = manager.findNearestSpline(clickX, clickY, 20)
 
       if (nearestSpline) {
-        console.log(
+        logger.debug(
           "[deleteSplineToolHandlers] Deleting nearest spline by proximity:",
-          nearestSpline.id
+          nearestSpline.id,
         )
         manager.deleteSpline(nearestSpline.id)
       } else {
-        console.log(
-          "[deleteSplineToolHandlers] No spline found within proximity threshold"
+        logger.debug(
+          "[deleteSplineToolHandlers] No spline found within proximity threshold",
         )
       }
     }

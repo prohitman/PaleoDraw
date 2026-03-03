@@ -4,6 +4,7 @@ import {
   generatePolylinePath,
   generateNurbsPath,
 } from "../utils/geometry"
+import logger from "../utils/logger.js"
 
 /**
  * Spline model: encapsulates a single B-spline with its points and visual state
@@ -12,7 +13,7 @@ import {
 export default class Spline {
   constructor({ id, draw, type = "bspline" } = {}) {
     this.id = id ?? `spline_${Date.now()}`
-    console.log("[Spline.constructor] Creating new Spline:", {
+    logger.debug("[Spline.constructor] Creating new Spline:", {
       id: this.id,
       hasDraw: !!draw,
     })
@@ -24,7 +25,7 @@ export default class Spline {
     this.addToEnd = true
 
     this._draw = draw
-    console.log("[Spline.constructor] Creating SVG group")
+    logger.debug("[Spline.constructor] Creating SVG group")
     this.group = draw.group()
     // Add data attribute for identification during selection
     this.group.attr("data-spline-id", this.id)
@@ -34,7 +35,7 @@ export default class Spline {
     // Ensure pointer-events: stroke for path
     this.path.node.setAttribute("pointer-events", "stroke")
 
-    console.log("[Spline.constructor] Group and path created")
+    logger.debug("[Spline.constructor] Group and path created")
 
     // Flag to avoid duplicate event binding
     this.__splineAttachBound = false
@@ -54,7 +55,7 @@ export default class Spline {
     this._rotateStartAngle = null
     this._rotateLastAngle = null
     this._rotateIsActive = false
-    console.log("[Spline.constructor] Complete")
+    logger.debug("[Spline.constructor] Complete")
   }
 
   /**
@@ -66,7 +67,7 @@ export default class Spline {
    * @returns {object} - The point object
    */
   addPoint(x, y, withCircle = true, isSharp = false) {
-    console.log("[Spline.addPoint]", {
+    logger.debug("[Spline.addPoint]", {
       splineId: this.id,
       x,
       y,
@@ -77,7 +78,7 @@ export default class Spline {
     })
     let circle = null
     if (withCircle) {
-      console.log("[Spline.addPoint] Creating circle element")
+      logger.debug("[Spline.addPoint] Creating circle element")
       try {
         circle = this.group
           .circle(6)
@@ -94,9 +95,9 @@ export default class Spline {
             circle.node.classList.remove("spline-hover")
           })
         }
-        console.log("[Spline.addPoint] Circle created successfully")
+        logger.debug("[Spline.addPoint] Circle created successfully")
       } catch (err) {
-        console.error("[Spline.addPoint] Error creating circle:", err)
+        logger.error("[Spline.addPoint] Error creating circle:", err)
       }
     }
     const point = { x, y, circle, isSharp }
@@ -108,11 +109,11 @@ export default class Spline {
       this.points.unshift(point)
     }
 
-    console.log(
+    logger.debug(
       "[Spline.addPoint] Point added to",
       this.addToEnd ? "end" : "beginning",
       ", total points:",
-      this.points.length
+      this.points.length,
     )
     return point
   }
@@ -148,7 +149,7 @@ export default class Spline {
     try {
       removed.circle?.remove()
     } catch (err) {
-      console.warn("[Spline.removePointByRef] circle remove error", err)
+      logger.warn("[Spline.removePointByRef] circle remove error", err)
     }
     return removed
   }
@@ -168,7 +169,7 @@ export default class Spline {
     try {
       point.circle?.center(x, y)
     } catch (err) {
-      console.warn("[Spline.updatePointByCircle] center error", err)
+      logger.warn("[Spline.updatePointByCircle] center error", err)
     }
     return point
   }
@@ -188,7 +189,7 @@ export default class Spline {
     try {
       point.circle?.center(x, y)
     } catch (err) {
-      console.warn("[Spline.updatePointByIndex] center error", err)
+      logger.warn("[Spline.updatePointByIndex] center error", err)
     }
     return point
   }
@@ -197,12 +198,12 @@ export default class Spline {
    * Recalculate and redraw the B-spline path
    */
   plot() {
-    console.log(
+    logger.debug(
       "[Spline.plot] Called with",
       this.points.length,
       "points",
       "type:",
-      this.type
+      this.type,
     )
     if (this.type === "polyline") {
       const pathData = generatePolylinePath(this.points)
@@ -216,17 +217,17 @@ export default class Spline {
     }
     // Default bspline behavior
     if (this.points.length < 2) {
-      console.log("[Spline.plot] Less than 2 points, clearing path for now")
+      logger.debug("[Spline.plot] Less than 2 points, clearing path for now")
       this.path.plot("")
       if (this.points.length === 1) {
         try {
           this.path.plot(
             `M${this.points[0].x},${this.points[0].y} L${
               this.points[0].x + 0.1
-            },${this.points[0].y + 0.1}`
+            },${this.points[0].y + 0.1}`,
           )
         } catch (err) {
-          console.warn("[Spline.plot] Single point indicator error", err)
+          logger.warn("[Spline.plot] Single point indicator error", err)
         }
       }
       return
@@ -240,7 +241,7 @@ export default class Spline {
    * @param {boolean} selected - Whether the spline is selected
    */
   setSelected(selected) {
-    console.log("[Spline.setSelected]", {
+    logger.debug("[Spline.setSelected]", {
       splineId: this.id,
       selected,
       previousSelected: this.selected,
@@ -269,7 +270,7 @@ export default class Spline {
         }
       }
     })
-    console.log("[Spline.setSelected] Complete")
+    logger.debug("[Spline.setSelected] Complete")
   }
 
   /**
@@ -293,7 +294,7 @@ export default class Spline {
     try {
       this.group.remove()
     } catch (err) {
-      console.warn("[Spline.remove] group remove error", err)
+      logger.warn("[Spline.remove] group remove error", err)
     }
   }
 

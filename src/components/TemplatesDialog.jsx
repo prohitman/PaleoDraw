@@ -13,6 +13,7 @@ import {
 } from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
 import DescriptionIcon from "@mui/icons-material/Description"
+import logger from "../utils/logger.js"
 
 export default function TemplatesDialog({ open, onClose, onLoadTemplate }) {
   const [templates, setTemplates] = useState([])
@@ -31,7 +32,7 @@ export default function TemplatesDialog({ open, onClose, onLoadTemplate }) {
       const data = await response.json()
       setTemplates(data.templates || [])
     } catch (error) {
-      console.error("Failed to load templates list:", error)
+      logger.error("Failed to load templates list:", error)
       setTemplates([])
     } finally {
       setLoading(false)
@@ -44,7 +45,7 @@ export default function TemplatesDialog({ open, onClose, onLoadTemplate }) {
       onLoadTemplate(templateData)
       onClose()
     } catch (error) {
-      console.error("Failed to load template:", error)
+      logger.error("Failed to load template:", error)
       alert("Failed to load template. Please try again.")
     }
   }

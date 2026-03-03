@@ -8,6 +8,7 @@ import { SVG } from "@svgdotjs/svg.js"
 import { drawGrid } from "../utils/svgHelpers"
 import { generateBSplinePath, generatePolylinePath } from "../utils/geometry"
 import { downloadBlob } from "./FileService"
+import logger from "../utils/logger.js"
 
 const GRID_BASE_THICKNESS = 0.5
 
@@ -81,7 +82,7 @@ export function createNewProject(
   fitToCanvas,
   splineManager,
   svgObjectManager,
-  selectedRef
+  selectedRef,
 ) {
   const draw = drawRef.current
   if (!draw) return
@@ -132,7 +133,7 @@ export function getProjectJSON(
   canvasSizeRef,
   gridSizeRef,
   splineManager,
-  svgObjectManager
+  svgObjectManager,
 ) {
   if (!drawRef.current) return null
   const project = {
@@ -157,31 +158,31 @@ export async function saveProject(currentPath, ref) {
   const jsonStr = ref.current?.getProjectJSON?.()
   if (!jsonStr) return null
 
-  console.log("[saveProject] currentPath:", currentPath)
+  logger.debug("[saveProject] currentPath:", currentPath)
 
   // Use IPC bridge if available (Electron)
   if (window.api?.saveProjectFile) {
     try {
       // If currentPath exists, save directly without dialog
       if (currentPath) {
-        console.log("[saveProject] Saving directly to:", currentPath)
+        logger.debug("[saveProject] Saving directly to:", currentPath)
         const result = await window.api.saveProjectFile(
           currentPath,
           jsonStr,
-          true
+          true,
         )
         if (result.success) {
-          console.log("[saveProject] Direct save successful")
+          logger.debug("[saveProject] Direct save successful")
           addToRecentProjects(result.filePath)
           return result.filePath
         }
       } else {
         // No current path - show save dialog for new project
-        console.log("[saveProject] No current path, showing dialog")
+        logger.debug("[saveProject] No current path, showing dialog")
         const result = await window.api.saveProjectFile(
           "project.json",
           jsonStr,
-          false
+          false,
         )
 
         if (result.canceled || !result.filePath) {
@@ -194,7 +195,7 @@ export async function saveProject(currentPath, ref) {
         }
       }
     } catch (err) {
-      console.error("Failed to save project:", err)
+      logger.error("Failed to save project:", err)
       alert("Failed to save project: " + err.message)
       return null
     }
@@ -220,7 +221,7 @@ export async function saveAsJSON(filename, ref) {
       const result = await window.api.saveProjectFile(
         defaultPath,
         jsonStr,
-        false
+        false,
       )
 
       if (result.canceled || !result.filePath) {
@@ -232,7 +233,7 @@ export async function saveAsJSON(filename, ref) {
         return result.filePath
       }
     } catch (err) {
-      console.error("Failed to save project:", err)
+      logger.error("Failed to save project:", err)
       alert("Failed to save project: " + err.message)
       return null
     }
@@ -256,7 +257,7 @@ export async function loadFromJSON(
   fitToCanvas,
   splineManager,
   svgObjectManager,
-  selectedRef
+  selectedRef,
 ) {
   if (!drawRef.current) return null
 
@@ -284,7 +285,7 @@ export async function loadFromJSON(
       try {
         data = JSON.parse(text)
       } catch (err) {
-        console.error("Invalid JSON project file:", err)
+        logger.error("Invalid JSON project file:", err)
         alert("Error: The selected file is not a valid JSON file.")
         resolve(null)
         return
@@ -293,9 +294,9 @@ export async function loadFromJSON(
       // Validate project structure
       const validation = validateProjectData(data)
       if (!validation.valid) {
-        console.error("Invalid project file:", validation.error)
+        logger.error("Invalid project file:", validation.error)
         alert(
-          `Error: ${validation.error}\n\nThis file cannot be opened as a PaleoDraw project.`
+          `Error: ${validation.error}\n\nThis file cannot be opened as a PaleoDraw project.`,
         )
         resolve(null)
         return
@@ -363,10 +364,10 @@ export async function loadProjectFromPath(
   fitToCanvas,
   splineManager,
   svgObjectManager,
-  selectedRef
+  selectedRef,
 ) {
   if (!window.api?.readProjectFile) {
-    console.error("File system API not available")
+    logger.error("File system API not available")
     return
   }
 
@@ -376,7 +377,7 @@ export async function loadProjectFromPath(
     try {
       data = JSON.parse(text)
     } catch (err) {
-      console.error("Invalid JSON project file:", err)
+      logger.error("Invalid JSON project file:", err)
       alert(`Error: The file "${path}" is not a valid JSON file.`)
       return
     }
@@ -384,9 +385,9 @@ export async function loadProjectFromPath(
     // Validate project structure
     const validation = validateProjectData(data)
     if (!validation.valid) {
-      console.error("Invalid project file:", validation.error)
+      logger.error("Invalid project file:", validation.error)
       alert(
-        `Error: ${validation.error}\n\nThe file "${path}" cannot be opened as a PaleoDraw project.`
+        `Error: ${validation.error}\n\nThe file "${path}" cannot be opened as a PaleoDraw project.`,
       )
       return
     }
@@ -439,7 +440,7 @@ export async function loadProjectFromPath(
     // Update recent projects
     addToRecentProjects(path)
   } catch (err) {
-    console.error("Failed to load project from path:", err)
+    logger.error("Failed to load project from path:", err)
     alert("Failed to load project: " + err.message)
   }
 }
@@ -464,7 +465,7 @@ function addToRecentProjects(path) {
 
     localStorage.setItem("recentProjects", JSON.stringify(trimmed))
   } catch (e) {
-    console.error("Error updating recent projects", e)
+    logger.error("Error updating recent projects", e)
   }
 }
 
@@ -490,7 +491,7 @@ export async function exportAsSVG(
   canvasSizeRef,
   splineManager,
   svgObjectManager,
-  includePoints = false
+  includePoints = false,
 ) {
   const draw = drawRef.current
   if (!draw) return false
@@ -539,7 +540,7 @@ export async function exportAsSVG(
         })
       }
     } catch (err) {
-      console.warn("Failed to export spline", spline?.id, err)
+      logger.warn("Failed to export spline", spline?.id, err)
     }
   })
 
@@ -567,7 +568,7 @@ export async function exportAsSVG(
 
       return result.success
     } catch (err) {
-      console.error("Failed to export SVG:", err)
+      logger.error("Failed to export SVG:", err)
       alert("Failed to export SVG: " + err.message)
       return false
     }

@@ -3,6 +3,7 @@
  * Curve tool handlers: Creating and editing splines
  * Triggered when user selects the "curve" tool
  */
+import logger from "../../utils/logger.js"
 
 export const curveToolHandlers = {
   /**
@@ -20,7 +21,7 @@ export const curveToolHandlers = {
       isDraggingPoint,
       drawRef,
     } = context
-    console.log("[curveToolHandlers.click] Handling curve tool click", {
+    logger.debug("[curveToolHandlers.click] Handling curve tool click", {
       managerType: typeof manager,
       managerInstance: manager,
       svgObjectManagerType: typeof svgObjectManager,
@@ -33,17 +34,17 @@ export const curveToolHandlers = {
     })
 
     if (isDraggingPoint?.current) {
-      console.log("[curveToolHandlers] Currently dragging, ignoring click")
+      logger.debug("[curveToolHandlers] Currently dragging, ignoring click")
       return
     }
 
     const draw = drawRef?.current
     if (!draw) {
-      console.log("[curveToolHandlers.click] No draw ref")
+      logger.debug("[curveToolHandlers.click] No draw ref")
       return
     }
     const { x, y } = draw.point(e.clientX, e.clientY)
-    console.log("[curveToolHandlers.click] Click detected:", {
+    logger.debug("[curveToolHandlers.click] Click detected:", {
       x,
       y,
       tagName: e.target.tagName,
@@ -85,11 +86,13 @@ export const curveToolHandlers = {
     }
 
     const selectedSpline = manager.getSelected()
-    console.log("[curveToolHandlers.click] Selected spline:", selectedSpline)
+    logger.debug("[curveToolHandlers.click] Selected spline:", selectedSpline)
 
     // Alt+click: Insert point by proximity into existing spline
     if (e.altKey && selectedSpline && selectedSpline.selected) {
-      console.log("[curveToolHandlers] Alt+click: inserting point by proximity")
+      logger.debug(
+        "[curveToolHandlers] Alt+click: inserting point by proximity",
+      )
       // Clear any existing multi-point selection before modifying spline
       if (manager.pointSelectionManager) {
         manager.pointSelectionManager.clearSelection()
@@ -102,7 +105,7 @@ export const curveToolHandlers = {
 
     // Start new spline if none active
     if (!selectedSpline) {
-      console.log("[curveToolHandlers] Creating new spline at", { x, y })
+      logger.debug("[curveToolHandlers] Creating new spline at", { x, y })
       if (historyManager?.current) {
         if (
           historyManager.current.currentIndex <
@@ -110,12 +113,12 @@ export const curveToolHandlers = {
         ) {
           historyManager.current.history = historyManager.current.history.slice(
             0,
-            historyManager.current.currentIndex + 1
+            historyManager.current.currentIndex + 1,
           )
         }
       }
       const spline = manager.createSplineAt(x, y)
-      console.log("[curveToolHandlers] createSplineAt returned:", spline)
+      logger.debug("[curveToolHandlers] createSplineAt returned:", spline)
       // Starting a new spline should clear any prior multi-point selection
       if (manager.pointSelectionManager) {
         manager.pointSelectionManager.clearSelection()
@@ -127,12 +130,15 @@ export const curveToolHandlers = {
 
     // Add point to the active spline
     const activeSpline = manager.getSelected()
-    console.log(
+    logger.debug(
       "[curveToolHandlers] Active spline after create/getSelected:",
-      activeSpline
+      activeSpline,
     )
     if (activeSpline && activeSpline.selected) {
-      console.log("[curveToolHandlers] Adding point to spline", activeSpline.id)
+      logger.debug(
+        "[curveToolHandlers] Adding point to spline",
+        activeSpline.id,
+      )
       // Deselect multi-selected points when appending a new point
       // Access pointSelectionManager via the manager instance since it's not in context
       if (manager.pointSelectionManager) {
@@ -140,7 +146,7 @@ export const curveToolHandlers = {
       }
 
       const point = manager.addPointToSpline(activeSpline.id, x, y)
-      console.log("[curveToolHandlers] addPointToSpline returned:", point)
+      logger.debug("[curveToolHandlers] addPointToSpline returned:", point)
     }
 
     e.stopPropagation()

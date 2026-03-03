@@ -4,6 +4,8 @@
  * Allows tools to register and unregister their handlers dynamically
  * Only the active tool's handlers are called for events
  */
+import logger from "../../utils/logger.js"
+
 export default class ToolRegistry {
   constructor() {
     // Map of tool name -> { mousedown, mousemove, mouseup, click, doubleclick, etc. }
@@ -19,16 +21,16 @@ export default class ToolRegistry {
    */
   registerTool(toolName, handlers) {
     if (!toolName || !handlers) {
-      console.error("[ToolRegistry] Invalid tool registration:", {
+      logger.error("[ToolRegistry] Invalid tool registration:", {
         toolName,
         handlers,
       })
       return
     }
     this.toolHandlers.set(toolName, handlers)
-    console.log(
+    logger.debug(
       `[ToolRegistry] Registered tool: ${toolName}`,
-      Object.keys(handlers)
+      Object.keys(handlers),
     )
   }
 
@@ -38,14 +40,14 @@ export default class ToolRegistry {
    */
   activateTool(toolName) {
     if (!this.toolHandlers.has(toolName)) {
-      console.warn(
-        `[ToolRegistry] Cannot activate unregistered tool: ${toolName}`
+      logger.warn(
+        `[ToolRegistry] Cannot activate unregistered tool: ${toolName}`,
       )
       return
     }
     const oldTool = this.activeTool
     this.activeTool = toolName
-    console.log(`[ToolRegistry] Activated tool: ${toolName} (was: ${oldTool})`)
+    logger.debug(`[ToolRegistry] Activated tool: ${toolName} (was: ${oldTool})`)
   }
 
   /**

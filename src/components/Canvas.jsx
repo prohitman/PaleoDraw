@@ -32,6 +32,7 @@ import {
   updateGridLineThickness,
   fitToCanvas as fitToCanvasHelper,
 } from "../utils/svgHelpers"
+import logger from "../utils/logger.js"
 import "@svgdotjs/svg.panzoom.js"
 import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
@@ -201,7 +202,7 @@ const Canvas = forwardRef(
       const transformAPI = splineManager.current.setupSplineTransformations(
         selectedToolRef,
         isDraggingPoint,
-        historyManager.current
+        historyManager.current,
       )
 
       toolRegistryRef.current = setupToolHandlers({
@@ -227,7 +228,7 @@ const Canvas = forwardRef(
         selectedToolRef,
         isDraggingPoint,
         historyManager.current,
-        selectedRef
+        selectedRef,
       )
 
       container.addEventListener("click", unifiedCanvasClickHandler)
@@ -238,7 +239,7 @@ const Canvas = forwardRef(
         drawRef,
         panZoomRef,
         updateGridThickness,
-        selectedToolRef
+        selectedToolRef,
       )
 
       const {
@@ -250,7 +251,7 @@ const Canvas = forwardRef(
 
       const { handleGlobalPointerUp } = setupGlobalPointerUp(
         splineManager,
-        isDraggingPoint
+        isDraggingPoint,
       )
       window.addEventListener("pointerup", handleGlobalPointerUp)
 
@@ -262,7 +263,7 @@ const Canvas = forwardRef(
       const dragDropCleanup = setupDragDropHandlers(
         container,
         draw,
-        svgObjectManager.current
+        svgObjectManager.current,
       )
 
       const { handleBackgroundClick } = setupBackgroundClickBehavior(
@@ -271,7 +272,7 @@ const Canvas = forwardRef(
         selectionManager,
         selectedRef,
         selectedToolRef,
-        svgObjectManager
+        svgObjectManager,
       )
 
       const getViewportCoords = (e) => {
@@ -292,7 +293,7 @@ const Canvas = forwardRef(
             y: viewBox.y + y * scaleY,
           }
         } catch (err) {
-          console.warn("[Canvas] Error getting viewport coords:", err)
+          logger.warn("[Canvas] Error getting viewport coords:", err)
           return { x, y }
         }
       }
@@ -301,14 +302,14 @@ const Canvas = forwardRef(
         draw,
         selectionManager.current,
         selectedToolRef,
-        getViewportCoords
+        getViewportCoords,
       )
 
       setupPointDragSelectionHandlers(
         draw,
         pointSelectionManager.current,
         selectedToolRef,
-        getViewportCoords
+        getViewportCoords,
       )
 
       // Setup multi-selection keyboard shortcuts
@@ -340,7 +341,7 @@ const Canvas = forwardRef(
 
       activateToolInRegistry(
         toolRegistryRef.current,
-        selectedToolRef.current || "select"
+        selectedToolRef.current || "select",
       )
 
       const handleSplineSelect = (spline) => {
@@ -401,7 +402,7 @@ const Canvas = forwardRef(
       autoHistoryPlugin.current = new AutoHistoryPlugin(
         historyManager.current,
         splineManager.current,
-        svgObjectManager.current
+        svgObjectManager.current,
       )
       autoHistoryPlugin.current.enable()
 
@@ -505,7 +506,7 @@ const Canvas = forwardRef(
             container,
             panZoomRef,
             panZoomOptionsRef,
-            updateGridLineThickness
+            updateGridLineThickness,
           )
         }
 
@@ -615,7 +616,7 @@ const Canvas = forwardRef(
         canvasRef.current,
         panZoomRef,
         panZoomOptionsRef,
-        updateGridThickness
+        updateGridThickness,
       )
     }
 
@@ -663,7 +664,7 @@ const Canvas = forwardRef(
           fitToCanvas,
           splineManager.current,
           svgObjectManager.current,
-          selectedRef
+          selectedRef,
         )
       },
 
@@ -674,7 +675,7 @@ const Canvas = forwardRef(
           canvasSizeRef,
           gridSizeRef,
           splineManager.current,
-          svgObjectManager.current
+          svgObjectManager.current,
         )
       },
 
@@ -698,7 +699,7 @@ const Canvas = forwardRef(
           fitToCanvas,
           splineManager.current,
           svgObjectManager.current,
-          selectedRef
+          selectedRef,
         )
       },
 
@@ -713,7 +714,7 @@ const Canvas = forwardRef(
           fitToCanvas,
           splineManager.current,
           svgObjectManager.current,
-          selectedRef
+          selectedRef,
         )
       },
 
@@ -729,7 +730,7 @@ const Canvas = forwardRef(
           fitToCanvas,
           splineManager.current,
           svgObjectManager.current,
-          selectedRef
+          selectedRef,
         )
       },
 
@@ -740,7 +741,7 @@ const Canvas = forwardRef(
           drawRef,
           canvasSizeRef,
           splineManager.current,
-          svgObjectManager.current
+          svgObjectManager.current,
         )
       },
 
@@ -772,7 +773,7 @@ const Canvas = forwardRef(
             type: "spline",
             data: selectedSpline.toJSON(),
           }
-          console.log("[Canvas] Copied spline to clipboard")
+          logger.debug("[Canvas] Copied spline to clipboard")
           eventBus.emit("app:clipboardChanged", { hasClipboard: true })
         } else if (selectedSvg) {
           // Serialize the SVG object with all its transformation data
@@ -780,7 +781,7 @@ const Canvas = forwardRef(
             type: "svg",
             data: svgObjectManager.current?.serializeObject(selectedSvg),
           }
-          console.log("[Canvas] Copied SVG to clipboard")
+          logger.debug("[Canvas] Copied SVG to clipboard")
           eventBus.emit("app:clipboardChanged", { hasClipboard: true })
         }
       },
@@ -793,7 +794,7 @@ const Canvas = forwardRef(
           // Create new spline from data
           const newSpline = splineManager.current?.createSpline(
             false,
-            data.type || "bspline"
+            data.type || "bspline",
           )
           if (newSpline) {
             newSpline.loadFromJSON(data)
@@ -818,7 +819,7 @@ const Canvas = forwardRef(
                     splineManager.current,
                     selectedToolRef,
                     pointSelectionManager.current,
-                    historyManager.current
+                    historyManager.current,
                   )
                 }
               })
@@ -849,7 +850,7 @@ const Canvas = forwardRef(
                 const bbox = imported.bbox()
                 imported.move(bbox.x + 20, bbox.y + 20)
               } catch (err) {
-                console.warn("[Canvas] Failed to restore matrix on paste:", err)
+                logger.warn("[Canvas] Failed to restore matrix on paste:", err)
                 // Fallback: just offset without matrix
                 imported.dmove(20, 20)
               }
@@ -859,9 +860,9 @@ const Canvas = forwardRef(
                 imported.transform(data.transform)
                 imported.dmove(20, 20)
               } catch (err) {
-                console.warn(
+                logger.warn(
                   "[Canvas] Failed to restore transform on paste:",
-                  err
+                  err,
                 )
                 imported.dmove(20, 20)
               }
@@ -916,7 +917,7 @@ const Canvas = forwardRef(
         style={{ cursor: "grab" }}
       />
     )
-  }
+  },
 )
 
 export default Canvas

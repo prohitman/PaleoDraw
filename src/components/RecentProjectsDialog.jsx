@@ -15,6 +15,7 @@ import {
 import CloseIcon from "@mui/icons-material/Close"
 import DescriptionIcon from "@mui/icons-material/Description"
 import FolderOpenIcon from "@mui/icons-material/FolderOpen"
+import logger from "../utils/logger.js"
 
 export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
   const [recentProjects, setRecentProjects] = useState([])
@@ -23,11 +24,11 @@ export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
     if (open) {
       try {
         const recent = JSON.parse(
-          localStorage.getItem("recentProjects") || "[]"
+          localStorage.getItem("recentProjects") || "[]",
         )
         setRecentProjects(recent)
       } catch (e) {
-        console.error("Failed to load recent projects", e)
+        logger.error("Failed to load recent projects", e)
         setRecentProjects([])
       }
     }
@@ -44,7 +45,7 @@ export default function RecentProjectsDialog({ open, onClose, onOpenRecent }) {
     try {
       await window.api.showFileInExplorer(path)
     } catch (error) {
-      console.error("Failed to show file in explorer:", error)
+      logger.error("Failed to show file in explorer:", error)
     }
   }
 

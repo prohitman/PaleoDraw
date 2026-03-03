@@ -1,5 +1,6 @@
 import { applyMatrixToPoints } from "../../utils/transform"
 import { resetGroupTransform } from "../../utils/svgHelpers"
+import logger from "../../utils/logger.js"
 
 /**
  * Sets up global canvas interactions (zoom, pan, cursor behavior)
@@ -9,7 +10,7 @@ export function setupCanvasInteractions(
   container,
   drawRef,
   panZoomRef,
-  updateGridThickness
+  updateGridThickness,
 ) {
   const ZOOM_SMOOTHNESS = 0.1
 
@@ -21,7 +22,7 @@ export function setupCanvasInteractions(
       direction === "in" ? 1 + ZOOM_SMOOTHNESS : 1 - ZOOM_SMOOTHNESS
     const newZoom = Math.min(
       Math.max(drawRef.current.zoom() * zoomStep, 0.2),
-      5
+      5,
     )
     const point = drawRef.current.point(e.offsetX, e.offsetY)
     const panZoom = panZoomRef.current
@@ -153,9 +154,9 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
     manager.getAllSplines().forEach((spline) => {
       if (spline._rotateIsActive) {
         try {
-          console.log(
+          logger.debug(
             "[canvas] global pointerup -> finalizing rotation for",
-            spline.id
+            spline.id,
           )
           const el = spline.group
           if (!el) return
@@ -164,7 +165,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
           // The group has accumulated the rotation visually, now apply it to coordinates
           const m = el.matrixify?.()
           if (m && spline._rotateStartPoints) {
-            console.log("[canvas] baking rotation matrix into points", {
+            logger.debug("[canvas] baking rotation matrix into points", {
               matrix: m,
               startPointCount: spline._rotateStartPoints.length,
             })
@@ -173,7 +174,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
             spline.plot()
             transformOccurred = true
           } else {
-            console.warn("[canvas] missing matrix or _rotateStartPoints", {
+            logger.warn("[canvas] missing matrix or _rotateStartPoints", {
               hasMatrix: !!m,
               hasStartPoints: !!spline._rotateStartPoints,
             })
@@ -188,9 +189,9 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
           delete spline._rotatePivot
           delete spline._rotateStartAngle
           delete spline._rotateLastAngle
-          console.log("[canvas] rotation finalized for", spline.id)
+          logger.debug("[canvas] rotation finalized for", spline.id)
         } catch (err) {
-          console.error("[canvas] rotation cleanup error:", err)
+          logger.error("[canvas] rotation cleanup error:", err)
         }
       }
 
@@ -201,7 +202,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
 
     if (!isDraggingPoint.current) return
 
-    console.log("[canvas] global pointerup -> clearing isDraggingPoint")
+    logger.debug("[canvas] global pointerup -> clearing isDraggingPoint")
     const spline = manager.getSelected()
     if (!spline) {
       isDraggingPoint.current = false
@@ -214,7 +215,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
     }
 
     // Debug: Log the resize/rotate state flags
-    console.log("[canvas] pointerup - spline transform state:", {
+    logger.debug("[canvas] pointerup - spline transform state:", {
       splineId: spline.id,
       hasResizeStartBox: !!spline._resizeStartBox,
       hasResizeStartPoints: !!spline._resizeStartPoints,
@@ -227,7 +228,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
     if (!m) {
       // nothing to bake; ensure no transform attribute leftover
       resetGroupTransform(el)
-      console.log("[spline] bakeGroupTransform: no matrix to bake")
+      logger.debug("[spline] bakeGroupTransform: no matrix to bake")
     } else if (
       m.a !== 1 ||
       m.b !== 0 ||
@@ -237,7 +238,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
       m.f !== 0
     ) {
       // Matrix has transform - bake it into points
-      console.log("[canvas] baking transform into points - matrix:", m)
+      logger.debug("[canvas] baking transform into points - matrix:", m)
 
       // Snapshot the current points before applying transform
       spline._resizeStartPoints = spline.points.map((p) => ({
@@ -251,7 +252,7 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
 
       // Reset the group transform so visual matches baked coords
       resetGroupTransform(el)
-      console.log("[canvas] transform finalized for spline", spline.id)
+      logger.debug("[canvas] transform finalized for spline", spline.id)
 
       // Ensure resize plugin knows about the reset
       // If we don't do this, the next resize might start from the old transformed box state
@@ -264,14 +265,14 @@ export function setupGlobalPointerUp(splineManager, isDraggingPoint) {
           // However, we MUST clear the internal state of the resize plugin if possible.
         }
       } catch (e) {
-        console.warn("[canvas] error resetting resize plugin", e)
+        logger.warn("[canvas] error resetting resize plugin", e)
       }
     }
 
     if (transformOccurred) {
       // Only clear isDraggingPoint AFTER transform is finalized, so events can complete
       isDraggingPoint.current = false
-      console.log("[canvas] isDraggingPoint cleared after transform")
+      logger.debug("[canvas] isDraggingPoint cleared after transform")
     }
   }
 
@@ -289,10 +290,10 @@ export function setupBackgroundClickBehavior(
   selectionManager,
   selectedRef,
   selectedTool,
-  svgObjectManager
+  svgObjectManager,
 ) {
   const handleBackgroundClick = (e) => {
-    console.log("[Canvas.handleBackgroundClick] Click on container", {
+    logger.debug("[Canvas.handleBackgroundClick] Click on container", {
       targetTag: e.target?.tagName,
       tool: selectedTool?.current,
     })
@@ -309,8 +310,8 @@ export function setupBackgroundClickBehavior(
         justCreatedId &&
         manager?.getSelected?.()?.id === justCreatedId)
     ) {
-      console.log(
-        "[Canvas.handleBackgroundClick] Skipping clear (active edit mode or just created spline)"
+      logger.debug(
+        "[Canvas.handleBackgroundClick] Skipping clear (active edit mode or just created spline)",
       )
       // Clear the suppression after allowing one additive click
       if (inEditLineMode && justCreatedId) {
@@ -324,7 +325,7 @@ export function setupBackgroundClickBehavior(
     const clickedCanvasBg = e.target?.id === "canvas-bg"
     const isRootSvg = e.target === rootSvg
     if ((isRootSvg || clickedCanvasBg) && e.target != selectedRef.current) {
-      console.log("[Canvas.handleBackgroundClick] Clearing selections")
+      logger.debug("[Canvas.handleBackgroundClick] Clearing selections")
       if (manager) manager._justCreatedSplineId = null
       if (selectedRef.current) {
         selectedRef.current.select(false)

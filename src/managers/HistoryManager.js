@@ -1,4 +1,5 @@
 import eventBus from "../core/EventBus"
+import logger from "../utils/logger.js"
 
 /**
  * HistoryManager: Manages undo/redo history for the application
@@ -18,7 +19,7 @@ export default class HistoryManager {
    * @param {object} svgData - Array of serialized SVG objects
    */
   pushState(splineData, svgData) {
-    console.log("[HistoryManager] pushState BEFORE", {
+    logger.debug("[HistoryManager] pushState BEFORE", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
       splineCount: splineData?.length || 0,
@@ -28,17 +29,17 @@ export default class HistoryManager {
     const splinesCopy = JSON.parse(JSON.stringify(splineData))
     const svgsCopy = JSON.parse(JSON.stringify(svgData))
     const snapshotString = `${JSON.stringify(splinesCopy)}|${JSON.stringify(
-      svgsCopy
+      svgsCopy,
     )}`
 
     // Skip push if identical to last snapshot
     const last = this.history[this.history.length - 1]
     if (last && last._snapshotString === snapshotString) {
-      console.log("[HistoryManager] Skipping pushState (duplicate state)")
+      logger.debug("[HistoryManager] Skipping pushState (duplicate state)")
       return
     }
 
-    console.log("[HistoryManager] pushState DATA", {
+    logger.debug("[HistoryManager] pushState DATA", {
       splines: splinesCopy,
       svgs: svgsCopy,
       snapshotLength: snapshotString.length,
@@ -59,7 +60,7 @@ export default class HistoryManager {
       this.history.shift()
       this.currentIndex--
     }
-    console.log("[HistoryManager] pushState AFTER", {
+    logger.debug("[HistoryManager] pushState AFTER", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
@@ -84,24 +85,24 @@ export default class HistoryManager {
    * @returns {object|null} - The previous state or null if already at start
    */
   undo() {
-    console.log("[HistoryManager] undo BEFORE", {
+    logger.debug("[HistoryManager] undo BEFORE", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
     if (this.currentIndex < 0) {
-      console.log("[HistoryManager] Cannot undo, already at start of history")
+      logger.debug("[HistoryManager] Cannot undo, already at start of history")
       return null
     }
     if (this.currentIndex === 0) {
       this.currentIndex = -1
-      console.log(
-        "[HistoryManager] Undo executed to empty state (before first change), index: -1"
+      logger.debug(
+        "[HistoryManager] Undo executed to empty state (before first change), index: -1",
       )
       return { splines: [], svgs: [], isEmpty: true }
     }
     this.currentIndex--
     const state = this.history[this.currentIndex]
-    console.log("[HistoryManager] undo AFTER", {
+    logger.debug("[HistoryManager] undo AFTER", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
@@ -115,17 +116,17 @@ export default class HistoryManager {
    * @returns {object|null} - The next state or null if at end of history
    */
   redo() {
-    console.log("[HistoryManager] redo BEFORE", {
+    logger.debug("[HistoryManager] redo BEFORE", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
     })
     if (this.currentIndex >= this.history.length - 1) {
-      console.log("[HistoryManager] Cannot redo, at end of history")
+      logger.debug("[HistoryManager] Cannot redo, at end of history")
       return null
     }
     this.currentIndex++
     const state = this.history[this.currentIndex]
-    console.log("[HistoryManager] redo AFTER", {
+    logger.debug("[HistoryManager] redo AFTER", {
       currentIndex: this.currentIndex,
       historySize: this.history.length,
       stateTimestamp: state?.timestamp,
@@ -156,7 +157,7 @@ export default class HistoryManager {
   clear() {
     this.history = []
     this.currentIndex = -1
-    console.log("[HistoryManager] History cleared")
+    logger.debug("[HistoryManager] History cleared")
     this.emitHistoryState()
   }
 
@@ -206,12 +207,12 @@ export default class HistoryManager {
    */
   restoreState(state) {
     if (!state) {
-      console.warn("[HistoryManager] Cannot restore: no state provided")
+      logger.warn("[HistoryManager] Cannot restore: no state provided")
       return false
     }
 
     if (!this.splineManager || !this.svgObjectManager) {
-      console.warn("[HistoryManager] Cannot restore: managers not initialized")
+      logger.warn("[HistoryManager] Cannot restore: managers not initialized")
       return false
     }
 
@@ -223,14 +224,14 @@ export default class HistoryManager {
     // Delegate to managers' restoreFromState methods
     this.splineManager.restoreFromState(
       state.splines || [],
-      this.restorationContext
+      this.restorationContext,
     )
     this.svgObjectManager.restoreFromState(
       state.svgs || [],
-      this.restorationContext
+      this.restorationContext,
     )
 
-    console.log("[HistoryManager] State restored successfully")
+    logger.debug("[HistoryManager] State restored successfully")
     return true
   }
 

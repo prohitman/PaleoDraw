@@ -6,6 +6,7 @@
 
 import { findNearestSnapPoint } from "../../utils/snapping"
 import eventBus from "../../core/EventBus"
+import logger from "../../utils/logger.js"
 
 export function setupPointHandlers(
   circle,
@@ -14,7 +15,7 @@ export function setupPointHandlers(
   splineManager,
   selectedTool,
   pointSelectionManager,
-  historyManager
+  historyManager,
 ) {
   if (!circle) return
 
@@ -40,7 +41,7 @@ export function setupPointHandlers(
 
   // Handle point dragging
   circle.on("dragstart.curveTool", () => {
-    console.log("[pointHandlers] dragstart fired", {
+    logger.debug("[pointHandlers] dragstart fired", {
       selectedTool: selectedTool?.current,
     })
     if (
@@ -158,7 +159,7 @@ export function setupPointHandlers(
               pt.y = pos.y + dy
               pt.circle?.center(pt.x, pt.y)
               affectedSplines.add(spId)
-            }
+            },
           )
           // Replot affected splines including current
           affectedSplines.add(spline.id)
@@ -174,7 +175,7 @@ export function setupPointHandlers(
   })
 
   circle.on("dragend.curveTool", () => {
-    console.log("[pointHandlers] dragend fired", {
+    logger.debug("[pointHandlers] dragend fired", {
       selectedTool: selectedTool?.current,
       hasHistoryManager: !!historyManager,
       isCurveTool: selectedTool?.current === "curve",
@@ -218,15 +219,15 @@ export function setupPointHandlers(
           pointSelectionManager._dragStartPoints[key] !== undefined
 
         if (isPRIMARY) {
-          console.log(
-            "[pointHandlers] Multi-point drag completed, saving to history (once)"
+          logger.debug(
+            "[pointHandlers] Multi-point drag completed, saving to history (once)",
           )
           eventBus.emit("point:moved")
           delete pointSelectionManager._dragStartPoints
         }
       } else {
         // Single point drag - emit normally
-        console.log("[pointHandlers] Single point drag saved to history")
+        logger.debug("[pointHandlers] Single point drag saved to history")
         eventBus.emit("point:moved")
       }
     } else {
@@ -272,7 +273,7 @@ export function setupPointHandlers(
     const pointIndex = spline.points.findIndex((p) => p.circle === circle)
     if (pointIndex === -1) return
     if (pointSelectionManager) {
-      console.log("[pointHandlers] pointerdown pointSelect", {
+      logger.debug("[pointHandlers] pointerdown pointSelect", {
         splineId: spline.id,
         pointIndex,
         additive,
@@ -294,7 +295,7 @@ export function setupPointHandlers(
     const pointIndex = spline.points.findIndex((p) => p.circle === circle)
     if (pointIndex === -1) return
     if (pointSelectionManager) {
-      console.log("[pointHandlers] click pointSelect (fallback)", {
+      logger.debug("[pointHandlers] click pointSelect (fallback)", {
         splineId: spline.id,
         pointIndex,
       })
@@ -311,7 +312,7 @@ export function setupPointHandlers(
     const point = spline.points.find((p) => p.circle === circle)
     if (point) {
       point.isSharp = !point.isSharp
-      console.log("[pointHandlers] Toggled sharpness:", point.isSharp)
+      logger.debug("[pointHandlers] Toggled sharpness:", point.isSharp)
       spline.plot()
     }
   })

@@ -3,6 +3,7 @@
  * Select tool handlers: Selection and transformation of splines
  * Triggered when user selects the "select" tool
  */
+import logger from "../../utils/logger.js"
 
 export const selectToolHandlers = {
   /**
@@ -14,7 +15,7 @@ export const selectToolHandlers = {
   click: (e, context) => {
     const { manager, svgObjectManager, selectionManager, selectedRef } = context
 
-    console.log("[selectToolHandlers.click] Click detected:", {
+    logger.debug("[selectToolHandlers.click] Click detected:", {
       tagName: e.target.tagName,
       targetId: e.target.id,
       classList: Array.from(e.target.classList || []),
@@ -29,9 +30,9 @@ export const selectToolHandlers = {
       while (el && el !== e.currentTarget) {
         if (el._objectId) {
           const objectId = el._objectId
-          console.log(
+          logger.debug(
             "[selectToolHandlers] Selecting SVG object via ancestor traversal:",
-            objectId
+            objectId,
           )
           // Shift for future multi-select support (placeholder)
           svgObjectManager.selectObject(objectId)
@@ -54,11 +55,11 @@ export const selectToolHandlers = {
         const splineId = splineGroup.getAttribute("data-spline-id")
         const targetSpline = manager.getSpline(splineId)
         if (targetSpline) {
-          console.log(
+          logger.debug(
             "[selectToolHandlers] Selecting spline by data-spline-id:",
             splineId,
             "shift:",
-            e.shiftKey
+            e.shiftKey,
           )
 
           // Use SelectionManager for multi-selection if shift is held
@@ -84,11 +85,11 @@ export const selectToolHandlers = {
         const splineId = splineGroup.getAttribute("data-spline-id")
         const targetSpline = manager.getSpline(splineId)
         if (targetSpline) {
-          console.log(
+          logger.debug(
             "[selectToolHandlers] Selecting spline by group data-spline-id:",
             splineId,
             "shift:",
-            e.shiftKey
+            e.shiftKey,
           )
 
           // Use SelectionManager for multi-selection if shift is held
@@ -109,8 +110,8 @@ export const selectToolHandlers = {
       }
     }
     // Click on empty area: clear selection
-    console.log(
-      "[selectToolHandlers] No spline or object found, clearing selection"
+    logger.debug(
+      "[selectToolHandlers] No spline or object found, clearing selection",
     )
     selectedRef.current = null
     e.stopPropagation()

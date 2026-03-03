@@ -16,6 +16,7 @@
  *
  * Both methods ultimately call the same import logic for consistency.
  */
+import logger from "../../utils/logger.js"
 
 /**
  * Setup drag-and-drop handlers for SVG import
@@ -26,7 +27,7 @@
  */
 export function setupDragDropHandlers(container, draw, svgObjectManager) {
   if (!container || !draw || !svgObjectManager) {
-    console.warn("[DragDropHandlers] Missing required parameters")
+    logger.warn("[DragDropHandlers] Missing required parameters")
     return { cleanup: () => {} }
   }
 
@@ -60,10 +61,10 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
       // Add to manager
       svgObjectManager.addObject(imported)
 
-      console.log(`[DragDropHandlers] Imported: ${fileName}`)
+      logger.debug(`[DragDropHandlers] Imported: ${fileName}`)
       return imported
     } catch (err) {
-      console.error(`[DragDropHandlers] Error importing ${fileName}:`, err)
+      logger.error(`[DragDropHandlers] Error importing ${fileName}:`, err)
       return null
     }
   }
@@ -98,15 +99,15 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
 
     const files = Array.from(e.dataTransfer.files)
     const svgFiles = files.filter(
-      (file) => file.type === "image/svg+xml" || file.name.endsWith(".svg")
+      (file) => file.type === "image/svg+xml" || file.name.endsWith(".svg"),
     )
 
     if (svgFiles.length === 0) {
-      console.log("[DragDropHandlers] No SVG files dropped")
+      logger.debug("[DragDropHandlers] No SVG files dropped")
       return
     }
 
-    console.log(`[DragDropHandlers] Dropped ${svgFiles.length} SVG file(s)`)
+    logger.debug(`[DragDropHandlers] Dropped ${svgFiles.length} SVG file(s)`)
 
     // Get drop position in canvas coordinates
     const { x, y } = draw.point(e.clientX, e.clientY)
@@ -127,14 +128,14 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
   // Check if running in Electron environment
   if (window.electron?.onFileDrop) {
     electronFileDropHandler = async (filePaths) => {
-      console.log(
-        `[DragDropHandlers] Electron file drop: ${filePaths.length} file(s)`
+      logger.debug(
+        `[DragDropHandlers] Electron file drop: ${filePaths.length} file(s)`,
       )
 
       const svgFiles = filePaths.filter((path) => path.endsWith(".svg"))
 
       if (svgFiles.length === 0) {
-        console.log("[DragDropHandlers] No SVG files in Electron drop")
+        logger.debug("[DragDropHandlers] No SVG files in Electron drop")
         return
       }
 
@@ -153,9 +154,9 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
           const offset = i * 20
           await importSVGContent(content, fileName, centerX, centerY, offset)
         } catch (err) {
-          console.error(
+          logger.error(
             `[DragDropHandlers] Error reading file ${filePath}:`,
-            err
+            err,
           )
         }
       }
@@ -163,7 +164,7 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
 
     // Register Electron IPC listener
     window.electron.onFileDrop(electronFileDropHandler)
-    console.log("[DragDropHandlers] Electron file drop handler registered")
+    logger.debug("[DragDropHandlers] Electron file drop handler registered")
   }
 
   // ========== Attach Event Listeners ==========
@@ -187,7 +188,7 @@ export function setupDragDropHandlers(container, draw, svgObjectManager) {
         window.electron.removeFileDropListener(electronFileDropHandler)
       }
 
-      console.log("[DragDropHandlers] Cleanup complete")
+      logger.debug("[DragDropHandlers] Cleanup complete")
     },
   }
 }

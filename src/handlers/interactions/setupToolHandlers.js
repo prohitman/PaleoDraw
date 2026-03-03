@@ -10,6 +10,7 @@ import { lineToolHandlers } from "../tools/toolLine"
 import { selectToolHandlers } from "../tools/toolSelect"
 import { deleteSplineToolHandlers } from "../tools/toolDeleteSpline"
 import { nurbsToolHandlers } from "../tools/toolNurbs"
+import logger from "../../utils/logger.js"
 
 /**
  * Set up the tool registry and register all tool handlers
@@ -18,7 +19,7 @@ import { nurbsToolHandlers } from "../tools/toolNurbs"
 export function setupToolHandlers() {
   const registry = new ToolRegistry()
 
-  console.log("[setupToolHandlers] Initializing ToolRegistry")
+  logger.debug("[setupToolHandlers] Initializing ToolRegistry")
 
   // Register all tools
   registry.registerTool("curve", curveToolHandlers)
@@ -29,7 +30,7 @@ export function setupToolHandlers() {
   registry.registerTool("delete_spline", deleteSplineToolHandlers)
   registry.registerTool("nurbs", nurbsToolHandlers)
 
-  console.log("[setupToolHandlers] All tools registered")
+  logger.debug("[setupToolHandlers] All tools registered")
 
   // Return the registry so Canvas can use it
   return registry
@@ -56,17 +57,17 @@ export function createCanvasClickHandler(
   selectedTool,
   isDraggingPoint,
   historyManager,
-  selectedRef
+  selectedRef,
 ) {
   return (e) => {
     const activeTool = toolRegistry.getActiveTool()
-    console.log(
+    logger.debug(
       "[createCanvasClickHandler] Click event, active tool:",
-      activeTool
+      activeTool,
     )
 
     if (!activeTool) {
-      console.log("[createCanvasClickHandler] No active tool, ignoring click")
+      logger.debug("[createCanvasClickHandler] No active tool, ignoring click")
       return
     }
 
@@ -95,7 +96,7 @@ export function createCanvasClickHandler(
  */
 export function activateToolInRegistry(toolRegistry, toolName) {
   if (toolName === toolRegistry.getActiveTool()) {
-    console.log("[activateToolInRegistry] Tool already active:", toolName)
+    logger.debug("[activateToolInRegistry] Tool already active:", toolName)
     return
   }
   toolRegistry.activateTool(toolName)

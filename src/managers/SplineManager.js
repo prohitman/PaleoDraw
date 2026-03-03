@@ -4,6 +4,7 @@ import Spline from "../models/Spline"
 import { pointToSegmentDistance } from "../utils/geometry"
 import { setupPointHandlers } from "../handlers/points/pointHandlers"
 import { selectionOptions } from "../utils/selectionConfig"
+import logger from "../utils/logger.js"
 
 /**
  * SplineManager: Centralized API for all spline CRUD operations and transformations
@@ -49,13 +50,13 @@ export default class SplineManager {
    * @returns {Spline}
    */
   createSpline(autoSelect = true, type = "bspline") {
-    console.log("[SplineManager] Creating new spline")
+    logger.debug("[SplineManager] Creating new spline")
     const spline = new Spline({ draw: this.draw, type })
-    console.log("[SplineManager] Spline instance created:", spline.id)
+    logger.debug("[SplineManager] Spline instance created:", spline.id)
     this.splines.set(spline.id, spline)
-    console.log(
+    logger.debug(
       "[SplineManager] Spline added to collection, total:",
-      this.splines.size
+      this.splines.size,
     )
 
     // Attach hover listeners for visual feedback
@@ -104,10 +105,10 @@ export default class SplineManager {
     // Only auto-select if requested
     if (autoSelect) {
       this.selectSpline(spline.id)
-      console.log("[SplineManager] Spline selected and marked as active")
+      logger.debug("[SplineManager] Spline selected and marked as active")
     }
     eventBus.emit("spline:created", { spline })
-    console.log("[SplineManager] Events emitted, createSpline complete")
+    logger.debug("[SplineManager] Events emitted, createSpline complete")
     return spline
   }
 
@@ -160,7 +161,7 @@ export default class SplineManager {
    * @returns {object} - The point object
    */
   addPointToSpline(splineId, x, y, isSharp = false) {
-    console.log("[SplineManager.addPointToSpline] Adding point", {
+    logger.debug("[SplineManager.addPointToSpline] Adding point", {
       splineId,
       x,
       y,
@@ -168,24 +169,24 @@ export default class SplineManager {
     })
     const spline = this.splines.get(splineId)
     if (!spline) {
-      console.error(
+      logger.error(
         "[SplineManager.addPointToSpline] Spline not found:",
-        splineId
+        splineId,
       )
       return null
     }
 
-    console.log(
-      "[SplineManager.addPointToSpline] Spline found, calling addPoint"
+    logger.debug(
+      "[SplineManager.addPointToSpline] Spline found, calling addPoint",
     )
     const point = spline.addPoint(x, y, true, isSharp)
-    console.log(
+    logger.debug(
       "[SplineManager.addPointToSpline] Point created, has circle:",
-      !!point?.circle
+      !!point?.circle,
     )
 
     if (point && point.circle) {
-      console.log("[SplineManager.addPointToSpline] Setting up point handlers")
+      logger.debug("[SplineManager.addPointToSpline] Setting up point handlers")
       // Pass historyManager to point handlers for batching
       setupPointHandlers(
         point.circle,
@@ -194,24 +195,24 @@ export default class SplineManager {
         this,
         this.selectedToolRef,
         this.pointSelectionManager,
-        this.historyManager
+        this.historyManager,
       )
     }
 
-    console.log("[SplineManager.addPointToSpline] Calling spline.plot()")
+    logger.debug("[SplineManager.addPointToSpline] Calling spline.plot()")
     spline.plot()
     eventBus.emit("point:added", { splineId, point })
 
     // Push to history after adding point
-    console.log("[SplineManager.addPointToSpline] Checking historyManager:", {
+    logger.debug("[SplineManager.addPointToSpline] Checking historyManager:", {
       hasHistoryManager: !!this.historyManager,
       historyManager: this.historyManager,
     })
 
-    console.log(
+    logger.debug(
       "[SplineManager.addPointToSpline] Complete, spline has",
       spline.points.length,
-      "points"
+      "points",
     )
     return point
   }
@@ -254,7 +255,7 @@ export default class SplineManager {
         this,
         this.selectedToolRef,
         this.pointSelectionManager,
-        this.historyManager
+        this.historyManager,
       )
     }
 
@@ -297,9 +298,9 @@ export default class SplineManager {
   moveSplinePoints(splineId, dx, dy) {
     const spline = this.getSpline(splineId)
     if (!spline) {
-      console.warn(
+      logger.warn(
         "[SplineManager.moveSplinePoints] Spline not found:",
-        splineId
+        splineId,
       )
       return false
     }
@@ -343,7 +344,7 @@ export default class SplineManager {
         spline.group.select(selectionOptions)
       }
     } catch (err) {
-      console.warn("[SplineManager.updateSplineSelectionBox] Error:", err)
+      logger.warn("[SplineManager.updateSplineSelectionBox] Error:", err)
     }
   }
 
@@ -354,22 +355,22 @@ export default class SplineManager {
    * @param {string} splineId
    */
   selectSpline(splineId) {
-    console.log(
+    logger.debug(
       "[SplineManager.selectSpline] Selecting spline:",
       splineId,
       "current:",
-      this.selectedSplineId
+      this.selectedSplineId,
     )
     if (this.selectedSplineId === splineId) {
-      console.log("[SplineManager.selectSpline] Already selected, returning")
+      logger.debug("[SplineManager.selectSpline] Already selected, returning")
       return
     }
 
     // Deselect previous
     if (this.selectedSplineId) {
-      console.log(
+      logger.debug(
         "[SplineManager.selectSpline] Deselecting previous spline:",
-        this.selectedSplineId
+        this.selectedSplineId,
       )
       const prev = this.splines.get(this.selectedSplineId)
       prev?.setSelected(false)
@@ -377,13 +378,13 @@ export default class SplineManager {
 
     this.selectedSplineId = splineId
     const current = this.splines.get(splineId)
-    console.log(
+    logger.debug(
       "[SplineManager.selectSpline] Current spline retrieved:",
-      !!current
+      !!current,
     )
 
     if (current) {
-      console.log("[SplineManager.selectSpline] Calling setSelected(true)")
+      logger.debug("[SplineManager.selectSpline] Calling setSelected(true)")
       current.setSelected(true)
 
       // If transformation API exists and we're in select mode, trigger transformation selection
@@ -395,7 +396,7 @@ export default class SplineManager {
     }
 
     this.emitSelectionState()
-    console.log("[SplineManager.selectSpline] Complete")
+    logger.debug("[SplineManager.selectSpline] Complete")
   }
 
   /**
@@ -417,9 +418,9 @@ export default class SplineManager {
           current.group.draggable(false)
         }
       } catch (err) {
-        console.warn(
+        logger.warn(
           "[SplineManager.clearSelection] Error cleaning up handlers:",
-          err
+          err,
         )
       }
 
@@ -464,10 +465,10 @@ export default class SplineManager {
     const spline = this.getSelected()
     if (spline) {
       spline.addToEnd = !spline.addToEnd
-      console.log(
+      logger.debug(
         `[SplineManager] Point direction toggled to: ${
           spline.addToEnd ? "end" : "beginning"
-        }`
+        }`,
       )
       eventBus.emit("app:showToast", {
         message: `Adding points to ${spline.addToEnd ? "end" : "beginning"}`,
@@ -651,7 +652,7 @@ export default class SplineManager {
             this,
             this.selectedToolRef,
             this.pointSelectionManager,
-            this.historyManager
+            this.historyManager,
           )
         }
       })
@@ -675,9 +676,9 @@ export default class SplineManager {
         spline.setSelected?.(false)
         spline.group?.remove?.()
       } catch (err) {
-        console.warn(
+        logger.warn(
           "[SplineManager.restoreFromState] Error clearing spline:",
-          err
+          err,
         )
       }
     })
@@ -698,24 +699,24 @@ export default class SplineManager {
             context.isDraggingRef &&
             context.selectedToolRef
           ) {
-            console.log(
+            logger.debug(
               `[SplineManager.restoreFromState] Re-attaching handlers for ${spline.points.length} points in spline ${spline.id}`,
               {
                 hasSetupPointHandlers: !!context.setupPointHandlers,
                 hasIsDraggingRef: !!context.isDraggingRef,
                 hasSelectedToolRef: !!context.selectedToolRef,
                 currentTool: context.selectedToolRef?.current,
-              }
+              },
             )
             spline.points.forEach((point, idx) => {
               if (point.circle) {
-                console.log(
+                logger.debug(
                   `[SplineManager.restoreFromState] Attaching handlers to point ${idx}`,
                   {
                     hasCircle: true,
                     cx: point.circle.cx(),
                     cy: point.circle.cy(),
-                  }
+                  },
                 )
                 context.setupPointHandlers(
                   point.circle,
@@ -724,22 +725,22 @@ export default class SplineManager {
                   this,
                   context.selectedToolRef,
                   this.pointSelectionManager,
-                  this.historyManager
+                  this.historyManager,
                 )
               } else {
-                console.warn(
-                  `[SplineManager.restoreFromState] Point ${idx} has no circle!`
+                logger.warn(
+                  `[SplineManager.restoreFromState] Point ${idx} has no circle!`,
                 )
               }
             })
           } else {
-            console.warn(
+            logger.warn(
               "[SplineManager.restoreFromState] Cannot re-attach point handlers, missing context:",
               {
                 hasSetupPointHandlers: !!context?.setupPointHandlers,
                 hasIsDraggingRef: !!context?.isDraggingRef,
                 hasSelectedToolRef: !!context?.selectedToolRef,
-              }
+              },
             )
           }
 
@@ -793,9 +794,9 @@ export default class SplineManager {
 
           this.splines.set(spline.id, spline)
         } catch (error) {
-          console.error(
+          logger.error(
             "[SplineManager.restoreFromState] Error restoring spline:",
-            error
+            error,
           )
         }
       })
@@ -822,9 +823,9 @@ export default class SplineManager {
           delete spline._keyListener
         }
       } catch (error) {
-        console.warn(
+        logger.warn(
           "[SplineManager.restoreFromState] Error clearing selection box:",
-          error
+          error,
         )
       }
     })
@@ -845,9 +846,9 @@ export default class SplineManager {
       ]
       if (lastSpline) {
         this.selectSpline(lastSpline.id)
-        console.log(
+        logger.debug(
           "[SplineManager.restoreFromState] Auto-selected last spline:",
-          lastSpline.id
+          lastSpline.id,
         )
       }
     }
@@ -864,62 +865,64 @@ export default class SplineManager {
     let selectedSpline = null
 
     const clearSelection = () => {
-      console.log(
+      logger.debug(
         "[transformAPI.clearSelection] Called, selectedSpline:",
-        selectedSpline?.id || "null"
+        selectedSpline?.id || "null",
       )
       if (!selectedSpline) return
 
       try {
         const el = selectedSpline.group
-        console.log(
+        logger.debug(
           "[transformAPI.clearSelection] Cleaning up spline:",
-          selectedSpline.id
+          selectedSpline.id,
         )
         selectedSpline.setSelected(false)
 
         try {
           if (el) {
             // Fully remove selection box and transform handlers
-            console.log(
-              "[transformAPI.clearSelection] Removing handlers from group"
+            logger.debug(
+              "[transformAPI.clearSelection] Removing handlers from group",
             )
             el.select(false)
             el.resize(false)
             el.draggable(false)
           }
         } catch (e) {
-          console.warn("[splineManager] clearSelection toggle error:", e)
+          logger.warn("[splineManager] clearSelection toggle error:", e)
         }
 
         // Clean up keyboard listener
         if (selectedSpline._keyListener) {
-          console.log(
-            "[transformAPI.clearSelection] Removing keyboard listener"
+          logger.debug(
+            "[transformAPI.clearSelection] Removing keyboard listener",
           )
           document.removeEventListener("keydown", selectedSpline._keyListener)
           document.removeEventListener("keyup", selectedSpline._keyListener)
           delete selectedSpline._keyListener
         }
       } catch (err) {
-        console.warn("[splineManager] clearSelection error:", err)
+        logger.warn("[splineManager] clearSelection error:", err)
       } finally {
-        console.log(
-          "[transformAPI.clearSelection] Setting selectedSpline to null"
+        logger.debug(
+          "[transformAPI.clearSelection] Setting selectedSpline to null",
         )
         selectedSpline = null
       }
     }
 
     const selectSpline = (spline) => {
-      console.log(
+      logger.debug(
         "[transformAPI.selectSpline] Called with:",
         spline?.id,
         "current tool:",
-        selectedToolRef?.current
+        selectedToolRef?.current,
       )
       if (!spline || !spline.group) {
-        console.log("[transformAPI.selectSpline] No spline or group, returning")
+        logger.debug(
+          "[transformAPI.selectSpline] No spline or group, returning",
+        )
         return
       }
       // Allow selection in both select and curve modes
@@ -931,25 +934,25 @@ export default class SplineManager {
         currentTool === "straight" ||
         currentTool === "nurbs"
       if (!canSelect) {
-        console.log(
+        logger.debug(
           "[transformAPI.selectSpline] Tool not select or curve:",
-          currentTool
+          currentTool,
         )
         return
       }
       if (selectedSpline === spline) {
-        console.log("[transformAPI.selectSpline] Already selected, returning")
+        logger.debug("[transformAPI.selectSpline] Already selected, returning")
         return
       }
 
-      console.log("[transformAPI.selectSpline] Proceeding with selection")
+      logger.debug("[transformAPI.selectSpline] Proceeding with selection")
       clearSelection()
       selectedSpline = spline
 
       try {
         spline.setSelected(true)
       } catch (err) {
-        console.warn("[splineManager] update visual on select failed:", err)
+        logger.warn("[splineManager] update visual on select failed:", err)
       }
 
       // CRITICAL: Update manager's selection state and emit event for scope activation
@@ -963,14 +966,14 @@ export default class SplineManager {
       // In curve mode, we only select visually but don't enable transforms or show selection box
       if (currentTool !== "select") {
         // In curve mode, just update visual state and return
-        console.log(
-          "[transformAPI.selectSpline] Curve mode, skipping selection box"
+        logger.debug(
+          "[transformAPI.selectSpline] Curve mode, skipping selection box",
         )
         return
       }
 
-      console.log(
-        "[transformAPI.selectSpline] Attaching selection box and handlers"
+      logger.debug(
+        "[transformAPI.selectSpline] Attaching selection box and handlers",
       )
       const el = spline.group
       // Only show selection box in select mode
@@ -981,7 +984,7 @@ export default class SplineManager {
         preserveAspectRatio: true,
       })
       el.draggable()
-      console.log("[transformAPI.selectSpline] Selection box attached")
+      logger.debug("[transformAPI.selectSpline] Selection box attached")
 
       // Setup keyboard listener for Shift key to toggle aspect ratio
       const updateResizeOptions = (e) => {
@@ -1016,7 +1019,7 @@ export default class SplineManager {
             y: pt.y,
           }))
         } catch (err) {
-          console.error("[splineManager] dragstart error:", err)
+          logger.error("[splineManager] dragstart error:", err)
         }
       })
 
@@ -1055,9 +1058,9 @@ export default class SplineManager {
             try {
               pt.circle?.center(pt.x, pt.y)
             } catch (centerError) {
-              console.warn(
+              logger.warn(
                 "[splineManager] Failed to center circle:",
-                centerError
+                centerError,
               )
             }
           })
@@ -1065,7 +1068,7 @@ export default class SplineManager {
           spline.plot()
           isDraggingRef.current = true
         } catch (err) {
-          console.error("[splineManager] dragmove handler error:", err)
+          logger.error("[splineManager] dragmove handler error:", err)
         }
       })
 
@@ -1090,7 +1093,7 @@ export default class SplineManager {
             }
           }, 0)
         } catch (e) {
-          console.error("[splineManager] dragend handler error:", e)
+          logger.error("[splineManager] dragend handler error:", e)
         } finally {
           setTimeout(() => (isDraggingRef.current = false), 50)
         }
@@ -1111,7 +1114,7 @@ export default class SplineManager {
           const isRotateOp = hasSignificantAngle
           const isDone = /up|end|cancel/i.test(userEventType)
 
-          console.log("[splineManager.resize] Event details:", {
+          logger.debug("[splineManager.resize] Event details:", {
             userEventType,
             isDone,
             isRotateOp,
@@ -1123,9 +1126,9 @@ export default class SplineManager {
 
           // ----- ROTATE START -----
           if (isRotateOp && !spline._rotateIsActive && !isDone) {
-            console.log(
+            logger.debug(
               "[splineManager] Starting rotation for spline:",
-              spline.id
+              spline.id,
             )
             spline._rotateStartPoints = spline.points.map((pt) => ({
               x: pt.x,
@@ -1160,55 +1163,55 @@ export default class SplineManager {
 
           // ----- END ----- (Check BEFORE move to prevent early return)
           if (isDone) {
-            console.log(
-              "[splineManager.resize] END detected, processing cleanup"
+            logger.debug(
+              "[splineManager.resize] END detected, processing cleanup",
             )
             if (spline._resizeIsActive) {
-              console.log("[splineManager.resize] Ending resize operation")
+              logger.debug("[splineManager.resize] Ending resize operation")
               spline._resizeIsActive = false
               // Emit transform event for AutoHistoryPlugin
               eventBus.emit("spline:transformed", {
                 splineId: spline.id,
                 type: "resize",
               })
-              console.log(
-                "[splineManager.resize] spline:transformed event emitted"
+              logger.debug(
+                "[splineManager.resize] spline:transformed event emitted",
               )
               // Re-show selection box after resize completes
               // First remove old selection box to prevent ghost boxes
-              console.log("[splineManager.resize] Removing old selection box")
+              logger.debug("[splineManager.resize] Removing old selection box")
               el.select(false)
               // Then create new selection box with updated bounds
-              console.log("[splineManager.resize] Creating new selection box")
+              logger.debug("[splineManager.resize] Creating new selection box")
               el.select(selectionOptions)
-              console.log("[splineManager.resize] Selection box re-shown")
+              logger.debug("[splineManager.resize] Selection box re-shown")
             }
             if (spline._rotateIsActive) {
-              console.log("[splineManager.resize] Ending rotate operation")
+              logger.debug("[splineManager.resize] Ending rotate operation")
               spline._rotateIsActive = false
               // Emit transform event for AutoHistoryPlugin
               eventBus.emit("spline:transformed", {
                 splineId: spline.id,
                 type: "rotate",
               })
-              console.log(
-                "[splineManager.resize] spline:transformed event emitted (rotate)"
+              logger.debug(
+                "[splineManager.resize] spline:transformed event emitted (rotate)",
               )
               // Re-show selection box after rotation completes
-              console.log(
-                "[splineManager.resize] Removing old selection box (rotate)"
+              logger.debug(
+                "[splineManager.resize] Removing old selection box (rotate)",
               )
               el.select(false)
-              console.log(
-                "[splineManager.resize] Creating new selection box (rotate)"
+              logger.debug(
+                "[splineManager.resize] Creating new selection box (rotate)",
               )
               el.select(selectionOptions)
-              console.log(
-                "[splineManager.resize] Selection box re-shown (rotate)"
+              logger.debug(
+                "[splineManager.resize] Selection box re-shown (rotate)",
               )
             }
-            console.log(
-              "[splineManager.resize] END processing complete, returning"
+            logger.debug(
+              "[splineManager.resize] END processing complete, returning",
             )
             return
           }
@@ -1258,7 +1261,7 @@ export default class SplineManager {
             return
           }
         } catch (error) {
-          console.error("[splineManager] resize handler error:", error)
+          logger.error("[splineManager] resize handler error:", error)
         }
       })
 
@@ -1266,9 +1269,9 @@ export default class SplineManager {
         try {
           spline._startMatrix = el.matrixify?.()
         } catch (startMatrixError) {
-          console.warn(
+          logger.warn(
             "[splineManager] Failed to get start matrix:",
-            startMatrixError
+            startMatrixError,
           )
         }
       })
@@ -1314,9 +1317,9 @@ export default class SplineManager {
             spline.group.draggable(false)
             spline.group.resize(false)
           } catch (deselectError) {
-            console.warn(
+            logger.warn(
               "[splineManager] Failed to deselect group:",
-              deselectError
+              deselectError,
             )
           }
 
@@ -1325,9 +1328,9 @@ export default class SplineManager {
           try {
             spline.clearTransformState()
           } catch (clearError) {
-            console.warn(
+            logger.warn(
               "[splineManager] Failed to clear transform state:",
-              clearError
+              clearError,
             )
           }
         })
@@ -1358,7 +1361,9 @@ export default class SplineManager {
       destroy: () => {
         // Clean up EventBus listener
         eventBus.off("spline:selected", handleManagerSelect)
-        console.log("[SplineManager] Transform API destroyed, listener removed")
+        logger.debug(
+          "[SplineManager] Transform API destroyed, listener removed",
+        )
       },
     }
 
@@ -1383,7 +1388,7 @@ export default class SplineManager {
    * @returns {Spline} - The newly created and selected spline
    */
   createSplineAt(x, y, type = "bspline") {
-    console.log("[SplineManager.createSplineAt] Creating spline at", { x, y })
+    logger.debug("[SplineManager.createSplineAt] Creating spline at", { x, y })
     const spline = this.createSpline(true, type) // auto-select with type
     // First point of a spline is always sharp/endpoint effectively, but we can mark it
     this.addPointToSpline(spline.id, x, y, false)
@@ -1401,12 +1406,12 @@ export default class SplineManager {
   addPointToActiveSpline(x, y) {
     const activeSpline = this.getSelected()
     if (!activeSpline) {
-      console.log("[SplineManager.addPointToActiveSpline] No active spline")
+      logger.debug("[SplineManager.addPointToActiveSpline] No active spline")
       return null
     }
-    console.log(
+    logger.debug(
       "[SplineManager.addPointToActiveSpline] Adding point to",
-      activeSpline.id
+      activeSpline.id,
     )
     // While actively adding points keep suppression flag
     this._justCreatedSplineId = activeSpline.id

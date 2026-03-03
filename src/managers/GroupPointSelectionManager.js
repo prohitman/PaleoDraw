@@ -10,6 +10,7 @@
  */
 
 import eventBus from "../core/EventBus"
+import logger from "../utils/logger.js"
 
 export class PointSelectionManager {
   constructor() {
@@ -41,7 +42,7 @@ export class PointSelectionManager {
    */
   initialize(splineManager) {
     this.splineManager = splineManager
-    console.log("[PointSelectionManager] Initialized")
+    logger.debug("[PointSelectionManager] Initialized")
   }
 
   /**
@@ -78,7 +79,7 @@ export class PointSelectionManager {
    */
   selectPoint(splineId, pointIndex, additive = false) {
     const pointKey = `${splineId}_${pointIndex}`
-    console.log("[PointSelectionManager.selectPoint] invoked", {
+    logger.debug("[PointSelectionManager.selectPoint] invoked", {
       splineId,
       pointIndex,
       additive,
@@ -116,8 +117,8 @@ export class PointSelectionManager {
       bounds,
     })
 
-    console.log(
-      `[PointSelectionManager] Selected point ${pointIndex} in spline ${splineId}, total: ${this.selectedPoints.size}`
+    logger.debug(
+      `[PointSelectionManager] Selected point ${pointIndex} in spline ${splineId}, total: ${this.selectedPoints.size}`,
     )
   }
 
@@ -190,8 +191,8 @@ export class PointSelectionManager {
         hasSelection: this.hasSelection(),
       })
 
-      console.log(
-        `[PointSelectionManager] Deselected point ${pointIndex} in spline ${splineId}`
+      logger.debug(
+        `[PointSelectionManager] Deselected point ${pointIndex} in spline ${splineId}`,
       )
     }
   }
@@ -219,7 +220,7 @@ export class PointSelectionManager {
       hasSelection: false,
     })
 
-    console.log("[PointSelectionManager] Cleared all point selections")
+    logger.debug("[PointSelectionManager] Cleared all point selections")
   }
 
   /**
@@ -244,10 +245,10 @@ export class PointSelectionManager {
       point.circle.removeClass("selected")
     }
 
-    console.log(
+    logger.debug(
       `[PointSelectionManager] ${
         highlighted ? "Highlighted" : "Unhighlighted"
-      } point ${pointIndex} in spline ${splineId}`
+      } point ${pointIndex} in spline ${splineId}`,
     )
   }
 
@@ -259,8 +260,8 @@ export class PointSelectionManager {
   moveSelectedPoints(dx, dy) {
     if (!this.hasSelection() || !this.splineManager) return
 
-    console.log(
-      `[PointSelectionManager] Moving ${this.selectedPoints.size} points by dx:${dx}, dy:${dy}`
+    logger.debug(
+      `[PointSelectionManager] Moving ${this.selectedPoints.size} points by dx:${dx}, dy:${dy}`,
     )
 
     const affectedSplines = new Set()
@@ -291,8 +292,8 @@ export class PointSelectionManager {
     })
 
     // Don't emit event here - only emit once at dragend
-    console.log(
-      `[PointSelectionManager] Moved ${this.selectedPoints.size} points across ${affectedSplines.size} splines`
+    logger.debug(
+      `[PointSelectionManager] Moved ${this.selectedPoints.size} points across ${affectedSplines.size} splines`,
     )
 
     // Invalidate cached bounds after move
@@ -306,8 +307,8 @@ export class PointSelectionManager {
   deleteSelectedPoints() {
     if (!this.hasSelection() || !this.splineManager) return
 
-    console.log(
-      `[PointSelectionManager] Deleting ${this.selectedPoints.size} points`
+    logger.debug(
+      `[PointSelectionManager] Deleting ${this.selectedPoints.size} points`,
     )
 
     const deleteCount = this.selectedPoints.size
@@ -343,7 +344,7 @@ export class PointSelectionManager {
 
     this.clearSelection()
     eventBus.emit("points:deleted", { count: deleteCount })
-    console.log("[PointSelectionManager] Deleted selected points")
+    logger.debug("[PointSelectionManager] Deleted selected points")
   }
 
   /**
@@ -379,16 +380,16 @@ export class PointSelectionManager {
    */
   getSelectionBounds() {
     if (!this.hasSelection() || !this.splineManager) {
-      console.log(
-        "[PointSelectionManager.getSelectionBounds] No selection or manager"
+      logger.debug(
+        "[PointSelectionManager.getSelectionBounds] No selection or manager",
       )
       return null
     }
 
     if (this._cachedBounds) {
-      console.log(
+      logger.debug(
         "[PointSelectionManager.getSelectionBounds] Using cached",
-        this._cachedBounds
+        this._cachedBounds,
       )
       return this._cachedBounds
     }
@@ -405,16 +406,16 @@ export class PointSelectionManager {
       const spline = this.splineManager.getSpline(splineIdRecovered)
       const point = spline?.points?.[idx]
       if (!point) {
-        console.log(
+        logger.debug(
           "[PointSelectionManager.getSelectionBounds] Missing point",
-          { splineId: splineIdRecovered, idx }
+          { splineId: splineIdRecovered, idx },
         )
         return
       }
       if (typeof point.x !== "number" || typeof point.y !== "number") {
-        console.log(
+        logger.debug(
           "[PointSelectionManager.getSelectionBounds] Invalid point coords",
-          { splineId: splineIdRecovered, idx, x: point.x, y: point.y }
+          { splineId: splineIdRecovered, idx, x: point.x, y: point.y },
         )
         return
       }
@@ -425,8 +426,8 @@ export class PointSelectionManager {
     })
 
     if (minX === Infinity) {
-      console.log(
-        "[PointSelectionManager.getSelectionBounds] Computation failed (minX Infinity)"
+      logger.debug(
+        "[PointSelectionManager.getSelectionBounds] Computation failed (minX Infinity)",
       )
       return null
     }
@@ -439,7 +440,7 @@ export class PointSelectionManager {
       height: maxY - minY + padding * 2,
     }
     this._cachedBounds = bounds
-    console.log("[PointSelectionManager.getSelectionBounds] Computed", bounds)
+    logger.debug("[PointSelectionManager.getSelectionBounds] Computed", bounds)
     return bounds
   }
 
@@ -453,12 +454,12 @@ export class PointSelectionManager {
 
     const count = this.getSelectionCount()
     const inEditTool = ["curve", "line", "straight", "nurbs"].includes(
-      this.selectedToolRef.current
+      this.selectedToolRef.current,
     )
     const bounds = this.getSelectionBounds()
     const shouldShow = inEditTool && bounds && count >= 2
 
-    console.log("[PointSelectionManager.updateOverlay]", {
+    logger.debug("[PointSelectionManager.updateOverlay]", {
       count,
       inEditTool,
       hasBounds: !!bounds,
@@ -480,7 +481,7 @@ export class PointSelectionManager {
         .addClass("point-group-selection-overlay")
         .id("point-group-selection-overlay")
 
-      console.log("[PointSelectionManager.updateOverlay] created overlay", {
+      logger.debug("[PointSelectionManager.updateOverlay] created overlay", {
         width,
         height,
         x,
@@ -489,11 +490,11 @@ export class PointSelectionManager {
 
       this.pointGroupOverlay.on(
         "pointerdown",
-        this.handleOverlayPointerDown.bind(this)
+        this.handleOverlayPointerDown.bind(this),
       )
     } else {
       this.pointGroupOverlay.size(width, height).move(x, y)
-      console.log("[PointSelectionManager.updateOverlay] updated overlay", {
+      logger.debug("[PointSelectionManager.updateOverlay] updated overlay", {
         width,
         height,
         x,
@@ -519,7 +520,7 @@ export class PointSelectionManager {
         /* ignore removal errors */
       }
       this.pointGroupOverlay = null
-      console.log("[PointSelectionManager.removeOverlay] removed overlay")
+      logger.debug("[PointSelectionManager.removeOverlay] removed overlay")
     }
   }
 
@@ -529,7 +530,7 @@ export class PointSelectionManager {
   handleOverlayPointerDown(e) {
     if (
       !["curve", "line", "straight", "nurbs"].includes(
-        this.selectedToolRef.current
+        this.selectedToolRef.current,
       ) ||
       e.button !== 0
     )
@@ -546,7 +547,7 @@ export class PointSelectionManager {
 
     window.addEventListener(
       "pointermove",
-      this.handleOverlayDragMove.bind(this)
+      this.handleOverlayDragMove.bind(this),
     )
     window.addEventListener("pointerup", this.handleOverlayDragUp.bind(this), {
       once: true,
@@ -579,13 +580,13 @@ export class PointSelectionManager {
     this.overlayDragState.dragging = false
     window.removeEventListener(
       "pointermove",
-      this.handleOverlayDragMove.bind(this)
+      this.handleOverlayDragMove.bind(this),
     )
     // Emit points:moved event ONCE at dragend for history save
     if (this.hasSelection()) {
       eventBus.emit("points:moved", { count: this.selectedPoints.size })
-      console.log(
-        "[PointSelectionManager] Multi-point drag completed, emitting points:moved event"
+      logger.debug(
+        "[PointSelectionManager] Multi-point drag completed, emitting points:moved event",
       )
     }
   }

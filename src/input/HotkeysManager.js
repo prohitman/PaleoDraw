@@ -1,5 +1,6 @@
 // src/input/HotkeysManager.js
 import hotkeys from "hotkeys-js"
+import logger from "../utils/logger.js"
 
 /**
  * HotkeysManager: Centralized registry and dispatcher for all hotkeys
@@ -17,7 +18,7 @@ export default class HotkeysManager {
     // Set initial scopes (global and canvas active by default)
     this.activeScopes = new Set(["global", "canvas"])
 
-    console.log("[HotkeysManager] Initialized with hotkeys-js")
+    logger.debug("[HotkeysManager] Initialized with hotkeys-js")
   }
 
   /**
@@ -29,7 +30,7 @@ export default class HotkeysManager {
    */
   register(key, scope, handler, description) {
     if (!this.scopes.has(scope)) {
-      console.warn(`[HotkeysManager] Unknown scope: ${scope}`)
+      logger.warn(`[HotkeysManager] Unknown scope: ${scope}`)
     }
 
     const registryKey = `${key}@${scope}`
@@ -37,9 +38,9 @@ export default class HotkeysManager {
 
     hotkeys(key, "all", (event, hotkeyHandler) => {
       if (!this.activeScopes.has(scope)) {
-        console.log(
+        logger.debug(
           `[HotkeysManager] Hotkey ${key} ignored - scope ${scope} not active. Active scopes:`,
-          Array.from(this.activeScopes)
+          Array.from(this.activeScopes),
         )
         return
       }
@@ -61,14 +62,14 @@ export default class HotkeysManager {
 
       try {
         handler(event)
-        console.log(`[HotkeysManager] Executed: ${key} (${scope})`)
+        logger.debug(`[HotkeysManager] Executed: ${key} (${scope})`)
       } catch (e) {
-        console.error(`[HotkeysManager] Error executing ${key}:`, e)
+        logger.error(`[HotkeysManager] Error executing ${key}:`, e)
       }
     })
 
-    console.log(
-      `[HotkeysManager] Registered: ${key} (${scope}) - ${description}`
+    logger.debug(
+      `[HotkeysManager] Registered: ${key} (${scope}) - ${description}`,
     )
   }
 
@@ -108,7 +109,7 @@ export default class HotkeysManager {
   activateScope(scope) {
     if (this.scopes.has(scope)) {
       this.activeScopes.add(scope)
-      console.log(`[HotkeysManager] Activated scope: ${scope}`, {
+      logger.debug(`[HotkeysManager] Activated scope: ${scope}`, {
         activeScopes: Array.from(this.activeScopes),
       })
     }
@@ -120,7 +121,7 @@ export default class HotkeysManager {
    */
   deactivateScope(scope) {
     this.activeScopes.delete(scope)
-    console.log(`[HotkeysManager] Deactivated scope: ${scope}`, {
+    logger.debug(`[HotkeysManager] Deactivated scope: ${scope}`, {
       activeScopes: Array.from(this.activeScopes),
     })
   }
@@ -147,6 +148,6 @@ export default class HotkeysManager {
   destroy() {
     hotkeys.unbind()
     this.registry.clear()
-    console.log("[HotkeysManager] Destroyed and cleaned up")
+    logger.debug("[HotkeysManager] Destroyed and cleaned up")
   }
 }

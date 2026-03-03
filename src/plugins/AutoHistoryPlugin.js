@@ -1,5 +1,6 @@
 // src/plugins/AutoHistoryPlugin.js
 import eventBus from "../core/EventBus"
+import logger from "../utils/logger.js"
 
 /**
  * AutoHistoryPlugin: Automatically saves history when changes occur
@@ -22,7 +23,7 @@ export class AutoHistoryPlugin {
   constructor(historyManager, splineManager, svgObjectManager) {
     // Clean up previous instance if it exists (hot reload scenario)
     if (activePluginInstance) {
-      console.log("[AutoHistoryPlugin] Cleaning up previous instance")
+      logger.debug("[AutoHistoryPlugin] Cleaning up previous instance")
       activePluginInstance.cleanup()
     }
 
@@ -35,7 +36,7 @@ export class AutoHistoryPlugin {
 
     this.registerListeners()
     activePluginInstance = this
-    console.log("[AutoHistoryPlugin] Initialized")
+    logger.info("[AutoHistoryPlugin] Initialized")
   }
 
   /**
@@ -72,8 +73,8 @@ export class AutoHistoryPlugin {
     eventBus.on("points:deleted", this._boundSaveHistory)
     eventBus.on("points:moved", this._boundSaveHistory)
 
-    console.log(
-      "[AutoHistoryPlugin] Registered listeners for all modification events (immediate saves)"
+    logger.debug(
+      "[AutoHistoryPlugin] Registered listeners for all modification events (immediate saves)",
     )
   }
 
@@ -109,12 +110,12 @@ export class AutoHistoryPlugin {
    */
   performSave() {
     if (!this.historyManager || !this.splineManager || !this.svgObjectManager) {
-      console.warn("[AutoHistoryPlugin] Cannot save: managers not initialized")
+      logger.warn("[AutoHistoryPlugin] Cannot save: managers not initialized")
       return
     }
 
     this.historyManager.saveSnapshot(this.splineManager, this.svgObjectManager)
-    console.log("[AutoHistoryPlugin] History saved automatically")
+    logger.debug("[AutoHistoryPlugin] History saved automatically")
   }
 
   /**
@@ -122,7 +123,7 @@ export class AutoHistoryPlugin {
    */
   enable() {
     this.enabled = true
-    console.log("[AutoHistoryPlugin] Auto-save enabled")
+    logger.debug("[AutoHistoryPlugin] Auto-save enabled")
   }
 
   /**
@@ -130,7 +131,7 @@ export class AutoHistoryPlugin {
    */
   disable() {
     this.enabled = false
-    console.log("[AutoHistoryPlugin] Auto-save disabled")
+    logger.debug("[AutoHistoryPlugin] Auto-save disabled")
   }
 
   /**
@@ -139,7 +140,7 @@ export class AutoHistoryPlugin {
    */
   setDebounce(ms) {
     this.debounceMs = ms
-    console.log(`[AutoHistoryPlugin] Debounce set to ${ms}ms`)
+    logger.debug(`[AutoHistoryPlugin] Debounce set to ${ms}ms`)
   }
 
   /**
@@ -147,7 +148,7 @@ export class AutoHistoryPlugin {
    */
   cleanup() {
     if (!this._boundSaveHistory) {
-      console.log("[AutoHistoryPlugin] No bound handler to clean up")
+      logger.debug("[AutoHistoryPlugin] No bound handler to clean up")
       return
     }
 
@@ -178,7 +179,7 @@ export class AutoHistoryPlugin {
       activePluginInstance = null
     }
 
-    console.log("[AutoHistoryPlugin] Cleaned up all event listeners")
+    logger.debug("[AutoHistoryPlugin] Cleaned up all event listeners")
   }
 }
 

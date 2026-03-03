@@ -4,6 +4,8 @@
  * Handles: Project ops (Ctrl+N/S/O/E), Tool switching (T/C/L/N/I/P), Undo/Redo, Escape
  */
 
+import logger from "../../utils/logger.js"
+
 export function registerCanvasHotkeys(hotkeysManager, context) {
   const { canvasRef } = context
 
@@ -16,7 +18,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         canvasRef?.current?.newProject?.()
       }
     },
-    "New project"
+    "New project",
   )
 
   // Open project (Ctrl+O)
@@ -26,7 +28,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       canvasRef?.current?.loadFromJSON?.()
     },
-    "Open project"
+    "Open project",
   )
 
   // Open Recent (Ctrl+Shift+O)
@@ -36,7 +38,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       context.onShowRecentProjects?.()
     },
-    "Open recent project"
+    "Open recent project",
   )
 
   // Save project (Ctrl+S)
@@ -46,7 +48,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       canvasRef?.current?.saveProject?.()
     },
-    "Save project"
+    "Save project",
   )
 
   // Save As (Ctrl+Shift+S)
@@ -56,7 +58,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       canvasRef?.current?.saveAsJSON?.()
     },
-    "Save project as..."
+    "Save project as...",
   )
 
   // Export as SVG (Ctrl+E)
@@ -66,7 +68,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       canvasRef?.current?.exportAsSVG?.()
     },
-    "Export as SVG"
+    "Export as SVG",
   )
 
   // Undo (Ctrl+Z)
@@ -81,7 +83,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       const historyManager = splineManager?.historyManager
 
       if (!historyManager) {
-        console.log("[canvasHotkeys] History manager not available")
+        logger.debug("[canvasHotkeys] History manager not available")
         return
       }
 
@@ -94,7 +96,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       // Use convenience method
       historyManager.undoAndRestore()
     },
-    "Undo"
+    "Undo",
   )
 
   // Redo (Ctrl+Y)
@@ -109,7 +111,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       const historyManager = splineManager?.historyManager
 
       if (!historyManager) {
-        console.log("[canvasHotkeys] History manager not available")
+        logger.debug("[canvasHotkeys] History manager not available")
         return
       }
 
@@ -122,7 +124,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       // Use convenience method
       historyManager.redoAndRestore()
     },
-    "Redo"
+    "Redo",
   )
 
   // Select all (Ctrl+A) - placeholder for future implementation
@@ -130,9 +132,9 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     "ctrl+a",
     "global",
     () => {
-      console.log("[canvasHotkeys] Select all not yet implemented")
+      logger.debug("[canvasHotkeys] Select all not yet implemented")
     },
-    "Select all (not yet implemented)"
+    "Select all (not yet implemented)",
   )
 
   // Escape - hierarchical deselection
@@ -156,8 +158,8 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       if (hasPointSelection) {
         // Just clear point selections, don't finish drawing or deselect spline
         pointSelectionManager?.clearSelection?.()
-        console.log(
-          "[canvasHotkeys] Cleared point selection, spline remains selected"
+        logger.debug(
+          "[canvasHotkeys] Cleared point selection, spline remains selected",
         )
       } else {
         // No points selected, finish drawing and clear everything
@@ -166,10 +168,10 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         splineManager?.clearSelection?.()
         svgObjectManager?.clearSelection?.()
         groupSelectionManager?.clearSelection?.()
-        console.log("[canvasHotkeys] Cleared all selections")
+        logger.debug("[canvasHotkeys] Cleared all selections")
       }
     },
-    "Deselect points or spline"
+    "Deselect points or spline",
   )
 
   // Reverse point direction (R)
@@ -180,7 +182,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
       const splineManager = context.splineManager?.current
       splineManager?.togglePointDirection?.()
     },
-    "Reverse point addition direction"
+    "Reverse point addition direction",
   )
 
   // Tool switching hotkeys
@@ -196,7 +198,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         onToolChange?.("select")
       }
     },
-    "Activate Select tool"
+    "Activate Select tool",
   )
 
   // Curve tool (C)
@@ -209,7 +211,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         onToolChange?.("curve")
       }
     },
-    "Activate Curve tool"
+    "Activate Curve tool",
   )
 
   // Line (polyline) tool (L)
@@ -222,7 +224,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         onToolChange?.("line")
       }
     },
-    "Activate Line (polyline) tool"
+    "Activate Line (polyline) tool",
   )
 
   // NURBS tool (N)
@@ -235,7 +237,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         onToolChange?.("nurbs")
       }
     },
-    "Activate NURBS tool"
+    "Activate NURBS tool",
   )
 
   // Import SVG (I)
@@ -245,7 +247,7 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
     () => {
       context.onImportSVG?.()
     },
-    "Import SVG"
+    "Import SVG",
   )
 
   // Pan tool (P)
@@ -258,6 +260,6 @@ export function registerCanvasHotkeys(hotkeysManager, context) {
         onToolChange?.("pan")
       }
     },
-    "Activate Pan tool"
+    "Activate Pan tool",
   )
 }

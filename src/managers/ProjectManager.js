@@ -1,5 +1,6 @@
 // managers/ProjectManager.js
 import eventBus from "../core/EventBus"
+import logger from "../utils/logger.js"
 import { drawGrid } from "../utils/svgHelpers"
 import {
   createNewProject,
@@ -55,7 +56,7 @@ export default class ProjectManager {
     // Auto-register dirty state listeners
     this.setupDirtyTracking()
 
-    console.log("[ProjectManager] Initialized")
+    logger.debug("[ProjectManager] Initialized")
   }
 
   /**
@@ -101,7 +102,7 @@ export default class ProjectManager {
         eventBus.off(event, this.markDirtyHandler)
       })
     }
-    console.log("[ProjectManager] Destroyed")
+    logger.debug("[ProjectManager] Destroyed")
   }
 
   /**
@@ -111,7 +112,7 @@ export default class ProjectManager {
     if (!this.isDirty) {
       this.isDirty = true
       eventBus.emit("project:dirty-changed", { isDirty: true })
-      console.log("[ProjectManager] Marked as dirty")
+      logger.debug("[ProjectManager] Marked as dirty")
     }
   }
 
@@ -122,7 +123,7 @@ export default class ProjectManager {
     if (this.isDirty) {
       this.isDirty = false
       eventBus.emit("project:dirty-changed", { isDirty: false })
-      console.log("[ProjectManager] Marked as clean")
+      logger.debug("[ProjectManager] Marked as clean")
     }
   }
 
@@ -136,7 +137,7 @@ export default class ProjectManager {
       ? path.split(/[/\\]/).pop().replace(".json", "")
       : null
     eventBus.emit("project:path-changed", { path, name: this.projectName })
-    console.log("[ProjectManager] Project path set to:", path)
+    logger.debug("[ProjectManager] Project path set to:", path)
   }
 
   /**
@@ -148,7 +149,7 @@ export default class ProjectManager {
     this.isDirty = false
     eventBus.emit("project:path-changed", { path: null, name: null })
     eventBus.emit("project:dirty-changed", { isDirty: false })
-    console.log("[ProjectManager] Project cleared")
+    logger.debug("[ProjectManager] Project cleared")
   }
 
   /**
@@ -175,7 +176,7 @@ export default class ProjectManager {
       this.fitToCanvas,
       this.splineManager,
       this.svgObjectManager,
-      this.selectedRef
+      this.selectedRef,
     )
     this.clearProject()
   }
@@ -190,7 +191,7 @@ export default class ProjectManager {
       this.canvasSizeRef,
       this.gridSizeRef,
       this.splineManager,
-      this.svgObjectManager
+      this.svgObjectManager,
     )
   }
 
@@ -202,9 +203,9 @@ export default class ProjectManager {
     const canvasRef = {
       current: { getProjectJSON: () => this.getProjectJSON() },
     }
-    console.log(
+    logger.debug(
       "[ProjectManager] Saving project, current path:",
-      this.currentPath
+      this.currentPath,
     )
 
     const savedPath = await saveProjectFile(this.currentPath, canvasRef)
@@ -249,7 +250,7 @@ export default class ProjectManager {
       this.fitToCanvas,
       this.splineManager,
       this.svgObjectManager,
-      this.selectedRef
+      this.selectedRef,
     )
 
     if (loadedPath) {
@@ -268,7 +269,7 @@ export default class ProjectManager {
    * @returns {Promise<void>}
    */
   async loadFromPath(path) {
-    console.log("[ProjectManager] Loading from path:", path)
+    logger.debug("[ProjectManager] Loading from path:", path)
 
     await loadProjectFromPathFile(
       path,
@@ -279,7 +280,7 @@ export default class ProjectManager {
       this.fitToCanvas,
       this.splineManager,
       this.svgObjectManager,
-      this.selectedRef
+      this.selectedRef,
     )
 
     this.setProjectPath(path)
@@ -292,7 +293,7 @@ export default class ProjectManager {
    * @param {object} templateData - Template JSON data
    */
   loadTemplate(templateData) {
-    console.log("[ProjectManager] Loading template data")
+    logger.debug("[ProjectManager] Loading template data")
 
     // Use the same restoration logic as loadProjectFromPath
     const draw = this.drawRef.current
@@ -317,7 +318,7 @@ export default class ProjectManager {
     const grid = draw.group().id("canvas-grid")
     this.gridRef.current = grid
     grid._drawGrid = (
-      gSize = templateData.gridSize || this.gridSizeRef.current
+      gSize = templateData.gridSize || this.gridSizeRef.current,
     ) => drawGrid(grid, this.canvasSizeRef.current, gSize)
     grid._drawGrid(templateData.gridSize || this.gridSizeRef.current)
     this.gridSizeRef.current = templateData.gridSize || this.gridSizeRef.current
@@ -359,7 +360,7 @@ export default class ProjectManager {
       this.drawRef,
       this.canvasSizeRef,
       this.splineManager,
-      this.svgObjectManager
+      this.svgObjectManager,
     )
   }
 }

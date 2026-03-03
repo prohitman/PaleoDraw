@@ -1,6 +1,7 @@
 // src/managers/SVGObjectManager.js
 import eventBus from "../core/EventBus"
 import { selectionOptions } from "../utils/selectionConfig"
+import logger from "../utils/logger.js"
 
 /**
  * SVGObjectManager: Centralized API for managing imported SVG objects
@@ -34,15 +35,15 @@ export default class SVGObjectManager {
    */
   initializeInteractive(svgElement) {
     if (!svgElement || svgElement._initializedInteractive) {
-      console.log(
-        "[SVGObjectManager.initializeInteractive] Skipped - already initialized or null"
+      logger.debug(
+        "[SVGObjectManager.initializeInteractive] Skipped - already initialized or null",
       )
       return
     }
 
-    console.log(
+    logger.debug(
       "[SVGObjectManager.initializeInteractive] Initializing:",
-      svgElement._objectId
+      svgElement._objectId,
     )
 
     // Clear any existing selection/resize UI before initializing
@@ -58,16 +59,16 @@ export default class SVGObjectManager {
     // Ensure draggable capability
     try {
       const result = svgElement.draggable?.()
-      console.log(
+      logger.debug(
         "[SVGObjectManager.initializeInteractive] draggable() called, result:",
-        result
+        result,
       )
-      console.log(
+      logger.debug(
         "[SVGObjectManager.initializeInteractive] Element has draggable method:",
-        typeof svgElement.draggable
+        typeof svgElement.draggable,
       )
     } catch (err) {
-      console.warn("[SVGObjectManager] Failed to enable draggable on SVG", err)
+      logger.warn("[SVGObjectManager] Failed to enable draggable on SVG", err)
     }
 
     // Setup keyboard listener for Shift key to toggle aspect ratio
@@ -90,7 +91,7 @@ export default class SVGObjectManager {
     // Drag start - clear selection UI temporarily
     svgElement.on("dragstart", () => {
       svgElement._isDragging = true
-      console.log("[SVGObjectManager] SVG drag started")
+      logger.debug("[SVGObjectManager] SVG drag started")
       if (this.selectedRef === svgElement) {
         svgElement.select(false)
         this.selectedRef = null
@@ -100,7 +101,7 @@ export default class SVGObjectManager {
     // Drag end - restore selection UI and save to history
     svgElement.on("dragend", () => {
       const now = Date.now()
-      console.log("[SVGObjectManager] SVG drag ended")
+      logger.debug("[SVGObjectManager] SVG drag ended")
       if (svgElement._lastDragPush && now - svgElement._lastDragPush < 50) {
         return
       }
@@ -120,7 +121,7 @@ export default class SVGObjectManager {
             this.selectedRef = svgElement
           }, 0)
         } catch (err) {
-          console.warn("[SVGObjectManager] SVG dragend reselection error:", err)
+          logger.warn("[SVGObjectManager] SVG dragend reselection error:", err)
         }
       }
 
@@ -132,7 +133,7 @@ export default class SVGObjectManager {
           objectId: svgElement._objectId,
           type: "drag",
         })
-        console.log("[SVGObjectManager] SVG drag end saved to history")
+        logger.debug("[SVGObjectManager] SVG drag end saved to history")
       }
     })
 
@@ -157,7 +158,7 @@ export default class SVGObjectManager {
           objectId: svgElement._objectId,
           type: "resize",
         })
-        console.log("[SVGObjectManager] SVG resize end saved to history")
+        logger.debug("[SVGObjectManager] SVG resize end saved to history")
       }, 300)
 
       // Refresh selection UI during resize
@@ -176,7 +177,7 @@ export default class SVGObjectManager {
     svgElement.on("click", (ev) => {
       // Only allow selection when using select tool
       if (this.selectedToolRef && this.selectedToolRef.current !== "select") {
-        console.log("[SVGObjectManager] Click ignored - not in select mode")
+        logger.debug("[SVGObjectManager] Click ignored - not in select mode")
         return
       }
       ev.stopPropagation()
@@ -195,7 +196,7 @@ export default class SVGObjectManager {
    */
   addObject(svgElement, id = null, skipInteractive = false, skipEvent = false) {
     if (!svgElement) {
-      console.error("[SVGObjectManager] Cannot add null/undefined object")
+      logger.error("[SVGObjectManager] Cannot add null/undefined object")
       return null
     }
 
@@ -224,11 +225,11 @@ export default class SVGObjectManager {
       this.initializeInteractive(svgElement)
     }
 
-    console.log(
+    logger.debug(
       "[SVGObjectManager] Object added:",
       objectId,
       "total:",
-      this.objects.size
+      this.objects.size,
     )
 
     // Only emit event if not restoring from state
@@ -246,7 +247,7 @@ export default class SVGObjectManager {
   deleteObject(objectId) {
     const obj = this.objects.get(objectId)
     if (!obj) {
-      console.warn("[SVGObjectManager] Object not found:", objectId)
+      logger.warn("[SVGObjectManager] Object not found:", objectId)
       return
     }
 
@@ -267,7 +268,7 @@ export default class SVGObjectManager {
       obj.resize?.(false)
       obj.remove?.()
     } catch (err) {
-      console.warn("[SVGObjectManager] Error during delete:", err)
+      logger.warn("[SVGObjectManager] Error during delete:", err)
     }
 
     this.objects.delete(objectId)
@@ -276,7 +277,7 @@ export default class SVGObjectManager {
       this.selectedObjectId = null
     }
 
-    console.log("[SVGObjectManager] Object deleted:", objectId)
+    logger.debug("[SVGObjectManager] Object deleted:", objectId)
     eventBus.emit("svg:deleted", { objectId })
   }
 
@@ -304,11 +305,11 @@ export default class SVGObjectManager {
    * @param {string} objectId
    */
   selectObject(objectId) {
-    console.log(
+    logger.debug(
       "[SVGObjectManager] Selecting object:",
       objectId,
       "current:",
-      this.selectedObjectId
+      this.selectedObjectId,
     )
 
     const isAlreadySelected = this.selectedObjectId === objectId
@@ -317,7 +318,7 @@ export default class SVGObjectManager {
     // in case it was cleared (e.g., after dragging)
     const current = this.objects.get(objectId)
     if (!current) {
-      console.warn("[SVGObjectManager] Object not found:", objectId)
+      logger.warn("[SVGObjectManager] Object not found:", objectId)
       return
     }
 
@@ -329,7 +330,7 @@ export default class SVGObjectManager {
           prev.select?.(false)
           prev.resize?.(false)
         } catch (err) {
-          console.warn("[SVGObjectManager] Error deselecting previous:", err)
+          logger.warn("[SVGObjectManager] Error deselecting previous:", err)
         }
       }
     }
@@ -345,7 +346,7 @@ export default class SVGObjectManager {
           preserveAspectRatio: true,
         })
       } catch (err) {
-        console.warn("[SVGObjectManager] Error selecting object:", err)
+        logger.warn("[SVGObjectManager] Error selecting object:", err)
       }
 
       eventBus.emit("svg:selected", { svg: current, id: objectId })
@@ -353,11 +354,11 @@ export default class SVGObjectManager {
     }
 
     if (isAlreadySelected) {
-      console.log(
-        "[SVGObjectManager] Reapplied selection to already-selected object"
+      logger.debug(
+        "[SVGObjectManager] Reapplied selection to already-selected object",
       )
     } else {
-      console.log("[SVGObjectManager] Selection complete")
+      logger.debug("[SVGObjectManager] Selection complete")
     }
   }
 
@@ -373,7 +374,7 @@ export default class SVGObjectManager {
         current.select?.(false)
         current.resize?.(false)
       } catch (err) {
-        console.warn("[SVGObjectManager] Error clearing selection:", err)
+        logger.warn("[SVGObjectManager] Error clearing selection:", err)
       }
     }
 
@@ -501,7 +502,7 @@ export default class SVGObjectManager {
    * Clears selection when switching away from select tool
    */
   updateOnToolChange(tool) {
-    console.log("[SVGObjectManager] Tool changed to:", tool)
+    logger.debug("[SVGObjectManager] Tool changed to:", tool)
 
     if (tool !== "select") {
       this.getAllObjects().forEach((obj) => {
@@ -557,14 +558,14 @@ export default class SVGObjectManager {
    * @returns {object[]}
    */
   getState() {
-    console.log("[SVGObjectManager.getState] Called", {
+    logger.debug("[SVGObjectManager.getState] Called", {
       objectsMapSize: this.objects.size,
       objectIds: Array.from(this.objects.keys()),
     })
     const allObjects = this.getAllObjects()
-    console.log(
+    logger.debug(
       "[SVGObjectManager.getState] allObjects length:",
-      allObjects.length
+      allObjects.length,
     )
 
     // Sort by DOM order if possible
@@ -584,7 +585,7 @@ export default class SVGObjectManager {
       return this.serializeObject(obj)
     })
 
-    console.log("[SVGObjectManager.getState] Returning", {
+    logger.debug("[SVGObjectManager.getState] Returning", {
       serializedCount: serialized.length,
     })
     return serialized
@@ -662,9 +663,9 @@ export default class SVGObjectManager {
         // Remove the element
         obj.remove?.()
       } catch (error) {
-        console.warn(
+        logger.warn(
           "[SVGObjectManager.restoreFromState] Error clearing object:",
-          error
+          error,
         )
       }
     })
@@ -703,14 +704,14 @@ export default class SVGObjectManager {
             }
 
             // Initialize interactive AFTER transformations (matching importFromFile pattern)
-            console.log(
+            logger.debug(
               "[SVGObjectManager.restoreFromState] About to initialize interactive for:",
-              svgData.id
+              svgData.id,
             )
             this.initializeInteractive(imported)
-            console.log(
+            logger.debug(
               "[SVGObjectManager.restoreFromState] After initializeInteractive, _initializedInteractive:",
-              imported._initializedInteractive
+              imported._initializedInteractive,
             )
 
             // Add the object to the manager map
@@ -718,9 +719,9 @@ export default class SVGObjectManager {
             this.addObject(imported, svgData.id, true, true)
           }
         } catch (error) {
-          console.error(
+          logger.warn(
             "[SVGObjectManager.restoreFromState] Error restoring SVG object:",
-            error
+            error,
           )
         }
       })
@@ -770,7 +771,7 @@ export default class SVGObjectManager {
           // Center in viewport
           imported.center(
             drawRef.viewbox().width / 2,
-            drawRef.viewbox().height / 2
+            drawRef.viewbox().height / 2,
           )
 
           // Initialize interactive behavior
@@ -779,11 +780,13 @@ export default class SVGObjectManager {
           // Add to manager
           this.addObject(imported)
 
-          console.log("[SVGObjectManager] SVG import saved to history baseline")
+          logger.debug(
+            "[SVGObjectManager] SVG import saved to history baseline",
+          )
 
           resolve(imported)
         } catch (err) {
-          console.error("[SVGObjectManager] Error importing SVG file:", err)
+          logger.error("[SVGObjectManager] Error importing SVG file:", err)
           resolve(null)
         }
       }
@@ -800,7 +803,7 @@ export default class SVGObjectManager {
    * @returns {object} - The imported SVG object
    */
   importSVGAt(svgElement, x, y) {
-    console.log("[SVGObjectManager.importSVGAt] Importing SVG at", { x, y })
+    logger.debug("[SVGObjectManager.importSVGAt] Importing SVG at", { x, y })
     const imported = this.addObject(svgElement)
 
     // Optionally position the SVG if coordinates provided
@@ -808,9 +811,9 @@ export default class SVGObjectManager {
       try {
         imported.center(x, y)
       } catch (err) {
-        console.warn(
+        logger.warn(
           "[SVGObjectManager.importSVGAt] Could not position SVG:",
-          err
+          err,
         )
       }
     }

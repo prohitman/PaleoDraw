@@ -6,6 +6,7 @@
  */
 
 import { selectionOptions } from "../../utils/selectionConfig"
+import logger from "../../utils/logger.js"
 
 export function registerObjectHotkeys(hotkeysManager, context) {
   const {
@@ -57,14 +58,14 @@ export function registerObjectHotkeys(hotkeysManager, context) {
     "delete",
     "selection",
     deleteSelectedHandler,
-    "Delete selected spline or SVG object"
+    "Delete selected spline or SVG object",
   )
 
   hotkeysManager.register(
     "backspace",
     "selection",
     deleteSelectedHandler,
-    "Delete selected spline or SVG object"
+    "Delete selected spline or SVG object",
   )
 
   // Copy selected spline or SVG object - delegate to Canvas API
@@ -83,8 +84,8 @@ export function registerObjectHotkeys(hotkeysManager, context) {
           tool === "nurbs") &&
           !!splineSelected)
       if (!canCopySpline) {
-        console.log(
-          "[Hotkeys] Copy requires selection (select or edit tool with active spline)"
+        logger.debug(
+          "[Hotkeys] Copy requires selection (select or edit tool with active spline)",
         )
         return
       }
@@ -92,7 +93,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
       // Delegate to Canvas copy API
       canvasRef?.current?.copy?.()
     },
-    "Copy selected spline or SVG"
+    "Copy selected spline or SVG",
   )
 
   // Cut selected spline or SVG object - delegate to Canvas API
@@ -110,8 +111,8 @@ export function registerObjectHotkeys(hotkeysManager, context) {
           tool === "nurbs") &&
           !!splineSelected)
       if (!canCutSpline) {
-        console.log(
-          "[Hotkeys] Cut requires selection (select or edit tool with active spline)"
+        logger.debug(
+          "[Hotkeys] Cut requires selection (select or edit tool with active spline)",
         )
         return
       }
@@ -119,7 +120,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
       // Delegate to Canvas cut API
       canvasRef?.current?.cut?.()
     },
-    "Cut selected spline or SVG"
+    "Cut selected spline or SVG",
   )
 
   // Paste spline or SVG from clipboard - delegate to Canvas API
@@ -130,7 +131,7 @@ export function registerObjectHotkeys(hotkeysManager, context) {
       // Delegate to Canvas paste API
       canvasRef?.current?.paste?.()
     },
-    "Paste spline or SVG from clipboard"
+    "Paste spline or SVG from clipboard",
   )
 
   // Nudge with arrow keys (10px increments)
@@ -146,10 +147,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         0,
-        -10
+        -10,
       )
     },
-    "Nudge selected spline up 10px"
+    "Nudge selected spline up 10px",
   )
 
   hotkeysManager.register(
@@ -164,10 +165,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         0,
-        10
+        10,
       )
     },
-    "Nudge selected spline down 10px"
+    "Nudge selected spline down 10px",
   )
 
   hotkeysManager.register(
@@ -182,10 +183,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         -10,
-        0
+        0,
       )
     },
-    "Nudge selected spline left 10px"
+    "Nudge selected spline left 10px",
   )
 
   hotkeysManager.register(
@@ -200,10 +201,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         10,
-        0
+        0,
       )
     },
-    "Nudge selected spline right 10px"
+    "Nudge selected spline right 10px",
   )
 
   // Fine nudge with Ctrl+Arrow (1px increments)
@@ -219,10 +220,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         0,
-        -1
+        -1,
       )
     },
-    "Fine nudge selected spline up 1px"
+    "Fine nudge selected spline up 1px",
   )
 
   hotkeysManager.register(
@@ -237,10 +238,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         0,
-        1
+        1,
       )
     },
-    "Fine nudge selected spline down 1px"
+    "Fine nudge selected spline down 1px",
   )
 
   hotkeysManager.register(
@@ -255,10 +256,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         -1,
-        0
+        0,
       )
     },
-    "Fine nudge selected spline left 1px"
+    "Fine nudge selected spline left 1px",
   )
 
   hotkeysManager.register(
@@ -273,10 +274,10 @@ export function registerObjectHotkeys(hotkeysManager, context) {
         pointSelectionManager,
         historyManager,
         1,
-        0
+        0,
       )
     },
-    "Fine nudge selected spline right 1px"
+    "Fine nudge selected spline right 1px",
   )
 
   // Layering operations
@@ -299,25 +300,25 @@ export function registerObjectHotkeys(hotkeysManager, context) {
     "ctrl+f",
     "selection",
     () => handleLayering("bringForward"),
-    "Bring forward"
+    "Bring forward",
   )
   hotkeysManager.register(
     "ctrl+shift+f",
     "selection",
     () => handleLayering("bringToFront"),
-    "Bring to front"
+    "Bring to front",
   )
   hotkeysManager.register(
     "ctrl+b",
     "selection",
     () => handleLayering("sendBackward"),
-    "Send backward"
+    "Send backward",
   )
   hotkeysManager.register(
     "ctrl+shift+b",
     "selection",
     () => handleLayering("sendToBack"),
-    "Send to back"
+    "Send to back",
   )
 }
 
@@ -339,7 +340,7 @@ function nudgeSelected(
   pointSelectionManagerRef,
   historyManagerRef,
   dx,
-  dy
+  dy,
 ) {
   const splineManager = splineManagerRef?.current
   const svgObjectManager = svgObjectManagerRef?.current
@@ -363,7 +364,7 @@ function nudgeSelected(
   if (selectionManager?.hasSelection?.()) {
     selectionManager.moveSelected(dx, dy)
     // AutoHistoryPlugin handles history via selection:moved event
-    console.log(`[nudgeSelected] Moved multi-selection by dx:${dx}, dy:${dy}`)
+    logger.debug(`[nudgeSelected] Moved multi-selection by dx:${dx}, dy:${dy}`)
     return
   }
 
@@ -377,13 +378,13 @@ function nudgeSelected(
     if (selectedToolRefRef?.current === "select") {
       splineManager.updateSplineSelectionBox(
         selectedSpline.id,
-        selectionOptions
+        selectionOptions,
       )
     }
 
     // AutoHistoryPlugin handles history via spline:modified event
-    console.log(
-      `[nudgeSelected] Moved spline ${selectedSpline.id} by dx:${dx}, dy:${dy}`
+    logger.debug(
+      `[nudgeSelected] Moved spline ${selectedSpline.id} by dx:${dx}, dy:${dy}`,
     )
     return
   }
@@ -441,12 +442,12 @@ function nudgeSelected(
           obj.resize?.({ rotationPoint: true })
         }, 0)
       } catch (moveErr) {
-        console.warn("[Hotkeys] Failed to move SVG object", moveErr)
+        logger.warn("[Hotkeys] Failed to move SVG object", moveErr)
       }
 
       // AutoHistoryPlugin handles history via svg:modified event
-      console.log(
-        `[nudgeSelected] Moved SVG object ${selectedSvgId} by dx:${dx}, dy:${dy} (local applied: ${tdx}, ${tdy})`
+      logger.debug(
+        `[nudgeSelected] Moved SVG object ${selectedSvgId} by dx:${dx}, dy:${dy} (local applied: ${tdx}, ${tdy})`,
       )
     }
   }

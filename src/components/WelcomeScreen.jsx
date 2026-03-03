@@ -18,6 +18,7 @@ import GridViewIcon from "@mui/icons-material/GridView"
 import HistoryIcon from "@mui/icons-material/History"
 import CloseIcon from "@mui/icons-material/Close"
 import DescriptionIcon from "@mui/icons-material/Description"
+import logger from "../utils/logger.js"
 
 export default function WelcomeScreen({
   open,
@@ -33,11 +34,11 @@ export default function WelcomeScreen({
     if (open) {
       try {
         const recent = JSON.parse(
-          localStorage.getItem("recentProjects") || "[]"
+          localStorage.getItem("recentProjects") || "[]",
         )
         setRecentProjects(recent)
       } catch (e) {
-        console.error("Failed to load recent projects", e)
+        logger.error("Failed to load recent projects", e)
       }
     }
   }, [open])
@@ -50,7 +51,7 @@ export default function WelcomeScreen({
     try {
       await window.api.showFileInExplorer(path)
     } catch (error) {
-      console.error("Failed to show file in explorer:", error)
+      logger.error("Failed to show file in explorer:", error)
     }
   }
 

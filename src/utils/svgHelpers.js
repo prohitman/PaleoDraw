@@ -3,6 +3,7 @@
  * SVG manipulation helpers for grid, transformations, and canvas utilities
  * @module utils/svgHelpers
  */
+import logger from "./logger.js"
 
 /** Base thickness for grid lines (adjusted by zoom level) */
 export const GRID_BASE_THICKNESS = 0.5
@@ -19,7 +20,7 @@ export function drawGrid(
   grid,
   canvasSize,
   gSize = 25,
-  baseThickness = GRID_BASE_THICKNESS
+  baseThickness = GRID_BASE_THICKNESS,
 ) {
   if (!grid || !canvasSize) return
   grid.clear()
@@ -42,7 +43,7 @@ export function drawGrid(
 export function updateGridLineThickness(
   grid,
   zoom,
-  baseThickness = GRID_BASE_THICKNESS
+  baseThickness = GRID_BASE_THICKNESS,
 ) {
   if (!grid) return
   const newThickness = baseThickness / (zoom || 1)
@@ -61,7 +62,7 @@ export function resetGroupTransform(el) {
     else if (el.node && el.node.removeAttribute)
       el.node.removeAttribute("transform")
   } catch (err) {
-    console.warn("[svgHelpers] resetGroupTransform failed:", err)
+    logger.warn("[svgHelpers] resetGroupTransform failed:", err)
   }
 }
 
@@ -82,7 +83,7 @@ export function fitToCanvas(
   container,
   panZoomRef,
   panZoomOptionsRef,
-  updateGridThickness
+  updateGridThickness,
 ) {
   const draw = drawRef.current
   if (!draw || !container) return

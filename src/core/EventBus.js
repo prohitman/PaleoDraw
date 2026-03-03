@@ -1,4 +1,6 @@
 // src/core/EventBus.js
+import logger from "../utils/logger.js"
+
 /**
  * EventBus: Centralized event hub for the entire application
  * Singleton instance shared across all managers and components
@@ -34,7 +36,7 @@ class EventBus {
    */
   on(event, fn) {
     if (this.debug) {
-      console.log(`[EventBus] Registered listener for: ${event}`)
+      logger.debug(`[EventBus] Registered listener for: ${event}`)
     }
     if (!this._events[event]) {
       this._events[event] = []
@@ -51,7 +53,7 @@ class EventBus {
    */
   off(event, fn) {
     if (this.debug) {
-      console.log(`[EventBus] Removed listener for: ${event}`)
+      logger.debug(`[EventBus] Removed listener for: ${event}`)
     }
     if (!this._events[event]) return
     this._events[event] = this._events[event].filter((f) => f !== fn)
@@ -64,7 +66,7 @@ class EventBus {
    */
   emit(event, ...args) {
     if (this.debug) {
-      console.log(`[EventBus] ${event}`, ...args)
+      logger.debug(`[EventBus] ${event}`, ...args)
     }
     if (!this._events[event]) return
     // Create a copy of the listeners array to avoid issues if listeners modify the array
@@ -87,7 +89,7 @@ class EventBus {
    */
   enableDebug() {
     this.debug = true
-    console.log("[EventBus] Debug mode enabled")
+    logger.info("[EventBus] Debug mode enabled")
   }
 
   /**

@@ -11,6 +11,7 @@ import eventBus from "./core/EventBus"
 import "./styles/theme.css"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 import packageJson from "../package.json"
+import logger from "./utils/logger.js"
 
 /**
  * App: Main application component for PaleoDraw
@@ -106,13 +107,13 @@ export default function App() {
 
   // Tool Menu Handler
   const selectTool = (tool) => {
-    console.log("[App] selectTool called with:", tool)
+    logger.debug("[App] selectTool called with:", tool)
     setSelectedTool(tool)
     setTimeout(() => {
-      console.log("[App] selectedTool state after set:", tool)
+      logger.debug("[App] selectedTool state after set:", tool)
       canvasRef.current?.updateCanvasOnToolChange?.(tool)
     }, 0)
-    console.log("Selected tool:", tool)
+    logger.debug("Selected tool:", tool)
   }
 
   // View Menu Handlers
@@ -157,7 +158,7 @@ export default function App() {
   const handleOpenRecent = (path) => {
     setShowWelcome(false)
     setShowRecentProjects(false)
-    console.log("[App] Opening recent project:", path)
+    logger.debug("[App] Opening recent project:", path)
     canvasRef.current?.loadProjectFromPath?.(path)
   }
 
@@ -166,7 +167,7 @@ export default function App() {
     if (!showWelcome) {
       if (
         confirm(
-          "Opening a recent project will replace your current work. Any unsaved changes will be lost. Continue?"
+          "Opening a recent project will replace your current work. Any unsaved changes will be lost. Continue?",
         )
       ) {
         setShowRecentProjects(true)

@@ -1,6 +1,7 @@
 // src/managers/SelectionManager.js
 import eventBus from "../core/EventBus"
 import { selectionOptions } from "../utils/selectionConfig"
+import logger from "../utils/logger.js"
 
 /**
  * SelectionManager: Manages multi-selection of splines and SVG objects
@@ -219,11 +220,11 @@ export default class SelectionManager {
       hasSelection: this.hasSelection(),
     })
 
-    console.log(
+    logger.debug(
       "[SelectionManager.selectSplines] Selected:",
       splineIds.length,
       "splines, hasSelection:",
-      this.hasSelection()
+      this.hasSelection(),
     )
   }
 
@@ -280,11 +281,11 @@ export default class SelectionManager {
       hasSelection: this.hasSelection(),
     })
 
-    console.log(
+    logger.debug(
       "[SelectionManager.selectSvgObjects] Selected:",
       svgObjectIds.length,
       "objects, hasSelection:",
-      this.hasSelection()
+      this.hasSelection(),
     )
   }
 
@@ -514,7 +515,7 @@ export default class SelectionManager {
         pt.x >= bounds.minX &&
         pt.x <= bounds.maxX &&
         pt.y >= bounds.minY &&
-        pt.y <= bounds.maxY
+        pt.y <= bounds.maxY,
     )
   }
 
@@ -545,10 +546,7 @@ export default class SelectionManager {
           objectsInBounds.push(obj._objectId)
         }
       } catch (err) {
-        console.warn(
-          "[SelectionManager] Error checking SVG object bounds:",
-          err
-        )
+        logger.warn("[SelectionManager] Error checking SVG object bounds:", err)
       }
     })
     return objectsInBounds
@@ -580,8 +578,8 @@ export default class SelectionManager {
    * @param {number} dy - Delta y in canvas coordinates
    */
   moveSelected(dx, dy) {
-    console.log(
-      `[SelectionManager.moveSelected] Moving ${this.selectedSplines.size} splines and ${this.selectedSvgObjects.size} objects by dx:${dx}, dy:${dy}`
+    logger.debug(
+      `[SelectionManager.moveSelected] Moving ${this.selectedSplines.size} splines and ${this.selectedSvgObjects.size} objects by dx:${dx}, dy:${dy}`,
     )
 
     // Move selected splines (canvas coordinates)
@@ -607,7 +605,7 @@ export default class SelectionManager {
     })
 
     // Don't emit event here - only emit once at dragend
-    console.log("[SelectionManager.moveSelected] Move complete")
+    logger.debug("[SelectionManager.moveSelected] Move complete")
   }
 
   /**
@@ -691,7 +689,7 @@ export default class SelectionManager {
 
       this.groupOverlay.on(
         "pointerdown",
-        this.handleOverlayPointerDown.bind(this)
+        this.handleOverlayPointerDown.bind(this),
       )
     } else {
       this.groupOverlay.size(width, height).move(x, y)
@@ -735,7 +733,7 @@ export default class SelectionManager {
 
     window.addEventListener(
       "pointermove",
-      this.handleOverlayDragMove.bind(this)
+      this.handleOverlayDragMove.bind(this),
     )
     window.addEventListener("pointerup", this.handleOverlayDragUp.bind(this), {
       once: true,
@@ -771,7 +769,7 @@ export default class SelectionManager {
     this.overlayDragState.dragging = false
     window.removeEventListener(
       "pointermove",
-      this.handleOverlayDragMove.bind(this)
+      this.handleOverlayDragMove.bind(this),
     )
 
     // Final overlay update to ensure correct position
@@ -783,8 +781,8 @@ export default class SelectionManager {
         splineCount: this.selectedSplines.size,
         svgCount: this.selectedSvgObjects.size,
       })
-      console.log(
-        "[SelectionManager] Group drag completed, emitting selection:moved event"
+      logger.debug(
+        "[SelectionManager] Group drag completed, emitting selection:moved event",
       )
     }
   }
