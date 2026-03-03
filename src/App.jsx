@@ -12,6 +12,23 @@ import "./styles/theme.css"
 import { lightTheme, darkTheme } from "./styles/muiThemes"
 import packageJson from "../package.json"
 
+/**
+ * App: Main application component for PaleoDraw
+ *
+ * Responsibilities:
+ * - Manages application-level state (theme, dialogs, toolbar state)
+ * - Coordinates between UI components (toolbar, canvas, dialogs)
+ * - Listens to EventBus for state changes from managers
+ * - Provides canvas API access to toolbar actions
+ *
+ * State Management:
+ * - toolbarState: Tracks selection, clipboard, history states for UI updates
+ * - Theme management: Light/dark mode toggle
+ * - Dialog visibility: Welcome screen, recent projects, templates, help
+ * - Tool selection: Current active drawing tool
+ *
+ * @component
+ */
 export default function App() {
   const canvasRef = useRef()
   const [zoomSignal, setZoomSignal] = useState(null)
@@ -22,7 +39,6 @@ export default function App() {
   const [showHelp, setShowHelp] = useState(false)
   const [isDarkMode, setIsDarkMode] = useState(true)
 
-  // State tracking for menu item enabled/disabled states
   const [toolbarState, setToolbarState] = useState({
     hasSelection: false,
     hasClipboard: false,

@@ -1,6 +1,4 @@
 // src/core/EventBus.js
-import EventEmitter from "./EventEmitter"
-
 /**
  * EventBus: Centralized event hub for the entire application
  * Singleton instance shared across all managers and components
@@ -22,46 +20,66 @@ import EventEmitter from "./EventEmitter"
  *   - point:moved
  *   - history:saved
  */
-class EventBus extends EventEmitter {
+class EventBus {
   constructor() {
-    super()
+    this._events = Object.create(null)
     this.debug = true // TEMPORARY: Enable to debug duplicate listeners
   }
 
   /**
-   * Emit an event with optional debugging
-   * @param {string} event - Event name (preferably <entity>:<action>)
-   * @param {*} data - Event payload
-   */
-  emit(event, data) {
-    if (this.debug) {
-      console.log(`[EventBus] ${event}`, data)
-    }
-    super.emit(event, data)
-  }
-
-  /**
-   * Listen to an event
+   * Subscribe to an event
    * @param {string} event - Event name
-   * @param {function} handler - Event handler
+   * @param {function} fn - Callback function
+   * @returns {function} - Unsubscribe function
    */
-  on(event, handler) {
+  on(event, fn) {
     if (this.debug) {
       console.log(`[EventBus] Registered listener for: ${event}`)
     }
-    super.on(event, handler)
+    if (!this._events[event]) {
+      this._events[event] = []
+    }
+    this._events[event].push(fn)
+    // Return unsubscribe function
+    return () => this.off(event, fn)
   }
 
   /**
-   * Remove event listener
+   * Unsubscribe from an event
    * @param {string} event - Event name
-   * @param {function} handler - Event handler
+   * @param {function} fn - Callback function
    */
-  off(event, handler) {
+  off(event, fn) {
     if (this.debug) {
       console.log(`[EventBus] Removed listener for: ${event}`)
     }
-    super.off(event, handler)
+    if (!this._events[event]) return
+    this._events[event] = this._events[event].filter((f) => f !== fn)
+  }
+
+  /**
+   * Emit an event to all subscribers
+   * @param {string} event - Event name (preferably <entity>:<action>)
+   * @param {...any} args - Arguments to pass to callbacks
+   */
+  emit(event, ...args) {
+    if (this.debug) {
+      console.log(`[EventBus] ${event}`, ...args)
+    }
+    if (!this._events[event]) return
+    // Create a copy of the listeners array to avoid issues if listeners modify the array
+    this._events[event].slice().forEach((fn) => fn(...args))
+  }
+
+  /**
+   * Remove all listeners for an event (or all events if no event specified)
+   */
+  clear(event) {
+    if (event) {
+      delete this._events[event]
+    } else {
+      this._events = Object.create(null)
+    }
   }
 
   /**
@@ -85,7 +103,7 @@ class EventBus extends EventEmitter {
    */
   getListenerStats() {
     const stats = {}
-    for (const [event, listeners] of Object.entries(this.listeners)) {
+    for (const [event, listeners] of Object.entries(this._events)) {
       stats[event] = listeners.length
     }
     return stats

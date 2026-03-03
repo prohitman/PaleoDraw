@@ -1,4 +1,3 @@
-// Canvas.jsx
 import { useEffect, useRef, useImperativeHandle, forwardRef } from "react"
 import { SVG } from "@svgdotjs/svg.js"
 import SplineManager from "../managers/SplineManager"
@@ -38,30 +37,59 @@ import "@svgdotjs/svg.select.js"
 import "@svgdotjs/svg.resize.js"
 import "@svgdotjs/svg.draggable.js"
 
+/**
+ * Canvas Component: Main drawing surface and application core
+ *
+ * This is the heart of PaleoDraw, managing:
+ * - SVG canvas initialization and rendering
+ * - Manager lifecycle (Spline, History, Project, Selection, etc.)
+ * - Tool system (curve, line, NURBS, select, delete)
+ * - Event handling (mouse, keyboard, drag-drop)
+ * - Pan/zoom interactions
+ * - Multi-selection and multi-point selection
+ *
+ * Architecture:
+ * - Manager Pattern: Business logic encapsulated in manager classes
+ * - Event-Driven: EventBus for decoupled communication
+ * - Tool Registry: Pluggable tool handlers
+ * - Ref-based API: Parent components can call imperative methods via ref
+ *
+ * State Management:
+ * - Managers persist in refs across renders (SplineManager, HistoryManager, etc.)
+ * - Tool state tracked in selectedToolRef
+ * - EventBus emits state changes for UI updates
+ *
+ * @component
+ * @param {Object} props
+ * @param {string} props.selectedTool - Currently active drawing tool
+ * @param {Object} props.zoomSignal - External zoom control signal
+ * @param {Function} props.onShowRecentProjects - Callback to show recent projects dialog
+ * @param {React.Ref} ref - Forwarded ref for imperative API (save, load, undo, etc.)
+ */
 const Canvas = forwardRef(
   ({ zoomSignal, selectedTool, onShowRecentProjects }, ref) => {
     // ========== Core Refs ==========
-    const canvasRef = useRef(null) // Container DOM element
-    const drawRef = useRef(null) // SVG.js draw instance
-    const gridRef = useRef(null) // SVG.js grid group
-    const selectedToolRef = useRef(selectedTool || "select") // Current active tool
-    const selectedRef = useRef(null) // Currently selected imported SVG object
+    const canvasRef = useRef(null)
+    const drawRef = useRef(null)
+    const gridRef = useRef(null)
+    const selectedToolRef = useRef(selectedTool || "select")
+    const selectedRef = useRef(null)
 
     // ========== Manager Refs ==========
-    const splineManager = useRef(null) // Manages all spline operations (CRUD, transformations)
-    const svgObjectManager = useRef(null) // Manages imported SVG objects
-    const selectionManager = useRef(null) // Manages multi-selection of splines/SVGs
-    const pointSelectionManager = useRef(null) // Manages multi-point selection within splines
-    const historyManager = useRef(null) // Manages undo/redo stack (persistent across renders)
-    const autoHistoryPlugin = useRef(null) // Automatic history capture on modifications
-    const projectManager = useRef(null) // Manages project lifecycle and state
+    const splineManager = useRef(null)
+    const svgObjectManager = useRef(null)
+    const selectionManager = useRef(null)
+    const pointSelectionManager = useRef(null)
+    const historyManager = useRef(null)
+    const autoHistoryPlugin = useRef(null)
+    const projectManager = useRef(null)
 
     // ========== Utility Refs ==========
-    const clipboard = useRef(null) // Internal clipboard for copy/paste operations
-    const hotkeysManagerRef = useRef(null) // Manages hotkey scopes (e.g., selection)
-    const toolRegistryRef = useRef(null) // Registry for tool-specific event handlers
-    const isDraggingPoint = useRef(false) // Tracks point drag state
-    const panZoomRef = useRef(null) // SVG.js pan/zoom plugin instance
+    const clipboard = useRef(null)
+    const hotkeysManagerRef = useRef(null)
+    const toolRegistryRef = useRef(null)
+    const isDraggingPoint = useRef(false)
+    const panZoomRef = useRef(null)
 
     // ========== Canvas Configuration ==========
     const initialGridSize = 25
@@ -89,7 +117,6 @@ const Canvas = forwardRef(
     const GRID_BASE_THICKNESS = 0.5
 
     // ========== Main Initialization (Runs Once on Mount) ==========
-    // Sets up: SVG canvas, grid, managers, event handlers, hotkeys, and cleanup
     useEffect(() => {
       const container = canvasRef.current
       if (!container) return
@@ -111,16 +138,14 @@ const Canvas = forwardRef(
         .id("canvas-bg")
       bg.node.style.pointerEvents = "none"
 
-      // Initialize grid layer (protected from z-ordering operations)
       const grid = draw.group().id("canvas-grid")
-      grid.attr("data-protected-layer", "true") // Protect from z-ordering operations
+      grid.attr("data-protected-layer", "true")
       gridRef.current = grid
 
       grid._drawGrid = (gSize = gridSizeRef.current) =>
         drawGrid(grid, canvasSizeRef.current, gSize)
       grid._drawGrid(gridSizeRef.current)
 
-      // Initialize pan/zoom (disabled when not in select tool)
       panZoomRef.current = draw.panZoom(panZoomOptionsRef.current)
       draw.on("panning", (e) => {
         if (selectedToolRef.current !== "select") {
@@ -128,13 +153,11 @@ const Canvas = forwardRef(
         }
       })
 
-      // ========== Manager Initialization ==========
       // IMPORTANT: HistoryManager must be initialized before managers that depend on it
       if (!historyManager.current) {
         historyManager.current = new HistoryManager()
       }
 
-      // Initialize core managers
       splineManager.current = new SplineManager({
         draw,
         selectedToolRef: selectedToolRef,
@@ -142,28 +165,23 @@ const Canvas = forwardRef(
         historyManager: historyManager.current,
       })
 
-      // Initialize SVGObjectManager for imported SVG objects
       svgObjectManager.current = new SVGObjectManager({
         selectedToolRef: selectedToolRef,
       })
 
-      // Initialize SelectionManager for multi-selection
       selectionManager.current = new SelectionManager({
         splineManager: splineManager.current,
         svgObjectManager: svgObjectManager.current,
       })
 
-      // Initialize PointSelectionManager for multi-point selection
       pointSelectionManager.current = new PointSelectionManager()
       pointSelectionManager.current.initialize(splineManager.current)
       pointSelectionManager.current.initializeOverlay(draw, selectedToolRef)
       splineManager.current.pointSelectionManager =
         pointSelectionManager.current
 
-      // Initialize overlay systems for visual feedback
       selectionManager.current.initializeOverlay(draw, selectedToolRef)
 
-      // Set HistoryManager for SVGObjectManager
       svgObjectManager.current.historyManager = historyManager.current
 
       // Initialize HistoryManager with manager references for restoration
@@ -180,19 +198,12 @@ const Canvas = forwardRef(
         },
       })
 
-      // Do NOT capture initial empty state - it prevents undo from working
-      // Users expect undo to work AFTER the first change, not before
-      // historyManager will have currentIndex at -1 initially, and first pushState() sets it to 0
-
-      // Set up spline transformations (drag/resize/rotate) and get transform API
       const transformAPI = splineManager.current.setupSplineTransformations(
         selectedToolRef,
         isDraggingPoint,
         historyManager.current
       )
 
-      // ========== Tool System Setup ==========
-      // Initialize tool registry and register all tool handlers
       toolRegistryRef.current = setupToolHandlers({
         manager: splineManager.current,
         svgObjectManager: svgObjectManager.current,
@@ -222,8 +233,6 @@ const Canvas = forwardRef(
       container.addEventListener("click", unifiedCanvasClickHandler)
       container.addEventListener("contextmenu", (e) => e.preventDefault())
 
-      // ========== Canvas Interactions Setup ==========
-      // Setup zoom, pan, cursor behavior, and selection
       const { handleWheel } = setupCanvasInteractions(
         container,
         drawRef,
@@ -239,7 +248,6 @@ const Canvas = forwardRef(
         handleMouseMove,
       } = setupPanBehavior(container, selectedToolRef, selectedRef)
 
-      // Setup global pointer up (transform finalization)
       const { handleGlobalPointerUp } = setupGlobalPointerUp(
         splineManager,
         isDraggingPoint
@@ -251,14 +259,12 @@ const Canvas = forwardRef(
       container.addEventListener("mouseleave", handleMouseLeave)
       container.addEventListener("mousemove", handleMouseMove)
 
-      // ========== Drag-and-Drop SVG Import Setup ==========
       const dragDropCleanup = setupDragDropHandlers(
         container,
         draw,
         svgObjectManager.current
       )
 
-      // Setup background click behavior (deselect on empty click)
       const { handleBackgroundClick } = setupBackgroundClickBehavior(
         container,
         splineManager,
@@ -268,7 +274,6 @@ const Canvas = forwardRef(
         svgObjectManager
       )
 
-      // Viewport coordinate conversion helper (screen pixels → SVG viewport coordinates)
       const getViewportCoords = (e) => {
         const rect = container.getBoundingClientRect()
         const x = e.clientX - rect.left
@@ -292,7 +297,6 @@ const Canvas = forwardRef(
         }
       }
 
-      // Setup drag selection handlers (right-click drag box selection)
       setupDragSelectionHandlers(
         draw,
         selectionManager.current,
@@ -300,7 +304,6 @@ const Canvas = forwardRef(
         getViewportCoords
       )
 
-      // Point drag-box selection (curve tool)
       setupPointDragSelectionHandlers(
         draw,
         pointSelectionManager.current,
@@ -313,7 +316,6 @@ const Canvas = forwardRef(
 
       fitToCanvas()
 
-      // ========== Hotkey System Setup ==========
       const hotkeySetup = setupHotkeys({
         canvasRef: ref,
         splineManager,
@@ -341,8 +343,6 @@ const Canvas = forwardRef(
         selectedToolRef.current || "select"
       )
 
-      // ========== EventBus Listeners Setup ==========
-      // Scope activation/deactivation based on selection state
       const handleSplineSelect = (spline) => {
         if (spline) {
           hotkeysManagerRef.current?.activateScope("selection")
@@ -373,7 +373,6 @@ const Canvas = forwardRef(
         selectionManager.current?.updateOverlay()
       }
 
-      // Overlay updates for point selection changes
       const handlePointSelectionChanged = () => {
         pointSelectionManager.current?.updateOverlay()
       }
@@ -388,7 +387,6 @@ const Canvas = forwardRef(
         transformAPI?.attachToAll?.()
       }
 
-      // Register all EventBus listeners
       eventBus.on("spline:selected", handleSplineSelect)
       eventBus.on("spline:created", handleSplineCreated)
       eventBus.on("svg:selected", handleSVGSelect)
