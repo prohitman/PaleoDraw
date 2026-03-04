@@ -124,6 +124,8 @@ Built with modern web technologies wrapped in Electron, PaleoDraw offers an intu
 
 ### Application Interface
 
+<img width="990" height="727" alt="Screenshot 2025-12-08 175050" src="https://github.com/user-attachments/assets/03a88ee1-9cb3-4a0c-a8bc-fb6a4261970b" />
+
 <!-- Add your screenshots here -->
 <!-- Example: -->
 <!-- ![Main Interface](docs/screenshots/interface.png) -->
@@ -133,6 +135,8 @@ Built with modern web technologies wrapped in Electron, PaleoDraw offers an intu
 ### Demo: Spinosaurus Reconstruction
 
 <!-- Add your video here using one of these methods: -->
+
+https://github.com/user-attachments/assets/f2c74ab5-376c-44ad-8055-5dad6dc3e2ae
 
 <!-- Method 1: Direct GitHub video (upload to issue/PR, then copy URL) -->
 <!--
