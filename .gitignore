@@ -52,3 +52,6 @@ coverage
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
+# Local guides and documentation not for public repo
+.guides/
+
