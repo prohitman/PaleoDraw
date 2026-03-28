@@ -416,7 +416,7 @@ export default function ToolBar({
           <Tooltip title="GitHub Repository">
             <IconButton
               color="inherit"
-              href="https://github.com"
+              href="https://github.com/prohitman/PaleoDraw"
               target="_blank"
               rel="noopener noreferrer"
             >

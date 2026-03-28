@@ -1,11 +1,18 @@
 # Dependencies
-node_modules
+node_modules/
+frontend/node_modules/
 
 # Build outputs
-dist
-dist-ssr
-build
-*.local
+dist/
+build/
+out/
+frontend/dist/
+frontend/dist-ssr/
+frontend/build/
+
+# Electron build outputs
+release/
+release-builds/
 
 # Logs
 logs
@@ -18,40 +25,70 @@ lerna-debug.log*
 
 # OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+Desktop.ini
 
-# Editor directories and files
-.vscode/*
+# IDE and Editor files
+.vscode/
 !.vscode/extensions.json
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
+.idea/
 *.swp
 *.swo
+*~
+.project
+.settings/
+.classpath
+*.sublime-project
+*.sublime-workspace
+*.code-workspace
 
-# Environment files
+# Environment variables
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
+# Cache and temp files
+.cache/
+.temp/
+.tmp/
+*.tmp
+
 # Test coverage
-coverage
-.nyc_output
+coverage/
+.nyc_output/
 
-# Cache
-.cache
-.temp
-.tmp
+# Package lock files (if not using specific package manager)
+# Uncomment if you want to ignore specific lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-# Vite specific
-vite.config.js.timestamp-*
-vite.config.ts.timestamp-*
+# Local development files
+*.local
+
+# Debug files
+*.cpuprofile
+*.heapsnapshot
+
+# Misc
+.sass-cache/
+*.css.map
+*.sass.map
+*.scss.map
 
 # Local guides and documentation not for public repo
 .guides/
 
+# Non-essential markdown files (only README.md is tracked)
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+DEVELOPER_GUIDE.md
+DOCUMENTATION_SUMMARY.md
+GIT_HISTORY_GUIDE.md

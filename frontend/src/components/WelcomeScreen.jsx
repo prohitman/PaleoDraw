@@ -137,9 +137,10 @@ export default function WelcomeScreen({
             mb: 2,
             py: 2,
             bgcolor: "action.hover",
-            "&:hover": { bgcolor: "action.selected" },
+            "&:hover": { bgcolor: "action.selected", transform: "translateX(4px)" },
             textTransform: "none",
             boxShadow: "none",
+            transition: "background-color 0.2s ease, transform 0.2s ease",
             zIndex: 1,
           }}
         >
@@ -163,9 +164,10 @@ export default function WelcomeScreen({
             mb: 2,
             py: 2,
             bgcolor: "action.hover",
-            "&:hover": { bgcolor: "action.selected" },
+            "&:hover": { bgcolor: "action.selected", transform: "translateX(4px)" },
             textTransform: "none",
             boxShadow: "none",
+            transition: "background-color 0.2s ease, transform 0.2s ease",
             zIndex: 1,
           }}
         >
@@ -188,9 +190,10 @@ export default function WelcomeScreen({
             justifyContent: "flex-start",
             py: 2,
             bgcolor: "action.hover",
-            "&:hover": { bgcolor: "action.selected" },
+            "&:hover": { bgcolor: "action.selected", transform: "translateX(4px)" },
             textTransform: "none",
             boxShadow: "none",
+            transition: "background-color 0.2s ease, transform 0.2s ease",
           }}
         >
           <Box sx={{ textAlign: "left", ml: 1 }}>

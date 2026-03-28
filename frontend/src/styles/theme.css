@@ -5,7 +5,7 @@ body, html, #root {
   height: 100%;
   background-color: var(--bg-color);
   color: var(--text-color);
-  font-family: "Inter", sans-serif;
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
   overflow: hidden;
   display: block; /* Override potential flex centering from index.css */
 }
@@ -47,14 +47,15 @@ body, html, #root {
   display: flex;
   justify-content: center;
   align-items: center;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.25s ease;
 }
 
 /* Drag-and-drop visual feedback */
 .canvas-container.drag-over {
-  background-color: rgba(0, 123, 255, 0.05);
+  background-color: rgba(59, 82, 73, 0.06);
   outline: 2px dashed var(--selection-color);
   outline-offset: -4px;
+  transition: background-color 0.2s ease, outline-color 0.2s ease;
 } 
 
 .grid-overlay {
@@ -74,9 +75,14 @@ body, html, #root {
 .svg_select_shape {
   stroke: var(--selection-color) !important;
   stroke-width: 1.5px !important;
-  stroke-dasharray: 4 4 !important; /* Slightly larger dash for cleaner look */
+  stroke-dasharray: 4 4 !important;
   fill: none !important;
   pointer-events: none !important;
+  animation: dash-march 0.6s linear infinite;
+}
+
+@keyframes dash-march {
+  to { stroke-dashoffset: -8; }
 }
 
 /* --- Resize handles --- */
@@ -86,10 +92,10 @@ body, html, #root {
   stroke-width: 1px !important;
   rx: 0 !important; /* Square shape */
   ry: 0 !important;
-  width: 8px !important; /* Ensure visible size if SVG.js allows CSS sizing, otherwise it's set in JS usually */
+  width: 8px !important;
   height: 8px !important;
   cursor: pointer !important;
-  transition: fill 0.1s, stroke 0.1s;
+  transition: fill 0.15s ease, stroke 0.15s ease, transform 0.15s ease;
 }
 
 .svg_select_handle:hover {
@@ -156,7 +162,7 @@ body, html, #root {
 .spline-point {
   fill: var(--point-fill);
   cursor: pointer;
-  transition: fill 0.1s;
+  transition: fill 0.15s ease, transform 0.1s ease;
 }
 
 .spline-point:hover {
@@ -168,7 +174,7 @@ body, html, #root {
   stroke: var(--spline-default-color);
   stroke-width: 2px;
   fill: none;
-  transition: stroke 0.1s, stroke-width 0.1s;
+  transition: stroke 0.15s ease, stroke-width 0.15s ease;
   pointer-events: stroke;
 }
 

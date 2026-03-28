@@ -6,9 +6,9 @@ const TitleBar = ({ isDarkMode }) => {
   const [projectName, setProjectName] = useState(null)
   const [isDirty, setIsDirty] = useState(false)
 
-  const bgColor = isDarkMode ? "#181818" : "#f5f5f5"
-  const textColor = isDarkMode ? "#ffffff" : "#000000"
-  const borderColor = isDarkMode ? "#333" : "#e0e0e0"
+  const bgColor = isDarkMode ? "#1e2b24" : "#3b5249"
+  const textColor = isDarkMode ? "#e8e6e3" : "#f0ede8"
+  const borderColor = isDarkMode ? "#2a3d32" : "#334a41"
 
   useEffect(() => {
     if (window.api && window.api.updateTitleBarOverlay) {
@@ -67,7 +67,7 @@ const TitleBar = ({ isDarkMode }) => {
       />
       <Typography
         variant="caption"
-        sx={{ fontWeight: "bold", fontFamily: "Avenir" }}
+        sx={{ fontWeight: 600, fontFamily: '"Inter", system-ui, sans-serif', letterSpacing: "0.01em" }}
       >
         {titleText}
       </Typography>
