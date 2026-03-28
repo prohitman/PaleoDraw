@@ -17,27 +17,9 @@ A desktop vector drawing tool built for paleontological illustration — think f
 
 ## Screenshots & Demo
 
-<!-- Add your screenshots here -->
-<!-- ![Main Interface](docs/screenshots/interface.png) -->
-<!-- ![Drawing Tools](docs/screenshots/tools.png) -->
-<!-- ![Template Selection](docs/screenshots/templates.png) -->
+<img width="990" height="727" alt="PaleoDraw Interface" src="https://github.com/user-attachments/assets/03a88ee1-9cb3-4a0c-a8bc-fb6a4261970b" />
 
-<!-- Demo video — uncomment one of these once you have media ready: -->
-
-<!-- Direct GitHub video (upload to an issue/PR, paste the URL here) -->
-<!--
-https://user-images.githubusercontent.com/YOUR_USER/YOUR_VIDEO.mp4
--->
-
-<!-- YouTube embed -->
-<!--
-[![PaleoDraw Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
--->
-
-<!-- GIF -->
-<!--
-![PaleoDraw Demo](docs/demo.gif)
--->
+https://github.com/user-attachments/assets/f2c74ab5-376c-44ad-8055-5dad6dc3e2ae
 
 ---
 
@@ -97,6 +79,7 @@ npm run dist
 ```
 
 Produces platform-specific installers in `dist/`:
+
 - **Windows** → `.exe` (NSIS)
 - **macOS** → `.dmg`
 - **Linux** → `.AppImage`
@@ -107,43 +90,43 @@ Produces platform-specific installers in `dist/`:
 
 ### Tools
 
-| Key | Action |
-|-----|--------|
-| `T` | Select tool |
+| Key | Action           |
+| --- | ---------------- |
+| `T` | Select tool      |
 | `C` | Curve (B-Spline) |
-| `L` | Straight line |
-| `N` | NURBS |
-| `I` | Import SVG |
+| `L` | Straight line    |
+| `N` | NURBS            |
+| `I` | Import SVG       |
 
 ### File
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+N` | New project |
-| `Ctrl+O` | Open project |
-| `Ctrl+S` | Save |
-| `Ctrl+Shift+S` | Save as |
-| `Ctrl+E` | Export SVG |
+| Key            | Action       |
+| -------------- | ------------ |
+| `Ctrl+N`       | New project  |
+| `Ctrl+O`       | Open project |
+| `Ctrl+S`       | Save         |
+| `Ctrl+Shift+S` | Save as      |
+| `Ctrl+E`       | Export SVG   |
 
 ### Editing
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+Z / Ctrl+Y` | Undo / Redo |
-| `Ctrl+C / V / X` | Copy / Paste / Cut |
-| `Delete` | Delete selected |
-| `R` | Reverse point direction |
-| `Ctrl+F / Ctrl+Shift+F` | Forward / Front |
-| `Ctrl+B / Ctrl+Shift+B` | Backward / Back |
+| Key                     | Action                  |
+| ----------------------- | ----------------------- |
+| `Ctrl+Z / Ctrl+Y`       | Undo / Redo             |
+| `Ctrl+C / V / X`        | Copy / Paste / Cut      |
+| `Delete`                | Delete selected         |
+| `R`                     | Reverse point direction |
+| `Ctrl+F / Ctrl+Shift+F` | Forward / Front         |
+| `Ctrl+B / Ctrl+Shift+B` | Backward / Back         |
 
 ### Navigation
 
-| Key | Action |
-|-----|--------|
-| `Space+Drag` | Pan |
-| `Scroll` | Zoom |
-| `Escape` | Deselect / finish drawing |
-| `Ctrl+Drag` | Snap point |
+| Key          | Action                    |
+| ------------ | ------------------------- |
+| `Space+Drag` | Pan                       |
+| `Scroll`     | Zoom                      |
+| `Escape`     | Deselect / finish drawing |
+| `Ctrl+Drag`  | Snap point                |
 
 ---
 
@@ -172,18 +155,17 @@ PaleoDraw/
 
 ## Tech Stack
 
-| Layer | Tech |
-|-------|------|
-| Desktop shell | Electron 38 |
-| UI framework | React 19 + Material UI 7 |
+| Layer         | Tech                                                       |
+| ------------- | ---------------------------------------------------------- |
+| Desktop shell | Electron 38                                                |
+| UI framework  | React 19 + Material UI 7                                   |
 | Vector engine | SVG.js 3 (with select, resize, draggable, panzoom plugins) |
-| Bundler | Vite 7 |
-| Styling | CSS custom properties + Tailwind + MUI theming |
-| Architecture | Manager pattern + EventBus (pub/sub), plugin-extensible |
+| Bundler       | Vite 7                                                     |
+| Styling       | CSS custom properties + Tailwind + MUI theming             |
+| Architecture  | Manager pattern + EventBus (pub/sub), plugin-extensible    |
 
 ---
 
 ## License
 
 [ISC](LICENSE)
-
